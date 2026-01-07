@@ -30,20 +30,20 @@ import lombok.experimental.FieldDefaults;
 public class AuthenticationController {
     AuthenticationService authenticationService;
 
-    @PostMapping("/token")
+    @PostMapping("/login")
     ApiResponse<AuthenticationResponse> authenticate(@RequestBody AuthenticationRequest authenticationRequest) {
         var result = authenticationService.authenticate(authenticationRequest);
         return ApiResponse.<AuthenticationResponse>builder().result(result).build();
     }
 
-    @PostMapping("/introspect")
+    @PostMapping("/check-token")
     ApiResponse<IntrospectResponse> authenticate(@RequestBody IntrospectRequest introspectRequest)
             throws ParseException, JOSEException {
         var result = authenticationService.introspect(introspectRequest);
         return ApiResponse.<IntrospectResponse>builder().result(result).build();
     }
 
-    @PostMapping("/refresh")
+    @PostMapping("/refresh-token")
     ApiResponse<AuthenticationResponse> refresh(@RequestBody RefreshRequest refreshRequest)
             throws ParseException, JOSEException {
         var result = authenticationService.refreshToken(refreshRequest);
