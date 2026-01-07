@@ -29,14 +29,18 @@ public class SecurityConfig {
             "/users", "/auth/token", "/auth/introspect", "/auth/logout", "/auth/refresh"
     };
 
+    private final String[] SWAGGER_ENDPOINTS = {
+            "/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/v3/api-docs/**"
+    };
     @Autowired
     CustomJwtDecoder customJwtDecoder;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity.authorizeHttpRequests(requests
-                -> requests.requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS)
-                .permitAll()
+        httpSecurity.authorizeHttpRequests(requests ->
+                requests.requestMatchers(SWAGGER_ENDPOINTS).permitAll()
+                .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
+
                 .anyRequest()
                 .authenticated());
 

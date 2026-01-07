@@ -1,10 +1,10 @@
 
 
 
-#server:
-#  root: 8080
-#  servlet:
-#    context-path: /identity
+server:
+  root: 8080
+  servlet:
+    context-path: /optics
 
 
 spring:
