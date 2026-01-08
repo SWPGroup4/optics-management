@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: optics-db
+    environment:
+      POSTGRES_DB: optics-management
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5432:5432"
+
+  app:
+    build: ./optics-management
+    container_name: optics-app
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/optics-management
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=12345
+      - JWT_SIGNER_KEY=elJbT%PFvonMBHVqs#@bmjZ8BmjJqwntnnR5K7S91KnLGZ#MxXSlfzMD%kX0CnKtsxDGM@8l9fpzThDGLfdZwg==
