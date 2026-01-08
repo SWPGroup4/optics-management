@@ -10,7 +10,7 @@ services:
       - "5432:5432"
 
   app:
-    build: ./optics-management
+    build: .
     container_name: optics-app
     depends_on:
       - db
