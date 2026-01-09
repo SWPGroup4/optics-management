@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class UserController {
     UserService userService;
 
-    @PostMapping()
+    @PostMapping("/registration")
     ApiResponse<UserResponse> createUser(@RequestBody @Valid UserCreationRequest request) {
         log.info("controller: create user");
         ApiResponse<UserResponse> apiResponse = new ApiResponse<>();
@@ -49,7 +49,7 @@ public class UserController {
                 .build();
     }
 
-    @GetMapping("/myInfo")
+    @GetMapping("/me")
     ApiResponse<UserResponse> getMyInfo() {
         return ApiResponse.<UserResponse>builder()
                 .result(userService.getMyInfo())
@@ -72,8 +72,10 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}")
-    String deleteUser(@PathVariable("userId") String userId) {
+    ApiResponse<String> deleteUser(@PathVariable("userId") String userId) {
         userService.deleteUser(userId);
-        return "User has been deleted";
+        return ApiResponse.<String>builder()
+                .result("User has been deleted successfully")
+                .build();
     }
 }

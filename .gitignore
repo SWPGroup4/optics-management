@@ -1,64 +1,33 @@
-# ===============================
-# Java / Maven / Gradle
-# ===============================
+HELP.md
 target/
-out/
-*.class
-*.jar
-*.war
-*.ear
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
-# ===============================
-# Logs
-# ===============================
-*.log
-logs/
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
 
-# ===============================
-# IDE - IntelliJ IDEA
-# ===============================
-.idea/
-*.iml
+### IntelliJ IDEA ###
+.idea
 *.iws
+*.iml
 *.ipr
 
-# ===============================
-# IDE - VS Code
-# ===============================
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
 .vscode/
-
-# ===============================
-# OS files
-# ===============================
-.DS_Store
-Thumbs.db
-
-# ===============================
-# Environment variables
-# ===============================
-.env
-.env.*
-application-local.yml
-application-dev.yml
-application-prod.yml
-
-# ===============================
-# Spring Boot
-# ===============================
-/build/
-!/mvnw
-!/mvnw.cmd
-
-# ===============================
-# Node (nếu có frontend)
-# ===============================
-node_modules/
-dist/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ===============================
-# Docker
-# ===============================
-docker-data/
