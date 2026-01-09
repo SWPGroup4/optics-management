@@ -19,6 +19,24 @@ jobs:
 
     runs-on: ubuntu-latest
 
+# Khởi tạo dịch vụ PostgreSQL cho workflow
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          # Các thông tin này phải khớp với cấu hình trong dự án của bạn
+          POSTGRES_DB: optics_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        # Đảm bảo database đã sẵn sàng trước khi chạy test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
     steps:
     - uses: actions/checkout@v4
     - name: Set up JDK 21
