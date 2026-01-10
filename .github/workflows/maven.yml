@@ -38,8 +38,10 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
+    - name: Grant execute permission for mvnw
+      run: chmod +x mvnw
+
     - name: Build and Test with Maven
-      # Thêm tham số -Dspring.profiles.active=test
       run: ./mvnw clean verify -Dspring.profiles.active=test
 
     - name: Update dependency graph
