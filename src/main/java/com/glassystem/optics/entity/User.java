@@ -14,12 +14,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 @Entity
-@Table(
-        name = "users",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "username")
-        }
-)
+@Table(name = "users")
 @Data
 @Builder
 @NoArgsConstructor
