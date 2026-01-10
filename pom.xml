@@ -12,10 +12,10 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.example</groupId>
-    <artifactId>identity-service</artifactId>
+    <groupId>com.glassystem</groupId>
+    <artifactId>optics-management</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>identity-service</name>
+    <name>optics-management</name>
 
     <properties>
         <java.version>21</java.version>
