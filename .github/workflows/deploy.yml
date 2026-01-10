@@ -1,0 +1,79 @@
+name: Backend CI/CD (Java Direct Deploy)
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  PROJECT_NAME: optics-management
+  EC2_HOST: ${{ secrets.EC2_HOST_PUBLIC }}
+  EC2_USER: ${{ secrets.EC2_USER }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Grant execute permission for mvnw
+        run: chmod +x mvnw
+
+      - name: Build and Package (.jar)
+        # Skip test để build nhanh hơn khi deploy
+        run: ./mvnw clean package -DskipTests
+
+      - name: Prepare Deployment Package
+        run: |
+          mkdir -p publish
+          cp target/*.jar publish/app.jar
+          tar -czf publish.tgz -C ./publish .
+          sha256sum publish.tgz > publish.tgz.sha256
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ env.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload & Deploy to EC2
+        run: |
+          set -euo pipefail
+          # Đẩy file nén lên server
+          scp ./publish.tgz ./publish.tgz.sha256 "$EC2_USER@$EC2_HOST:/home/$EC2_USER/"
+
+          # Thực thi lệnh trên server
+          ssh "$EC2_USER@$EC2_HOST" "
+            set -euo pipefail
+            PROJECT='${{ env.PROJECT_NAME }}'
+            DEPLOY_DIR='/var/www/'\"\$PROJECT\"
+            SERVICE='\"\$PROJECT\".service'
+
+            cd /home/$EC2_USER
+            # Kiểm tra file có bị lỗi trong quá trình upload không
+            sha256sum -c publish.tgz.sha256
+
+            sudo mkdir -p \"\$DEPLOY_DIR\"
+            # Dừng service cũ nếu đang chạy
+            sudo systemctl stop \"\$SERVICE\" || true
+          
+            # Giải nén đè file .jar mới vào thư mục deploy
+            sudo tar -xzf publish.tgz -C \"\$DEPLOY_DIR\"
+            sudo chown -R $EC2_USER:$EC2_USER \"\$DEPLOY_DIR\"
+          
+            # Khởi động lại ứng dụng
+            sudo systemctl daemon-reload
+            sudo systemctl start \"\$SERVICE\"
+
+            # Dọn dẹp file rác trên server
+            rm -f publish.tgz publish.tgz.sha256
+          "
