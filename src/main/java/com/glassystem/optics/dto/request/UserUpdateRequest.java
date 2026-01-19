@@ -11,9 +11,10 @@ import com.glassystem.optics.validatory.VietNamPhone;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
 
 @Data
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -33,5 +34,4 @@ public class UserUpdateRequest {
     @VietNamPhone(message = "INVALID_VNPHONE")
     String phone;
 
-    List<String> roles;
 }

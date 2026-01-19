@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import com.glassystem.optics.constant.PredefinedRole;
+import com.glassystem.optics.dto.request.AdminUserUpdateRequest;
 import com.glassystem.optics.dto.request.UserCreationRequest;
 import com.glassystem.optics.dto.request.UserUpdateRequest;
 import com.glassystem.optics.dto.response.UserResponse;
@@ -78,13 +79,13 @@ public class UserService {
     }
 
     // @PreAuthorize("hasRole('ADMIN')")
-    @PostAuthorize("hasAuthority('APPROVE_POST')")
+    //@PostAuthorize("hasAuthority('APPROVE_POST')")
     public List<UserResponse> getUsers() {
         log.info("In method getUsers");
         return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
     }
 
-    @PostAuthorize("returnObject.username == authentication.name")
+
     public UserResponse getUser(String id) {
         log.info("In method getUser by id");
         return userMapper.toUserResponse(
@@ -93,24 +94,39 @@ public class UserService {
 
 
 
-    public UserResponse updateUser(String userId, UserUpdateRequest request) {
+    public UserResponse updateMyProfile(UserUpdateRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
         User user = userRepository
-                .findById(userId)
+                .findByUsername(username)
                 .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
 
-
         userMapper.updateUser(user, request);
-
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-
+        if(request.getPassword() != null) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
         user.setImageUrl(request.getImageUrl());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
-
-        var roles = roleRepository.findAllById(request.getRoles());
-        user.setRoles(new HashSet<>(roles));
-
         return userMapper.toUserResponse(userRepository.save(user));
+    }
+
+    public UserResponse updateUserByAdmin(String id, AdminUserUpdateRequest request) {
+        User user = userRepository.findById(id).orElseThrow(()
+                -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
+        userMapper.updateUserByAdmin(user, request);
+        if(request.getPassword() != null) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
+        if(request.getRoles() != null) {
+            var roles = roleRepository.findAllById(request.getRoles());
+            user.setRoles(new HashSet<>(roles));
+        }
+        if(request.getStatus() != null) {
+            user.setStatus(request.getStatus());
+        }
+         return  userMapper.toUserResponse(userRepository.save(user));
     }
 
     public void deleteUser(String id) {

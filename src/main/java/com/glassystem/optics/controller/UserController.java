@@ -3,6 +3,7 @@ package com.glassystem.optics.controller;
 
 import java.util.List;
 
+import com.glassystem.optics.dto.request.AdminUserUpdateRequest;
 import com.glassystem.optics.dto.request.UserCreationRequest;
 import com.glassystem.optics.dto.request.UserUpdateRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
@@ -10,6 +11,7 @@ import com.glassystem.optics.dto.response.UserResponse;
 import com.glassystem.optics.service.UserService;
 import jakarta.validation.Valid;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +39,7 @@ public class UserController {
     }
 
     @GetMapping()
+    @PreAuthorize("hasRole('ADMIN')")
     ApiResponse<List<UserResponse>> getUsers() {
 
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -57,21 +60,32 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
     ApiResponse<UserResponse> getUserById(@PathVariable("userId") String userId) {
         return ApiResponse.<UserResponse>builder()
                 .result(userService.getUser(userId))
                 .build();
     }
 
-    @PutMapping("/{userId}")
-    ApiResponse<UserResponse> updateUser(
-            @PathVariable("userId") String userId, @RequestBody @Valid UserUpdateRequest request) {
+    @PutMapping("/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    ApiResponse<UserResponse> updateMyProfile(@RequestBody @Valid UserUpdateRequest request) {
         return ApiResponse.<UserResponse>builder()
-                .result(userService.updateUser(userId, request))
+                .result(userService.updateMyProfile(request))
+                .build();
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    ApiResponse<UserResponse> updateUser(@PathVariable("id") String userId,
+                                         @RequestBody @Valid AdminUserUpdateRequest request) {
+        return ApiResponse.<UserResponse>builder()
+                .result(userService.updateUserByAdmin(userId, request))
                 .build();
     }
 
     @DeleteMapping("/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
     ApiResponse<String> deleteUser(@PathVariable("userId") String userId) {
         userService.deleteUser(userId);
         return ApiResponse.<String>builder()
