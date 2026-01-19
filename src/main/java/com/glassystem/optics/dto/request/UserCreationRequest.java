@@ -4,6 +4,8 @@ package com.glassystem.optics.dto.request;
 import java.time.LocalDate;
 
 import com.glassystem.optics.validatory.DobConstraint;
+import com.glassystem.optics.validatory.Gmail;
+import com.glassystem.optics.validatory.VietNamPhone;
 import jakarta.validation.constraints.Size;
 
 
@@ -26,6 +28,12 @@ public class UserCreationRequest {
     String firstName;
     String lastName;
 
-    @DobConstraint(min = 18, message = "INVALID_DOB")
+    @DobConstraint(min = 10, message = "INVALID_DOB")
     LocalDate dob;
+
+    String imageUrl;
+    @Gmail(message = "INVALID_GMAIL")
+    String email;
+    @VietNamPhone(message = "INVALID_VNPHONE")
+    String phone;
 }

@@ -6,6 +6,9 @@ import java.util.List;
 
 
 import com.glassystem.optics.validatory.DobConstraint;
+import com.glassystem.optics.validatory.Gmail;
+import com.glassystem.optics.validatory.VietNamPhone;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -16,12 +19,19 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserUpdateRequest {
 
+    @Size(min = 8, message = "PASSWORD_INVALID")
     String password;
     String firstName;
     String lastName;
 
-    @DobConstraint(min = 18, message = "INVALID_DOB")
+    @DobConstraint(min = 9, message = "INVALID_DOB")
     LocalDate dob;
+
+    String imageUrl;
+    @Gmail(message = "INVALID_GMAIL")
+    String email;
+    @VietNamPhone(message = "INVALID_VNPHONE")
+    String phone;
 
     List<String> roles;
 }

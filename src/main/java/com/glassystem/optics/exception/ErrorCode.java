@@ -17,7 +17,8 @@ public enum ErrorCode {
     UNAUTHENTICATED(1006, "Unauthenticated!", HttpStatus.UNAUTHORIZED),
     UNAUTHORIZED(1007, "You do not have permission!", HttpStatus.FORBIDDEN),
     INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
-    PASSWORD_XXX(1008, "Password xxx", HttpStatus.BAD_REQUEST),
+    INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
+    INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

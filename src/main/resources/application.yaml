@@ -6,10 +6,14 @@ server:
 spring:
   datasource:
     # Sử dụng biến môi trường, nếu không có sẽ lấy giá trị mặc định sau dấu :
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/optics-management}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:12345}
-    driverClassName: org.postgresql.Driver
+#    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/optics-management}
+#    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+#    password: ${SPRING_DATASOURCE_PASSWORD:12345}
+#    driverClassName: org.postgresql.Driver
+      url: jdbc:postgresql://ep-hidden-union-a1lb367p-pooler.ap-southeast-1.aws.neon.tech:5432/neondb?sslmode=require&channel_binding=require
+      username: neondb_owner
+      password: npg_pjB71NDvkMaQ
+      driverClassName: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update

@@ -1,6 +1,8 @@
 package com.glassystem.optics.service;
 
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.HashSet;
 import java.util.List;
 
@@ -10,6 +12,7 @@ import com.glassystem.optics.dto.request.UserUpdateRequest;
 import com.glassystem.optics.dto.response.UserResponse;
 import com.glassystem.optics.entity.Role;
 import com.glassystem.optics.entity.User;
+import com.glassystem.optics.enums.UserStatus;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.UserMapper;
@@ -42,16 +45,19 @@ public class UserService {
     public UserResponse createUser(UserCreationRequest request) {
         log.info("User creation request");
 
-        //khong can thiet nua, vi da config bang unit field
+
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
         User user = userMapper.toUser(request);
+        user.setStatus(UserStatus.ACTIVE);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
         HashSet<Role> roles = new HashSet<>();
-        roleRepository.findById(PredefinedRole.USER_ROLE).ifPresent(roles::add);
+        roleRepository.findById(PredefinedRole.CUSTOMER_ROLE).ifPresent(roles::add);
         user.setRoles(roles);
+
+
 
         try{
             user = userRepository.save(user);
@@ -85,13 +91,21 @@ public class UserService {
                 userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found")));
     }
 
+
+
     public UserResponse updateUser(String userId, UserUpdateRequest request) {
         User user = userRepository
                 .findById(userId)
                 .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
+
+
         userMapper.updateUser(user, request);
 
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+
+        user.setImageUrl(request.getImageUrl());
+        user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
 
         var roles = roleRepository.findAllById(request.getRoles());
         user.setRoles(new HashSet<>(roles));
