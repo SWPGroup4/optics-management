@@ -1,6 +1,6 @@
 package com.glassystem.optics.service;
 
-
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.HashSet;
@@ -25,12 +25,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -42,15 +42,24 @@ public class UserService {
     RoleRepository roleRepository;
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
+    FileStorageService fileStorageService;
 
-    public UserResponse createUser(UserCreationRequest request) {
+    public UserResponse createUser(UserCreationRequest request, MultipartFile avatarFile) {
         log.info("User creation request");
-
 
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
         User user = userMapper.toUser(request);
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            try {
+                String avatarUrl = fileStorageService.uploadFile(avatarFile, "avatars");
+                user.setImageUrl(avatarUrl);
+            } catch (IOException e) {
+                throw new AppException(ErrorCode.CANNOT_UPLOAD_IMAGE);
+            }
+        }
+
         user.setStatus(UserStatus.ACTIVE);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
@@ -58,11 +67,9 @@ public class UserService {
         roleRepository.findById(PredefinedRole.CUSTOMER_ROLE).ifPresent(roles::add);
         user.setRoles(roles);
 
-
-
-        try{
+        try {
             user = userRepository.save(user);
-        }catch(DataIntegrityViolationException e){
+        } catch (DataIntegrityViolationException e) {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
 
@@ -79,12 +86,11 @@ public class UserService {
     }
 
     // @PreAuthorize("hasRole('ADMIN')")
-    //@PostAuthorize("hasAuthority('APPROVE_POST')")
+    // @PostAuthorize("hasAuthority('APPROVE_POST')")
     public List<UserResponse> getUsers() {
         log.info("In method getUsers");
         return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
     }
-
 
     public UserResponse getUser(String id) {
         log.info("In method getUser by id");
@@ -92,9 +98,7 @@ public class UserService {
                 userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found")));
     }
 
-
-
-    public UserResponse updateMyProfile(UserUpdateRequest request) {
+    public UserResponse updateMyProfile(UserUpdateRequest request, MultipartFile avatarFile) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
         User user = userRepository
@@ -102,31 +106,37 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
 
         userMapper.updateUser(user, request);
-        if(request.getPassword() != null) {
+        if (request.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
-        user.setImageUrl(request.getImageUrl());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            try {
+                String avatarUrl = fileStorageService.uploadFile(avatarFile, "avatars");
+                user.setImageUrl(avatarUrl);
+            } catch (IOException e) {
+                throw new AppException(ErrorCode.CANNOT_UPLOAD_IMAGE);
+            }
+
+        }
         return userMapper.toUserResponse(userRepository.save(user));
     }
 
     public UserResponse updateUserByAdmin(String id, AdminUserUpdateRequest request) {
-        User user = userRepository.findById(id).orElseThrow(()
-                -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
         userMapper.updateUserByAdmin(user, request);
-        if(request.getPassword() != null) {
+        if (request.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
-        if(request.getRoles() != null) {
+        if (request.getRoles() != null) {
             var roles = roleRepository.findAllById(request.getRoles());
             user.setRoles(new HashSet<>(roles));
         }
-        if(request.getStatus() != null) {
+        if (request.getStatus() != null) {
             user.setStatus(request.getStatus());
         }
-         return  userMapper.toUserResponse(userRepository.save(user));
+        return userMapper.toUserResponse(userRepository.save(user));
     }
 
     public void deleteUser(String id) {

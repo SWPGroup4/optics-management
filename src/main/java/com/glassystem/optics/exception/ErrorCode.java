@@ -19,6 +19,7 @@ public enum ErrorCode {
     INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
     INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
     INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
+    CANNOT_UPLOAD_IMAGE(1011, "Could not upload image!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

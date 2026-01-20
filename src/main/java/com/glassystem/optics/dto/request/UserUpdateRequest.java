@@ -8,6 +8,7 @@ import java.util.List;
 import com.glassystem.optics.validatory.DobConstraint;
 import com.glassystem.optics.validatory.Gmail;
 import com.glassystem.optics.validatory.VietNamPhone;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -27,7 +28,7 @@ public class UserUpdateRequest {
 
     @DobConstraint(min = 9, message = "INVALID_DOB")
     LocalDate dob;
-
+    @Schema(hidden = true)
     String imageUrl;
     @Gmail(message = "INVALID_GMAIL")
     String email;
