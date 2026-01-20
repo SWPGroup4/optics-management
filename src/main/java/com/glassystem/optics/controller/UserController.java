@@ -33,7 +33,13 @@ public class UserController {
     UserService userService;
 
     @PostMapping(value = "/registration", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    ApiResponse<UserResponse> createUser(@RequestPart("data") @Valid UserCreationRequest request,
+    ApiResponse<UserResponse> createUser(@RequestPart("data")
+                                         @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                                                 content = @io.swagger.v3.oas.annotations.media.Content(
+                                                         encoding = @io.swagger.v3.oas.annotations.media.Encoding(name = "data", contentType = "application/json")
+                                                 )
+                                         )
+                                         @Valid UserCreationRequest request,
                                          @RequestPart(value = "imageUrl", required = false) MultipartFile imageUrl) {
         log.info("controller: create user");
         ApiResponse<UserResponse> apiResponse = new ApiResponse<>();
@@ -71,18 +77,16 @@ public class UserController {
                 .build();
     }
 
-    @PutMapping(value = "/me")
-    @PreAuthorize("hasRole('CUSTOMER')")
-    ApiResponse<UserResponse> updateMyProfile(@RequestBody @Valid UserUpdateRequest request) {
-        return ApiResponse.<UserResponse>builder()
-                .result(userService.updateMyProfile(request, null))
-                .build();
-    }
 
-    @PutMapping(value = "/me/with-avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('CUSTOMER')")
-    ApiResponse<UserResponse> updateMyProfileWithAvatar(@RequestPart("data") @Valid UserUpdateRequest request,
-            @Parameter(schema = @Schema(type = "string", format = "binary"))
+    ApiResponse<UserResponse> updateMyProfile(@RequestPart("data")
+                                              @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                                                      content = @io.swagger.v3.oas.annotations.media.Content(
+                                                              encoding = @io.swagger.v3.oas.annotations.media.Encoding(name = "data", contentType = "application/json")
+                                                      )
+                                              )
+                                              @Valid UserUpdateRequest request,
             @RequestPart(value = "imageUrl", required = false) MultipartFile imageUrl) {
         return ApiResponse.<UserResponse>builder()
                 .result(userService.updateMyProfile(request, imageUrl))
