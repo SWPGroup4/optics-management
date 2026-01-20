@@ -100,21 +100,20 @@ public class UserService {
     }
 
     public UserResponse updateMyProfile(UserUpdateRequest request, MultipartFile avatarFile) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        User user = userRepository
-                .findByUsername(username)
-                .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        String oldAvatarUrl = user.getImageUrl();
 
         userMapper.updateUser(user, request);
-        if (request.getPassword() != null) {
+
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
-        String oldAvatarUrl = null;
         if (avatarFile != null && !avatarFile.isEmpty()) {
-            oldAvatarUrl = user.getImageUrl();
-
             try {
                 String newAvatarUrl = fileStorageService.uploadFile(avatarFile, S3ImageName.AVATAR);
                 user.setImageUrl(newAvatarUrl);
@@ -123,14 +122,13 @@ public class UserService {
             }
         }
 
-        User savedUser = userRepository.save(user);
+        userRepository.save(user);
 
-
-        if (oldAvatarUrl != null && !oldAvatarUrl.isBlank()) {
-            fileStorageService.deleteFile(oldAvatarUrl);
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            fileStorageService.deleteFileByUrl(oldAvatarUrl);
         }
 
-        return userMapper.toUserResponse(savedUser);
+        return userMapper.toUserResponse(user);
     }
 
     public UserResponse updateUserByAdmin(String id, AdminUserUpdateRequest request) {

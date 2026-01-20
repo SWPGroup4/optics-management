@@ -1,6 +1,5 @@
 package com.glassystem.optics.mapper;
 
-
 import com.glassystem.optics.dto.request.AdminUserUpdateRequest;
 import com.glassystem.optics.dto.request.UserCreationRequest;
 import com.glassystem.optics.dto.request.UserUpdateRequest;
@@ -11,16 +10,16 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
-
 @Mapper(componentModel = "spring")
 public interface UserMapper {
     User toUser(UserCreationRequest request);
 
     UserResponse toUserResponse(User user);
 
-
     void updateUser(@MappingTarget User user, UserUpdateRequest request);
+
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "password" , ignore = true)
     void updateUserByAdmin(@MappingTarget User user, AdminUserUpdateRequest request);
 }
