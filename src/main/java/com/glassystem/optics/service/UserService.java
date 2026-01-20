@@ -13,6 +13,7 @@ import com.glassystem.optics.dto.request.UserUpdateRequest;
 import com.glassystem.optics.dto.response.UserResponse;
 import com.glassystem.optics.entity.Role;
 import com.glassystem.optics.entity.User;
+import com.glassystem.optics.enums.S3ImageName;
 import com.glassystem.optics.enums.UserStatus;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
@@ -53,7 +54,7 @@ public class UserService {
         User user = userMapper.toUser(request);
         if (avatarFile != null && !avatarFile.isEmpty()) {
             try {
-                String avatarUrl = fileStorageService.uploadFile(avatarFile, "avatars");
+                String avatarUrl = fileStorageService.uploadFile(avatarFile, S3ImageName.AVATAR);
                 user.setImageUrl(avatarUrl);
             } catch (IOException e) {
                 throw new AppException(ErrorCode.CANNOT_UPLOAD_IMAGE);
@@ -109,16 +110,27 @@ public class UserService {
         if (request.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
+
+        String oldAvatarUrl = null;
         if (avatarFile != null && !avatarFile.isEmpty()) {
+            oldAvatarUrl = user.getImageUrl();
+
             try {
-                String avatarUrl = fileStorageService.uploadFile(avatarFile, "avatars");
-                user.setImageUrl(avatarUrl);
+                String newAvatarUrl = fileStorageService.uploadFile(avatarFile, S3ImageName.AVATAR);
+                user.setImageUrl(newAvatarUrl);
             } catch (IOException e) {
                 throw new AppException(ErrorCode.CANNOT_UPLOAD_IMAGE);
             }
-
         }
-        return userMapper.toUserResponse(userRepository.save(user));
+
+        User savedUser = userRepository.save(user);
+
+
+        if (oldAvatarUrl != null && !oldAvatarUrl.isBlank()) {
+            fileStorageService.deleteFile(oldAvatarUrl);
+        }
+
+        return userMapper.toUserResponse(savedUser);
     }
 
     public UserResponse updateUserByAdmin(String id, AdminUserUpdateRequest request) {

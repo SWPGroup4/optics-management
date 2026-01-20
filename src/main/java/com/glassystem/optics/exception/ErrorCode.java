@@ -20,6 +20,7 @@ public enum ErrorCode {
     INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
     INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
     CANNOT_UPLOAD_IMAGE(1011, "Could not upload image!", HttpStatus.BAD_REQUEST),
+    FAILED_DELETE_IMAGE_S3(1012, "Failed to delete old file image from S3!", HttpStatus.BAD_REQUEST)
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {
