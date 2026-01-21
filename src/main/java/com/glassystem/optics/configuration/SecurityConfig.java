@@ -26,7 +26,9 @@ import org.springframework.web.filter.CorsFilter;
 public class SecurityConfig {
 
     public final String[] PUBLIC_ENDPOINTS = {
-            "/users/registration", "/auth/login", "/auth/check-token", "/auth/logout", "/auth/refresh-token"
+            "/users/registration", "/auth/login", "/auth/check-token", "/auth/logout", "/auth/refresh-token",
+
+
     };
 
     private final String[] SWAGGER_ENDPOINTS = {
@@ -40,8 +42,9 @@ public class SecurityConfig {
         httpSecurity.authorizeHttpRequests(requests ->
                 requests.requestMatchers(SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers("/products/**").permitAll()
 
-                .anyRequest()
+                        .anyRequest()
                 .authenticated());
 
         httpSecurity.oauth2ResourceServer(oauth2

@@ -6,7 +6,7 @@ server:
 spring:
   datasource:
     # Sử dụng biến môi trường, nếu không có sẽ lấy giá trị mặc định sau dấu :
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/optics-management}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/opticsmanagement1}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:12345}
     driverClassName: org.postgresql.Driver

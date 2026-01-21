@@ -18,6 +18,12 @@ public enum ErrorCode {
     UNAUTHORIZED(1007, "You do not have permission!", HttpStatus.FORBIDDEN),
     INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
     PASSWORD_XXX(1008, "Password xxx", HttpStatus.BAD_REQUEST),
+    PRODUCT_NOT_FOUND(2001, "Product not found!", HttpStatus.NOT_FOUND),
+    PRODUCT_NAME_REQUIRED(2002, "Product name is required!", HttpStatus.BAD_REQUEST),
+    PRODUCT_CATEGORY_REQUIRED(2003, "Product category is required!", HttpStatus.BAD_REQUEST),
+    PRODUCT_BASE_PRICE_REQUIRED(2004, "Product base price is required!", HttpStatus.BAD_REQUEST),
+    PRODUCT_BASE_PRICE_INVALID(2005, "Product base price must be greater than or equal to 0!", HttpStatus.BAD_REQUEST),
+    PRODUCT_PRESCRIPTION_REQUIRED(2006, "Product prescription flag is required!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

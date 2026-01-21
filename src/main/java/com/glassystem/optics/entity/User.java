@@ -26,11 +26,7 @@ public class User {
     String id;
 
     //xu ly ma register user cung luc
-    @Column(
-            name = "username",
-            nullable = false,
-            columnDefinition = "citext"
-    )
+
 
     String username;
     String password;
