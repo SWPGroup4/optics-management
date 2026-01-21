@@ -78,7 +78,7 @@ public class UserController {
     }
 
 
-    @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PatchMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('CUSTOMER')")
     ApiResponse<UserResponse> updateMyProfile(@RequestPart("data")
                                               @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -93,7 +93,7 @@ public class UserController {
                 .build();
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     ApiResponse<UserResponse> updateUser(@PathVariable("id") String userId,
             @RequestBody @Valid AdminUserUpdateRequest request) {

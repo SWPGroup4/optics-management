@@ -107,7 +107,7 @@ public class OrderService {
                 .getAuthentication()
                 .getName();
 
-        return orderRepository.findByUserId(userId).stream().map(orderMapper::toOrderResponse).toList();
+        return orderRepository.findByCustomerId(userId).stream().map(orderMapper::toOrderResponse).toList();
     }
 
     public OrderResponse getOrderById(String orderId){
@@ -123,5 +123,14 @@ public class OrderService {
         return orderMapper.toOrderResponse(order);
     }
 
+    public OrderResponse confirmOrder(String orderId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
+        if(!order.getStatus().equals(OrderStatus.PENDING)){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        order.setStatus(OrderStatus.CONFIRMED);
+        return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
 }

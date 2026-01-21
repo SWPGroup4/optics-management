@@ -27,7 +27,7 @@ public class OrderController {
 
     }
     @GetMapping()
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')" )
     ApiResponse <List<OrderResponse>>getAllOrders(){
         return ApiResponse.<List<OrderResponse>>builder()
                 .result(orderService.getOrders())
@@ -42,10 +42,18 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
     ApiResponse<OrderResponse> getOrderById(@PathVariable("orderId") String id){
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.getOrderById(id))
+                .build();
+    }
+
+    @PatchMapping("/confirm/{orderId}")
+    @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
+    ApiResponse<OrderResponse> confirmOrder(@PathVariable("orderId") String id){
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.confirmOrder(id))
                 .build();
     }
 
