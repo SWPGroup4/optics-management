@@ -49,11 +49,18 @@ public class OrderController {
                 .build();
     }
 
-    @PatchMapping("/confirm/{orderId}")
+    @PatchMapping("/{orderId}/confirm")
     @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
     ApiResponse<OrderResponse> confirmOrder(@PathVariable("orderId") String id){
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.confirmOrder(id))
+                .build();
+    }
+
+    @PatchMapping("/{orderId}/cancel")
+    public ApiResponse<OrderResponse> cancelOrder(@PathVariable("orderId") String id){
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.cancelOrder(id))
                 .build();
     }
 
