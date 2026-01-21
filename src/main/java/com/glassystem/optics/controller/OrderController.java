@@ -64,4 +64,12 @@ public class OrderController {
                 .build();
     }
 
+    @DeleteMapping("/{orderId}")
+    public ApiResponse<String> deleteOrder(@PathVariable("orderId") String id){
+        orderService.deleteOrder(id);
+        return ApiResponse.<String>builder()
+                .result("Order has been deleted and inventory restored successfully")
+                .build();
+    }
+
 }

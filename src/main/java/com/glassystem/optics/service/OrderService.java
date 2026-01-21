@@ -157,4 +157,21 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
+
+    public void deleteOrder(String orderId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        if(!order.getStatus().equals(OrderStatus.CANCELLED)){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        for(OrderItem item : order.getItems()){
+            Inventory inventory = item.getInventory();
+            if(inventory != null) {
+                inventory.setReservedQuantity(inventory.getReservedQuantity() - item.getQuantity());
+                inventory.setQuantity(inventory.getQuantity() + item.getQuantity());
+                inventoryRepository.save(inventory);
+            }
+        }
+        orderRepository.delete(order);
+    }
 }
