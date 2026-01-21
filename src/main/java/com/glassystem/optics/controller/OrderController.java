@@ -7,7 +7,10 @@ import com.glassystem.optics.service.OrderService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/orders")
@@ -23,4 +26,27 @@ public class OrderController {
                 .build();
 
     }
+    @GetMapping()
+    @PreAuthorize("hasRole('ADMIN')")
+    ApiResponse <List<OrderResponse>>getAllOrders(){
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getOrders())
+                .build();
+    }
+
+    @GetMapping("/me")
+    ApiResponse<List<OrderResponse>> getMyOrders(){
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getMyOrders())
+                .build();
+    }
+
+    @GetMapping("/{orderId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    ApiResponse<OrderResponse> getOrderById(@PathVariable("orderId") String id){
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.getOrderById(id))
+                .build();
+    }
+
 }

@@ -16,12 +16,12 @@ import com.glassystem.optics.repository.UserRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Optional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -97,5 +97,31 @@ public class OrderService {
 
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
+
+    public List<OrderResponse> getOrders(){
+        return orderRepository.findAll().stream().map(orderMapper::toOrderResponse).toList();
+    }
+
+    public List<OrderResponse> getMyOrders(){
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        return orderRepository.findByUserId(userId).stream().map(orderMapper::toOrderResponse).toList();
+    }
+
+    public OrderResponse getOrderById(String orderId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(()-> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        String currentId= SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+        if (!order.getCustomer().getId().equals(currentId)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+        return orderMapper.toOrderResponse(order);
+    }
+
 
 }
