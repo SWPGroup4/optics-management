@@ -20,7 +20,7 @@ public class OrderItem {
     String id;
     Integer quantity;
     BigDecimal unitPrice;
-    String prescriptionNote;
+
 
     @ManyToOne
     @JoinColumn(name = "order_id")
@@ -33,4 +33,8 @@ public class OrderItem {
     @ManyToOne
     @JoinColumn(name = "inventory_id")
     Inventory inventory;
+
+    @OneToOne
+            @JoinColumn(name = "prescription_id")
+    Prescription prescription;
 }

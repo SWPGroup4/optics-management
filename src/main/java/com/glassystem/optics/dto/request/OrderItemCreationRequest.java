@@ -11,5 +11,5 @@ import lombok.experimental.FieldDefaults;
 public class OrderItemCreationRequest {
     String productVariantId;
     Integer quantity;
-    String prescriptionNote;
+    PrescriptionRequest prescription;
 }

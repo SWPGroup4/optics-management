@@ -9,16 +9,15 @@ import com.glassystem.optics.enums.OrderType;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.OrderMapper;
-import com.glassystem.optics.repository.InventoryRepository;
-import com.glassystem.optics.repository.OrderRepository;
-import com.glassystem.optics.repository.ProductVariantRepository;
-import com.glassystem.optics.repository.UserRepository;
+import com.glassystem.optics.mapper.PrescriptionMapper;
+import com.glassystem.optics.repository.*;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -28,12 +27,14 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class OrderService {
     private final OrderMapper orderMapper;
+    private final PrescriptionMapper prescriptionMapper;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final ProductVariantRepository productVariantRepository;
     private final InventoryRepository inventoryRepository;
+    private final PrescriptionRepository prescriptionRepository;
 
-
+    @Transactional
     public OrderResponse createOrder(OrderCreationRequest request) {
 
         String userId = SecurityContextHolder.getContext()
@@ -77,7 +78,12 @@ public class OrderService {
             item.setInventory(inventory);
             item.setQuantity(reqItem.getQuantity());
             item.setUnitPrice(variant.getPrice());
-            item.setPrescriptionNote(reqItem.getPrescriptionNote());
+
+            if(reqItem.getPrescription() != null) {
+                Prescription prescription = prescriptionMapper.toPrescription(reqItem.getPrescription());
+                prescription =  prescriptionRepository.save(prescription);
+                item.setPrescription(prescription);
+            }
 
             order.getItems().add(item);
 

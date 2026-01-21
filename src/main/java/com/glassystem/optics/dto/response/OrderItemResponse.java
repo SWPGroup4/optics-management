@@ -16,6 +16,6 @@ public class OrderItemResponse {
     String productVariantId;
     Integer quantity;
     BigDecimal unitPrice;
-    String prescriptionNote;
+    PrescriptionResponse prescription;
 
 }
