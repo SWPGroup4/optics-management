@@ -125,7 +125,7 @@ public class UserService {
         userRepository.save(user);
 
         if (avatarFile != null && !avatarFile.isEmpty()) {
-            fileStorageService.deleteFileByUrl(oldAvatarUrl);
+            fileStorageService.deleteFileByKey(oldAvatarUrl);
         }
 
         return userMapper.toUserResponse(user);

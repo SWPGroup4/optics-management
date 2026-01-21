@@ -59,7 +59,7 @@ public class FileStorageService {
     }
 
 
-    public void deleteFileByUrl(String fileUrl) {
+    public void deleteFileByKey(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) return;
 
         try {
