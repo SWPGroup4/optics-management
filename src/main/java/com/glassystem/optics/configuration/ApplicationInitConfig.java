@@ -5,7 +5,6 @@ import java.util.HashSet;
 
 import com.glassystem.optics.entity.Role;
 import com.glassystem.optics.entity.User;
-import com.glassystem.optics.enums.UserStatus;
 import com.glassystem.optics.repository.RoleRepository;
 import com.glassystem.optics.repository.UserRepository;
 import org.springframework.boot.ApplicationRunner;
@@ -18,14 +17,23 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+
 @Configuration
 @RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Slf4j
 public class ApplicationInitConfig {
 
-    private final UserRepository userRepository;
+    PasswordEncoder passwordEncoder;
+    RoleRepository roleRepository;
 
     @Bean
-    ApplicationRunner applicationRunner() {
+    @ConditionalOnProperty(
+            prefix = "spring",
+            value = "datasource.driverClassName",
+            havingValue = "org.postgresql.Driver")
+    ApplicationRunner applicationRunner(UserRepository userRepository) {
+        log.info("init ApplicationRunner...");
         return args -> {
             if (userRepository.findByUsername("admin").isEmpty()) {
                 Role adminRole = roleRepository.save(
@@ -37,7 +45,6 @@ public class ApplicationInitConfig {
                 User user = User.builder()
                         .username("admin")
                         .password(passwordEncoder.encode("admin"))
-                        .status(UserStatus.ACTIVE)
                         .roles(roles)
                         .build();
 
