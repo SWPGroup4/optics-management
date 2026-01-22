@@ -5,14 +5,10 @@ server:
 
 spring:
   datasource:
-    # Sử dụng biến môi trường, nếu không có sẽ lấy giá trị mặc định sau dấu :
-#    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/optics-management}
-#    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-#    password: ${SPRING_DATASOURCE_PASSWORD:12345}
-#    driverClassName: org.postgresql.Driver
-      url: ${DB_URL:jdbc:postgresql://localhost:5432/optics-management}
-      username: ${DB_USERNAME:postgres}
-      password: ${DB_PASSWORD:12345}
+
+      url: ${DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
       driverClassName: org.postgresql.Driver
   jpa:
     hibernate:
@@ -29,5 +25,5 @@ aws:
 
 jwt:
   signerKey: ${JWT_SIGNER_KEY}
-  valid-duration: 360
-  refreshable-duration: 36000
+  valid-duration: ${VALID_DURATION}
+  refreshable-duration: ${REFRESH_DURATION}
