@@ -22,5 +22,10 @@ public class UserResponse {
     String firstName;
     String lastName;
     LocalDate dob;
+
+    String imageUrl;
+    String email;
+    String phone;
+
     Set<RoleResponse> roles;
 }
