@@ -18,23 +18,14 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-
 @Configuration
 @RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@Slf4j
 public class ApplicationInitConfig {
 
-    PasswordEncoder passwordEncoder;
-    RoleRepository roleRepository;
+    private final UserRepository userRepository;
 
     @Bean
-    @ConditionalOnProperty(
-            prefix = "spring",
-            value = "datasource.driverClassName",
-            havingValue = "org.postgresql.Driver")
-    ApplicationRunner applicationRunner(UserRepository userRepository) {
-        log.info("init ApplicationRunner...");
+    ApplicationRunner applicationRunner() {
         return args -> {
             if (userRepository.findByUsername("admin").isEmpty()) {
                 Role adminRole = roleRepository.save(

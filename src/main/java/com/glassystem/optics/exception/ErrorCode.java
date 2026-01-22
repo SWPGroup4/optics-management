@@ -17,6 +17,15 @@ public enum ErrorCode {
     UNAUTHENTICATED(1006, "Unauthenticated!", HttpStatus.UNAUTHORIZED),
     UNAUTHORIZED(1007, "You do not have permission!", HttpStatus.FORBIDDEN),
     INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
+
+    PASSWORD_XXX(1008, "Password xxx", HttpStatus.BAD_REQUEST),
+    PRODUCT_NOT_FOUND(2001, "Product not found!", HttpStatus.NOT_FOUND),
+    PRODUCT_NAME_REQUIRED(2002, "Product name is required!", HttpStatus.BAD_REQUEST),
+    PRODUCT_CATEGORY_REQUIRED(2003, "Product category is required!", HttpStatus.BAD_REQUEST),
+    PRODUCT_BASE_PRICE_REQUIRED(2004, "Product base price is required!", HttpStatus.BAD_REQUEST),
+    PRODUCT_BASE_PRICE_INVALID(2005, "Product base price must be greater than or equal to 0!", HttpStatus.BAD_REQUEST),
+    PRODUCT_PRESCRIPTION_REQUIRED(2006, "Product prescription flag is required!", HttpStatus.BAD_REQUEST),
+
     INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
     INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
     CANNOT_UPLOAD_IMAGE(1011, "Could not upload image!", HttpStatus.BAD_REQUEST),
@@ -26,6 +35,7 @@ public enum ErrorCode {
     OUT_OF_STOCK(1015, "Product variant is out of stock!", HttpStatus.BAD_REQUEST),
     ORDER_NOT_FOUND(1016, "Order not found!", HttpStatus.BAD_REQUEST),
     INVALID_ORDER_STATUS(1017, "Invalid order status", HttpStatus.BAD_REQUEST)
+
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {
