@@ -26,9 +26,9 @@ public class OrderItem {
     @JoinColumn(name = "order_id")
     Orders order;
 
-    @ManyToOne
-    @JoinColumn(name = "product_variant_id")
-    ProductVariant productVariant;
+//    @ManyToOne
+//    @JoinColumn(name = "product_variant_id")
+//    ProductVariant productVariant;
 
     @ManyToOne
     @JoinColumn(name = "inventory_id")

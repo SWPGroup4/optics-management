@@ -18,7 +18,7 @@ public interface OrderItemMapper {
     @Mapping(target = "inventory", ignore = true)
     OrderItem toOrderItem(OrderItemCreationRequest orderItemCreationRequest);
 
-    @Mapping(target = "productVariantId", source = "productVariant.id")
+    //@Mapping(target = "productVariantId", source = "productVariant.id")
     OrderItemResponse toOrderItemResponse(OrderItem orderItem);
 
 

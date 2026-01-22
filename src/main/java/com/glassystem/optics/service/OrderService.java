@@ -56,12 +56,9 @@ public class OrderService {
 
         for (OrderItemCreationRequest reqItem : request.getItems()) {
 
-            ProductVariant variant = productVariantRepository
-                    .findById(reqItem.getProductVariantId())
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
 
             Inventory inventory = inventoryRepository
-                    .findByProductVariantId(variant.getId())
+                    .findByProductVariantId(reqItem.getProductVariantId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
             int available = inventory.getQuantity() - inventory.getReservedQuantity();
@@ -74,10 +71,9 @@ public class OrderService {
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
-            item.setProductVariant(variant);
             item.setInventory(inventory);
             item.setQuantity(reqItem.getQuantity());
-            item.setUnitPrice(variant.getPrice());
+            item.setUnitPrice(inventory.getProductVariant().getPrice());
 
             if(reqItem.getPrescription() != null) {
                 Prescription prescription = prescriptionMapper.toPrescription(reqItem.getPrescription());
@@ -88,7 +84,7 @@ public class OrderService {
             order.getItems().add(item);
 
             totalAmount = totalAmount.add(
-                    variant.getPrice()
+                    inventory.getProductVariant().getPrice()
                             .multiply(BigDecimal.valueOf(reqItem.getQuantity()))
             );
         }
