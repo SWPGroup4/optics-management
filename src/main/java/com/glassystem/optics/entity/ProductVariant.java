@@ -20,5 +20,6 @@ public class ProductVariant {
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
     BigDecimal Price;
+    String status;
 
 }
