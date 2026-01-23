@@ -49,11 +49,43 @@ public class OrderController {
                 .build();
     }
 
+    @GetMapping
+    @PreAuthorize("hasRole('OPERATION')")
+    public ApiResponse<List<OrderResponse>> getOrdersInProduction(){
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getOrdersInProduction())
+                .build();
+    }
+
     @PutMapping("/{orderId}/confirm")
     @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
     ApiResponse<OrderResponse> confirmOrder(@PathVariable("orderId") String id){
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.confirmOrder(id))
+                .build();
+    }
+
+    @PutMapping("{orderId}/start-production")
+    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+    ApiResponse<OrderResponse> startProduction(@PathVariable("orderId") String id){
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.startProduction(id))
+                .build();
+    }
+
+    @PutMapping("/{orderId}/finish-production")
+    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+    public ApiResponse<OrderResponse> finishProduction(@PathVariable("orderId") String id) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.finishProduction(id))
+                .build();
+    }
+
+    @PutMapping("{orderId}/ship")
+    //@PreAuthorize("hasRole('SALE) or hasRole('ADMIN')")
+    ApiResponse<OrderResponse> shipOrder(@PathVariable("orderId") String id){
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.shipOrder(id))
                 .build();
     }
 
