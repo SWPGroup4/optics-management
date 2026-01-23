@@ -49,11 +49,26 @@ public class OrderController {
                 .build();
     }
 
+    @GetMapping
+    @PreAuthorize("hasRole('OPERATION')")
+    public ApiResponse<List<OrderResponse>> getOrdersInProduction(){
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getOrdersInProduction())
+                .build();
+    }
+
     @PutMapping("/{orderId}/confirm")
     @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
     ApiResponse<OrderResponse> confirmOrder(@PathVariable("orderId") String id){
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.confirmOrder(id))
+                .build();
+    }
+
+    @PutMapping("{orderId}/start-production")
+    ApiResponse<OrderResponse> startProduction(@PathVariable("orderId") String id){
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.startProduction(id))
                 .build();
     }
 

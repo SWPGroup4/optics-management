@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.security.PublicKey;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -134,6 +135,27 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.CONFIRMED);
         return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+
+    public OrderResponse startProduction(String orderId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        if(!order.getStatus().equals(OrderType.PRESCRIPTION)){
+            throw new AppException(ErrorCode.INVALID_ORDER_TYPE);
+        }
+        if(!order.getStatus().equals(OrderStatus.CONFIRMED)){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        order.setStatus(OrderStatus.IN_PRODUCTION);
+        return orderMapper.toOrderResponse(orderRepository.save(order));
+
+    }
+
+    public List<OrderResponse> getOrdersInProduction(){
+        return orderRepository.findByStatus(OrderStatus.IN_PRODUCTION)
+                .stream().map(orderMapper::toOrderResponse).toList();
     }
 
     public OrderResponse cancelOrder(String orderId){
