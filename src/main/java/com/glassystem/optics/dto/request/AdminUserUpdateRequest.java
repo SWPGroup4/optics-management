@@ -8,11 +8,11 @@ import lombok.experimental.SuperBuilder;
 import java.util.List;
 
 @Data
-@SuperBuilder
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AdminUserUpdateRequest extends UserUpdateRequest {
+public class AdminUserUpdateRequest {
     List<String> roles;
     UserStatus status;
 }

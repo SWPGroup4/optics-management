@@ -135,9 +135,7 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
         userMapper.updateUserByAdmin(user, request);
-        if (request.getPassword() != null) {
-            user.setPassword(passwordEncoder.encode(request.getPassword()));
-        }
+
 
         if (request.getRoles() != null) {
             var roles = roleRepository.findAllById(request.getRoles());
