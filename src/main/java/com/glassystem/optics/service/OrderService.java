@@ -2,6 +2,7 @@ package com.glassystem.optics.service;
 
 import com.glassystem.optics.dto.request.OrderCreationRequest;
 import com.glassystem.optics.dto.request.OrderItemCreationRequest;
+import com.glassystem.optics.dto.request.PrescriptionRequest;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.OrderStatus;
@@ -34,6 +35,7 @@ public class OrderService {
     private final ProductVariantRepository productVariantRepository;
     private final InventoryRepository inventoryRepository;
     private final PrescriptionRepository prescriptionRepository;
+    private final OrderItemRepository orderItemRepository;
 
     @Transactional
     public OrderResponse createOrder(OrderCreationRequest request) {
@@ -126,17 +128,59 @@ public class OrderService {
         return orderMapper.toOrderResponse(order);
     }
 
-    public OrderResponse confirmOrder(String orderId){
+    public OrderResponse verifyOrder (String orderId, boolean isPrescriptionValid){
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if(!order.getStatus().equals(OrderStatus.PENDING)){
+        if(!order.getStatus().equals(OrderStatus.PENDING) && !order.getStatus().equals(OrderStatus.ON_HOLD)){
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
-        order.setStatus(OrderStatus.CONFIRMED);
+
+        if(order.getOrderType().equals(OrderType.PRESCRIPTION)){
+            if(!isPrescriptionValid){
+                order.setStatus(OrderStatus.ON_HOLD);
+            }else {
+                order.setStatus(OrderStatus.CONFIRMED);
+            }
+        }else{
+            order.setStatus(OrderStatus.CONFIRMED);
+        }
+
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
+    public OrderResponse updatePrescription (String orderItemId, PrescriptionRequest prescriptionRequest){
+        OrderItem orderItem = orderItemRepository.findById(orderItemId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
+
+      Orders orders = orderItem.getOrder();
+      String currentUserId= SecurityContextHolder.getContext()
+              .getAuthentication()
+              .getName();
+
+      if(!orders.getCustomer().getId().equals(currentUserId)){
+          throw new AppException(ErrorCode.UNAUTHORIZED);
+      }
+
+      if(!orders.getOrderType().equals(OrderType.PRESCRIPTION)){
+          throw new AppException(ErrorCode.INVALID_ORDER_TYPE);
+      }
+
+      if(!orders.getStatus().equals(OrderStatus.PENDING) &&  !orders.getStatus().equals(OrderStatus.ON_HOLD)){
+          throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+      }
+
+      Prescription prescription = orderItem.getPrescription();
+      if(prescription == null){
+          prescription = new Prescription();
+      }
+      prescriptionMapper.updatePrescription(prescription, prescriptionRequest);
+      prescription = prescriptionRepository.save(prescription);
+      orderItem.setPrescription(prescription);
+      orderItemRepository.save(orderItem);
+
+      return orderMapper.toOrderResponse(orderRepository.save(orders));
+    }
 
     public OrderResponse startProduction(String orderId){
         Orders order = orderRepository.findById(orderId)
@@ -170,6 +214,12 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
+    public List<OrderResponse> getOrdersFinishProduction() {
+        return orderRepository.findByStatus(OrderStatus.PRODUCED)
+                .stream().map(orderMapper::toOrderResponse).toList();
+    }
+
+
     public OrderResponse shipOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
@@ -177,6 +227,7 @@ public class OrderService {
        if(order.getOrderType().equals(OrderType.PRE_ORDER)){
            if(!order.getStatus().equals(OrderStatus.PRODUCED)){
                throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+
            } else if(order.getOrderType().equals(OrderType.IN_STOCK)){
                if(!order.getStatus().equals(OrderStatus.CONFIRMED)){
                    throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
@@ -185,6 +236,11 @@ public class OrderService {
        }
        order.setStatus(OrderStatus.SHIPPED);
        return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    public List<OrderResponse> getOrdersShipped() {
+        return orderRepository.findByStatus(OrderStatus.SHIPPED)
+                .stream().map(orderMapper::toOrderResponse).toList();
     }
 
     public OrderResponse cancelOrder(String orderId){
@@ -203,6 +259,11 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.CANCELLED);
         return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    public List<OrderResponse> getOrdersCancelled() {
+        return orderRepository.findByStatus(OrderStatus.CANCELLED)
+                .stream().map(orderMapper::toOrderResponse).toList();
     }
 
     public void deleteOrder(String orderId){

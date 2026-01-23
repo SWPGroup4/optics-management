@@ -26,7 +26,8 @@ public enum ErrorCode {
     OUT_OF_STOCK(1015, "Product variant is out of stock!", HttpStatus.BAD_REQUEST),
     ORDER_NOT_FOUND(1016, "Order not found!", HttpStatus.BAD_REQUEST),
     INVALID_ORDER_STATUS(1017, "Invalid order status", HttpStatus.BAD_REQUEST),
-    INVALID_ORDER_TYPE(1018, "Invalid order type", HttpStatus.BAD_REQUEST)
+    INVALID_ORDER_TYPE(1018, "Invalid order type", HttpStatus.BAD_REQUEST),
+    ORDER_ITEM_NOT_FOUND(1017, "Order item not found!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

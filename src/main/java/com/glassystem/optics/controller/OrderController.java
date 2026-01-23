@@ -1,6 +1,7 @@
 package com.glassystem.optics.controller;
 
 import com.glassystem.optics.dto.request.OrderCreationRequest;
+import com.glassystem.optics.dto.request.PrescriptionRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.service.OrderService;
@@ -19,86 +20,152 @@ import java.util.List;
 public class OrderController {
     final OrderService orderService;
 
-    @PostMapping()
-    ApiResponse<OrderResponse> createOrder (@RequestBody OrderCreationRequest request){
+    /* ===================== CREATE ===================== */
+
+    @PostMapping
+    ApiResponse<OrderResponse> createOrder(
+            @RequestBody OrderCreationRequest request
+    ) {
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.createOrder(request))
                 .build();
-
-    }
-    @GetMapping()
-    @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')" )
-    ApiResponse <List<OrderResponse>>getAllOrders(){
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getOrders())
-                .build();
     }
 
+    /* ===================== READ ===================== */
+
+    // Customer: xem đơn của mình
     @GetMapping("/me")
-    ApiResponse<List<OrderResponse>> getMyOrders(){
+    ApiResponse<List<OrderResponse>> getMyOrders() {
         return ApiResponse.<List<OrderResponse>>builder()
                 .result(orderService.getMyOrders())
                 .build();
     }
 
-    @GetMapping("/{orderId}")
-    @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
-    ApiResponse<OrderResponse> getOrderById(@PathVariable("orderId") String id){
-        return ApiResponse.<OrderResponse>builder()
-                .result(orderService.getOrderById(id))
+    // Manager / Admin: xem tất cả
+    @GetMapping
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+    ApiResponse<List<OrderResponse>> getAllOrders() {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getOrders())
                 .build();
     }
 
-    @GetMapping
+    // Sale / Admin: xem chi tiết
+    @GetMapping("/{orderId}")
+    @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
+    ApiResponse<OrderResponse> getOrderById(
+            @PathVariable String orderId
+    ) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.getOrderById(orderId))
+                .build();
+    }
+
+    /* ===================== PRODUCTION FLOW ===================== */
+
+    // Sale xác nhận đơn
+    @PutMapping("/{orderId}/verify")
+    @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
+    ApiResponse<OrderResponse> verifyOrder(
+            @PathVariable String orderId,
+            @RequestParam boolean isValid
+    ) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.verifyOrder(orderId,  isValid))
+                .build();
+    }
+
+    @PutMapping("/items/{orderItemId}/prescription")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    ApiResponse<OrderResponse> updatePrescription(@PathVariable String orderItemId,
+                                                  @RequestBody PrescriptionRequest prescriptionRequest) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.updatePrescription(orderItemId, prescriptionRequest))
+                .build();
+    }
+
+    // Operation: danh sách đang sản xuất
+    @GetMapping("/in-production")
     @PreAuthorize("hasRole('OPERATION')")
-    public ApiResponse<List<OrderResponse>> getOrdersInProduction(){
+    ApiResponse<List<OrderResponse>> getOrdersInProduction() {
         return ApiResponse.<List<OrderResponse>>builder()
                 .result(orderService.getOrdersInProduction())
                 .build();
     }
 
-    @PutMapping("/{orderId}/confirm")
-    @PreAuthorize("hasRole('SALE') or hasRole('ADMIN')")
-    ApiResponse<OrderResponse> confirmOrder(@PathVariable("orderId") String id){
-        return ApiResponse.<OrderResponse>builder()
-                .result(orderService.confirmOrder(id))
-                .build();
-    }
-
-    @PutMapping("{orderId}/start-production")
+    // Bắt đầu sản xuất
+    @PutMapping("/{orderId}/start-production")
     @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
-    ApiResponse<OrderResponse> startProduction(@PathVariable("orderId") String id){
+    ApiResponse<OrderResponse> startProduction(
+            @PathVariable String orderId
+    ) {
         return ApiResponse.<OrderResponse>builder()
-                .result(orderService.startProduction(id))
+                .result(orderService.startProduction(orderId))
                 .build();
     }
 
+    // Hoàn tất sản xuất
     @PutMapping("/{orderId}/finish-production")
     @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
-    public ApiResponse<OrderResponse> finishProduction(@PathVariable("orderId") String id) {
+    ApiResponse<OrderResponse> finishProduction(
+            @PathVariable String orderId
+    ) {
         return ApiResponse.<OrderResponse>builder()
-                .result(orderService.finishProduction(id))
+                .result(orderService.finishProduction(orderId))
                 .build();
     }
 
-    @PutMapping("{orderId}/ship")
-    //@PreAuthorize("hasRole('SALE) or hasRole('ADMIN')")
-    ApiResponse<OrderResponse> shipOrder(@PathVariable("orderId") String id){
-        return ApiResponse.<OrderResponse>builder()
-                .result(orderService.shipOrder(id))
+    // Danh sách đã sản xuất xong
+    @GetMapping("/finished-production")
+    ApiResponse<List<OrderResponse>> getOrdersFinishProduction() {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getOrdersFinishProduction())
                 .build();
     }
+
+    /* ===================== SHIPPING ===================== */
+
+    @PutMapping("/{orderId}/ship")
+    ApiResponse<OrderResponse> shipOrder(
+            @PathVariable String orderId
+    ) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.shipOrder(orderId))
+                .build();
+    }
+
+    @GetMapping("/shipped")
+    ApiResponse<List<OrderResponse>> getOrdersShipped() {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getOrdersShipped())
+                .build();
+    }
+
+    /* ===================== CANCEL ===================== */
 
     @PutMapping("/{orderId}/cancel")
-    public ApiResponse<OrderResponse> cancelOrder(@PathVariable("orderId") String id){
+    ApiResponse<OrderResponse> cancelOrder(
+            @PathVariable String orderId
+    ) {
         return ApiResponse.<OrderResponse>builder()
-                .result(orderService.cancelOrder(id))
+                .result(orderService.cancelOrder(orderId))
                 .build();
     }
 
+    @GetMapping("/cancelled")
+    ApiResponse<List<OrderResponse>> getOrdersCancelled() {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getOrdersCancelled())
+                .build();
+    }
+
+    /* ===================== DELETE ===================== */
+
     @DeleteMapping("/{orderId}")
-    public ApiResponse<String> deleteOrder(@PathVariable("orderId") String id){
-        orderService.deleteOrder(id);
+    ApiResponse<String> deleteOrder(
+            @PathVariable String orderId
+    ) {
+        orderService.deleteOrder(orderId);
         return ApiResponse.<String>builder()
                 .result("Order has been deleted and inventory restored successfully")
                 .build();
