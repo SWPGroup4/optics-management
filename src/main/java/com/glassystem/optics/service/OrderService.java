@@ -158,6 +158,35 @@ public class OrderService {
                 .stream().map(orderMapper::toOrderResponse).toList();
     }
 
+    public OrderResponse finishProduction(String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.getStatus().equals(OrderStatus.IN_PRODUCTION)) {
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+
+        order.setStatus(OrderStatus.PRODUCED);
+        return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    public OrderResponse shipOrder(String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+       if(order.getOrderType().equals(OrderType.PRE_ORDER)){
+           if(!order.getStatus().equals(OrderStatus.PRODUCED)){
+               throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+           } else if(order.getOrderType().equals(OrderType.IN_STOCK)){
+               if(!order.getStatus().equals(OrderStatus.CONFIRMED)){
+                   throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+               }
+           }
+       }
+       order.setStatus(OrderStatus.SHIPPED);
+       return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
     public OrderResponse cancelOrder(String orderId){
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));

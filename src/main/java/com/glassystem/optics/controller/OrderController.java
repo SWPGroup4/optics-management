@@ -66,9 +66,26 @@ public class OrderController {
     }
 
     @PutMapping("{orderId}/start-production")
+    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
     ApiResponse<OrderResponse> startProduction(@PathVariable("orderId") String id){
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.startProduction(id))
+                .build();
+    }
+
+    @PutMapping("/{orderId}/finish-production")
+    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+    public ApiResponse<OrderResponse> finishProduction(@PathVariable("orderId") String id) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.finishProduction(id))
+                .build();
+    }
+
+    @PutMapping("{orderId}/ship")
+    //@PreAuthorize("hasRole('SALE) or hasRole('ADMIN')")
+    ApiResponse<OrderResponse> shipOrder(@PathVariable("orderId") String id){
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.shipOrder(id))
                 .build();
     }
 
