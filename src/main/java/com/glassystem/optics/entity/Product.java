@@ -1,11 +1,11 @@
 package com.glassystem.optics.entity;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
+import com.glassystem.optics.enums.ProductStatus;
 import jakarta.persistence.*;
-
-import org.hibernate.annotations.CreationTimestamp;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 @Entity
-@Table(name = "products")
+@Table(name = "product")
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,28 +23,41 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Product {
 	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	Integer id;
+	@GeneratedValue(strategy = GenerationType.UUID)
+	String id;
 
 	@Column(nullable = false)
 	String name;
 
 	String brand;
 
+	String category;
+
+	@Column(name = "frame_type")
+	String frameType;
+
+	String gender;
+
+	String shape;
+
+	@Column(name = "frame_material")
+	String frameMaterial;
+
+	@Column(name = "hinge_type")
+	String hingeType;
+
+	@Column(name = "nose_pad_type")
+	String nosePadType;
+
+	@Column(name = "weight_gram", precision = 6, scale = 2)
+	BigDecimal weightGram;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	ProductCategory category;
+	ProductStatus status;
 
-	@Column(columnDefinition = "text")
-	String description;
-
-	@Column(name = "base_price", nullable = false, precision = 19, scale = 2)
-	BigDecimal basePrice;
-
-	@Column(name = "is_prescription_required", nullable = false)
-	Boolean isPrescriptionRequired;
-
-	@CreationTimestamp
-	@Column(name = "created_at", nullable = false, updatable = false)
-	Instant createdAt;
+	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+	@Builder.Default
+	List<ProductVariant> variants = new ArrayList<>();
 }
+// product status acctive

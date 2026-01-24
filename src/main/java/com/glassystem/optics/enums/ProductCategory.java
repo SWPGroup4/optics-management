@@ -1,4 +1,4 @@
-package com.glassystem.optics.entity;
+package com.glassystem.optics.enums;
 
 public enum ProductCategory {
 	FRAME,

@@ -2,11 +2,10 @@ package com.glassystem.optics.dto.request;
 
 import java.math.BigDecimal;
 
-import com.glassystem.optics.entity.ProductCategory;
+import com.glassystem.optics.enums.ProductStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
-
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,16 +23,17 @@ public class ProductUpsertRequest {
 	String name;
 
 	String brand;
+	String category;
+	String frameType;
+	String gender;
+	String shape;
+	String frameMaterial;
+	String hingeType;
+	String nosePadType;
 
-	@NotNull(message = "PRODUCT_CATEGORY_REQUIRED")
-	ProductCategory category;
+	@PositiveOrZero(message = "PRODUCT_WEIGHT_INVALID")
+	BigDecimal weightGram;
 
-	String description;
-
-	@NotNull(message = "PRODUCT_BASE_PRICE_REQUIRED")
-	@PositiveOrZero(message = "PRODUCT_BASE_PRICE_INVALID")
-	BigDecimal basePrice;
-
-	@NotNull(message = "PRODUCT_PRESCRIPTION_REQUIRED")
-	Boolean isPrescriptionRequired;
+	@NotNull(message = "PRODUCT_STATUS_REQUIRED")
+	ProductStatus status;
 }

@@ -2,7 +2,7 @@ package com.glassystem.optics.dto.response;
 
 import java.math.BigDecimal;
 
-import com.glassystem.optics.enums.ProductStatus;
+import com.glassystem.optics.enums.ProductVariantStatus;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,17 +15,15 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ProductResponse {
+public class ProductVariantResponse {
 	String id;
-	String name;
-	String brand;
-	String category;
-	String frameType;
-	String gender;
-	String shape;
-	String frameMaterial;
-	String hingeType;
-	String nosePadType;
-	BigDecimal weightGram;
-	ProductStatus status;
+	String productId;
+	String colorName;
+	String frameFinish;
+	Integer lensWidthMm;
+	Integer bridgeWidthMm;
+	Integer templeLengthMm;
+	String sizeLabel;
+	BigDecimal price;
+	ProductVariantStatus status;
 }

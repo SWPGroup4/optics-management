@@ -15,10 +15,13 @@ import java.util.List;
 @Mapper(componentModel = "spring", uses =  {PrescriptionMapper.class})
 public interface OrderItemMapper {
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "unitPrice", ignore = true)
+    @Mapping(target = "order", ignore = true)
     @Mapping(target = "inventory", ignore = true)
     OrderItem toOrderItem(OrderItemCreationRequest orderItemCreationRequest);
 
-    //@Mapping(target = "productVariantId", source = "productVariant.id")
+    @Mapping(target = "productVariantId", source = "inventory.productVariant.id")
     OrderItemResponse toOrderItemResponse(OrderItem orderItem);
 
 

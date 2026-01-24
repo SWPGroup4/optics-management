@@ -24,6 +24,6 @@ aws:
     secret-key: ${AWS_SECRET_KEY}
 
 jwt:
-  signerKey: ${JWT_SIGNER_KEY}
-  valid-duration: ${VALID_DURATION}
-  refreshable-duration: ${REFRESH_DURATION}
+  signerKey: ${JWT_SIGNER_KEY:dev-jwt-signer-key}
+  valid-duration: ${VALID_DURATION:3600}
+  refreshable-duration: ${REFRESH_DURATION:86400}
