@@ -1,12 +1,12 @@
 package com.glassystem.optics.service;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
+import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
 import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.entity.Product;
-import com.glassystem.optics.entity.ProductCategory;
+import com.glassystem.optics.enums.ProductStatus;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.ProductMapper;
@@ -26,25 +26,25 @@ public class ProductService {
 	ProductRepository productRepository;
 	ProductMapper productMapper;
 
-	public ProductResponse create(ProductUpsertRequest request) {
+	public ProductResponse create(ProductCreateRequest request) {
 		Product product = productMapper.toProduct(request);
 		product = productRepository.save(product);
 		return productMapper.toProductResponse(product);
 	}
 
-	public ProductResponse getById(Integer id) {
+	public ProductResponse getById(String id) {
 		Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 		return productMapper.toProductResponse(product);
 	}
 
-	public ProductResponse update(Integer id, ProductUpsertRequest request) {
+	public ProductResponse update(String id, ProductUpsertRequest request) {
 		Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 		productMapper.updateProduct(product, request);
 		product = productRepository.save(product);
 		return productMapper.toProductResponse(product);
 	}
 
-	public void delete(Integer id) {
+	public void delete(String id) {
 		if (!productRepository.existsById(id)) {
 			throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
 		}
@@ -54,14 +54,30 @@ public class ProductService {
 	public Page<ProductResponse> getProducts(
 			String q,
 			String brand,
-			ProductCategory category,
-			Boolean isPrescriptionRequired,
-			BigDecimal minPrice,
-			BigDecimal maxPrice,
-			Instant createdFrom,
-			Instant createdTo,
+			String category,
+			String frameType,
+			String gender,
+			String shape,
+			String frameMaterial,
+			String hingeType,
+			String nosePadType,
+			BigDecimal minWeightGram,
+			BigDecimal maxWeightGram,
+			ProductStatus status,
 			Pageable pageable) {
-		var spec = ProductSpecifications.build(q, brand, category, isPrescriptionRequired, minPrice, maxPrice, createdFrom, createdTo);
+		var spec = ProductSpecifications.build(
+				q,
+				brand,
+				category,
+				frameType,
+				gender,
+				shape,
+				frameMaterial,
+				hingeType,
+				nosePadType,
+				minWeightGram,
+				maxWeightGram,
+				status);
 		return productRepository.findAll(spec, pageable).map(productMapper::toProductResponse);
 	}
 }
