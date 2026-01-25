@@ -53,36 +53,40 @@ public class OrderService {
 
         BigDecimal totalAmount = BigDecimal.ZERO;
 
-        for (OrderItemCreationRequest reqItem : request.getItems()) {
-            Inventory inventory = inventoryRepository.findByProductVariantId(reqItem.getProductVariantId())
+        for (OrderItemCreationRequest orderItem : request.getItems()) {
+            Inventory inventory = inventoryRepository.findByProductVariantId(orderItem.getProductVariantId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
+            if(orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) && orderItem.getPrescription()== null){
+                throw new AppException(ErrorCode.PRESCRIPTION_REQUIRED);
+            }
+
             int available = inventory.getQuantity() - inventory.getReservedQuantity();
-            if (available < reqItem.getQuantity()) {
+            if (available < orderItem.getQuantity()) {
                 throw new AppException(ErrorCode.OUT_OF_STOCK);
             }
 
-            inventory.setReservedQuantity(inventory.getReservedQuantity() + reqItem.getQuantity());
-            inventory.setQuantity(inventory.getQuantity() - reqItem.getQuantity());
+            inventory.setReservedQuantity(inventory.getReservedQuantity() + orderItem.getQuantity());
+            inventory.setQuantity(inventory.getQuantity() - orderItem.getQuantity());
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
-            item.setOrderItemType(reqItem.getOrderItemType());
+            item.setOrderItemType(orderItem.getOrderItemType());
             item.setInventory(inventory);
-            item.setQuantity(reqItem.getQuantity());
+            item.setQuantity(orderItem.getQuantity());
             item.setUnitPrice(inventory.getProductVariant().getPrice());
 
-            BigDecimal itemTotalPrice = item.getUnitPrice().multiply(BigDecimal.valueOf(reqItem.getQuantity()));
+            BigDecimal itemTotalPrice = item.getUnitPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
             item.setTotalPrice(itemTotalPrice);
 
-            if(reqItem.getPrescription() != null) {
-                Prescription prescription = prescriptionMapper.toPrescription(reqItem.getPrescription());
+            if(orderItem.getPrescription() != null) {
+                Prescription prescription = prescriptionMapper.toPrescription(orderItem.getPrescription());
                 prescription = prescriptionRepository.save(prescription);
                 item.setPrescription(prescription);
             }
 
             order.getItems().add(item);
-            totalAmount = totalAmount.add(inventory.getProductVariant().getPrice().multiply(BigDecimal.valueOf(reqItem.getQuantity())));
+            totalAmount = totalAmount.add(inventory.getProductVariant().getPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity())));
         }
         order.setTotalAmount(totalAmount);
         return orderMapper.toOrderResponse(orderRepository.save(order));

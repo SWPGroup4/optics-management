@@ -22,10 +22,6 @@ public class ProductVariant {
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    Product product;
-
     @Column(name = "color_name")
     String colorName;
 
@@ -50,5 +46,10 @@ public class ProductVariant {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     ProductVariantStatus status;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    Product product;
 
 }

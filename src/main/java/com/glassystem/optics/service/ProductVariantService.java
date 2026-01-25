@@ -5,12 +5,14 @@ import java.util.List;
 
 import com.glassystem.optics.dto.request.ProductVariantRequest;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
+import com.glassystem.optics.entity.Inventory;
 import com.glassystem.optics.entity.Product;
 import com.glassystem.optics.entity.ProductVariant;
 import com.glassystem.optics.enums.ProductVariantStatus;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.ProductVariantMapper;
+import com.glassystem.optics.repository.InventoryRepository;
 import com.glassystem.optics.repository.ProductRepository;
 import com.glassystem.optics.repository.ProductVariantRepository;
 import com.glassystem.optics.specification.ProductVariantSpecifications;
@@ -29,6 +31,7 @@ public class ProductVariantService {
 	ProductVariantRepository productVariantRepository;
 	ProductRepository productRepository;
 	ProductVariantMapper productVariantMapper;
+    InventoryRepository inventoryRepository;
 
 	public ProductVariantResponse create(ProductVariantRequest request) {
 		Product product = productRepository.findById(request.getProductId())
@@ -37,6 +40,14 @@ public class ProductVariantService {
 		ProductVariant variant = productVariantMapper.toEntity(request);
 		variant.setProduct(product);
 		variant = productVariantRepository.save(variant);
+
+        Inventory inventory = Inventory.builder()
+                .productVariant(variant)
+                .quantity(0)
+                .reservedQuantity(0)
+                .build();
+        inventoryRepository.save(inventory);
+
 		return productVariantMapper.toResponse(variant);
 	}
 
