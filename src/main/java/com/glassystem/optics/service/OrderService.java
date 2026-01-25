@@ -72,6 +72,9 @@ public class OrderService {
             item.setQuantity(reqItem.getQuantity());
             item.setUnitPrice(inventory.getProductVariant().getPrice());
 
+            BigDecimal itemTotalPrice = item.getUnitPrice().multiply(BigDecimal.valueOf(reqItem.getQuantity()));
+            item.setTotalPrice(itemTotalPrice);
+
             if(reqItem.getPrescription() != null) {
                 Prescription prescription = prescriptionMapper.toPrescription(reqItem.getPrescription());
                 prescription = prescriptionRepository.save(prescription);

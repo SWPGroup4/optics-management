@@ -20,6 +20,7 @@ public class OrderItemResponse {
     OrderItemType orderItemType;
     Integer quantity;
     BigDecimal unitPrice;
+    BigDecimal totalPrice;
     OrderItemStatus status;
     PrescriptionResponse prescription;
 
