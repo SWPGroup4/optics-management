@@ -1,6 +1,7 @@
 package com.glassystem.optics.service;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
@@ -51,33 +52,7 @@ public class ProductService {
 		productRepository.deleteById(id);
 	}
 
-	public Page<ProductResponse> getProducts(
-			String q,
-			String brand,
-			String category,
-			String frameType,
-			String gender,
-			String shape,
-			String frameMaterial,
-			String hingeType,
-			String nosePadType,
-			BigDecimal minWeightGram,
-			BigDecimal maxWeightGram,
-			ProductStatus status,
-			Pageable pageable) {
-		var spec = ProductSpecifications.build(
-				q,
-				brand,
-				category,
-				frameType,
-				gender,
-				shape,
-				frameMaterial,
-				hingeType,
-				nosePadType,
-				minWeightGram,
-				maxWeightGram,
-				status);
-		return productRepository.findAll(spec, pageable).map(productMapper::toProductResponse);
-	}
+	public List<ProductResponse> getProducts() {
+		return  productRepository.findAll().stream().map(productMapper::toProductResponse).toList();
+    }
 }
