@@ -1,7 +1,6 @@
 package com.glassystem.optics.entity;
 
 import com.glassystem.optics.enums.OrderStatus;
-import com.glassystem.optics.enums.OrderType;
 import com.glassystem.optics.enums.PaymentMethod;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,8 +23,7 @@ public class Orders {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
-    @Enumerated(EnumType.STRING)
-    OrderType orderType;
+
     @Enumerated(EnumType.STRING)
     OrderStatus status;
     BigDecimal totalAmount;
@@ -33,6 +31,7 @@ public class Orders {
     LocalDate createdAt;
 
     String deliveryAddress;
+    String phoneNumber;
     @Enumerated(EnumType.STRING)
     PaymentMethod paymentMethod;
 

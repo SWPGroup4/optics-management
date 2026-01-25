@@ -1,6 +1,5 @@
 package com.glassystem.optics.dto.request;
 
-import com.glassystem.optics.enums.OrderItemType;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -9,9 +8,7 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class OrderItemCreationRequest {
-    String productVariantId;
-    OrderItemType orderItemType;
-    Integer quantity;
+public class OrderItemUpdateRequest {
+    String orderItemId;
     PrescriptionRequest prescription;
 }

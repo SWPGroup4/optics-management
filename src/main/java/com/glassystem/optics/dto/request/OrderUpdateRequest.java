@@ -11,10 +11,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class OrderCreationRequest {
-
+public class OrderUpdateRequest {
     String deliveryAddress;
-    String phoneNumber;
     PaymentMethod paymentMethod;
-    List<OrderItemCreationRequest> items;
+    List<OrderItemUpdateRequest> items;
 }

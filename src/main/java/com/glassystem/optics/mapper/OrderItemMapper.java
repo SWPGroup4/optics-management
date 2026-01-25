@@ -16,6 +16,7 @@ import java.util.List;
 public interface OrderItemMapper {
 
     @Mapping(target = "inventory", ignore = true)
+    @Mapping(target = "status", ignore = true)
     OrderItem toOrderItem(OrderItemCreationRequest orderItemCreationRequest);
 
     //@Mapping(target = "productVariantId", source = "productVariant.id")
