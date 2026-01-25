@@ -1,5 +1,4 @@
-package com.glassystem.optics.controller;
-
+package com.glassystem.optics.controller.access;
 
 import java.util.List;
 
@@ -7,9 +6,12 @@ import com.glassystem.optics.dto.request.RoleRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.RoleResponse;
 import com.glassystem.optics.service.RoleService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -21,27 +23,33 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/roles")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Tag(name = "Access Control - Role Management")
+@PreAuthorize("hasRole('ADMIN')")
 public class RoleController {
     RoleService roleService;
 
     @PostMapping
-    ApiResponse<RoleResponse> create(@RequestBody RoleRequest roleRequest) {
+    @Operation(summary = "Create a new role with permissions")
+    ApiResponse<RoleResponse> create(@RequestBody @Valid RoleRequest roleRequest) {
         return ApiResponse.<RoleResponse>builder()
                 .result(roleService.create(roleRequest))
                 .build();
     }
 
     @GetMapping
+    @Operation(summary = "Get all roles in the system")
     ApiResponse<List<RoleResponse>> getAll() {
         return ApiResponse.<List<RoleResponse>>builder()
                 .result(roleService.getAll())
                 .build();
     }
 
-    @DeleteMapping("/{role}")
-    ApiResponse<Void> delete(@PathVariable String role) {
-        roleService.delete(role);
+    @DeleteMapping("/{roleName}")
+    @Operation(summary = "Delete a role by name")
+    ApiResponse<Void> delete(@PathVariable("roleName") String roleName) {
+        roleService.delete(roleName);
         return ApiResponse.<Void>builder()
+                .message("Role deleted successfully")
                 .build();
     }
 }

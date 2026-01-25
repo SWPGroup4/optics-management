@@ -19,6 +19,7 @@ public interface OrderItemMapper {
     @Mapping(target = "unitPrice", ignore = true)
     @Mapping(target = "order", ignore = true)
     @Mapping(target = "inventory", ignore = true)
+    @Mapping(target = "status", ignore = true)
     OrderItem toOrderItem(OrderItemCreationRequest orderItemCreationRequest);
 
     @Mapping(target = "productVariantId", source = "inventory.productVariant.id")

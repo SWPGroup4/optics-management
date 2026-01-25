@@ -12,4 +12,14 @@ import lombok.experimental.FieldDefaults;
 public class AuthenticationResponse {
     String token;
     boolean authenticated;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class PermissionResponse {
+        String name;
+        String description;
+    }
 }
