@@ -1,6 +1,7 @@
 package com.glassystem.optics.service;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import com.glassystem.optics.dto.request.ProductVariantRequest;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
@@ -13,6 +14,7 @@ import com.glassystem.optics.mapper.ProductVariantMapper;
 import com.glassystem.optics.repository.ProductRepository;
 import com.glassystem.optics.repository.ProductVariantRepository;
 import com.glassystem.optics.specification.ProductVariantSpecifications;
+import jdk.dynalink.linker.LinkerServices;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -64,32 +66,9 @@ public class ProductVariantService {
 		productVariantRepository.deleteById(id);
 	}
 
-	public Page<ProductVariantResponse> getVariants(
-			String q,
-			String productId,
-			String colorName,
-			String frameFinish,
-			String sizeLabel,
-			Integer lensWidthMm,
-			Integer bridgeWidthMm,
-			Integer templeLengthMm,
-			BigDecimal minPrice,
-			BigDecimal maxPrice,
-			ProductVariantStatus status,
-			Pageable pageable) {
-		var spec = ProductVariantSpecifications.build(
-				q,
-				productId,
-				colorName,
-				frameFinish,
-				sizeLabel,
-				lensWidthMm,
-				bridgeWidthMm,
-				templeLengthMm,
-				minPrice,
-				maxPrice,
-				status);
 
-		return productVariantRepository.findAll(spec, pageable).map(productVariantMapper::toResponse);
-	}
+
+    public List<ProductVariantResponse> getVariants() {
+        return productVariantRepository.findAll().stream().map(productVariantMapper::toResponse).toList();
+    }
 }
