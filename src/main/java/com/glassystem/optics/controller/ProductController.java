@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,7 +43,7 @@ public class ProductController {
 		return ApiResponse.<ProductResponse>builder().result(productService.update(id, request)).build();
 	}
 
-    @PostMapping("/{productId}/images")
+    @PostMapping(value = "/{productId}/images", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<ProductResponse> uploadImages(
             @PathVariable String productId,
             @RequestParam("files") List<MultipartFile> files) throws IOException {
