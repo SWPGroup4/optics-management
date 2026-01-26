@@ -3,6 +3,7 @@ package com.glassystem.optics.controller;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.glassystem.optics.dto.request.InventoryUpdateRequest;
 import com.glassystem.optics.dto.request.ProductVariantRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.ProductVariantPageResponse;
@@ -38,6 +39,13 @@ public class ProductVariantController {
 	ApiResponse<ProductVariantResponse> update(@PathVariable String id, @RequestBody @Valid ProductVariantRequest request) {
 		return ApiResponse.<ProductVariantResponse>builder().result(productVariantService.update(id, request)).build();
 	}
+
+    @PutMapping("/quantity")
+    public ApiResponse<ProductVariantResponse> updateQuantity(@RequestBody @Valid InventoryUpdateRequest request) {
+        return ApiResponse.<ProductVariantResponse>builder()
+                .result(productVariantService.updateQuantity(request))
+                .build();
+    }
 
 	@DeleteMapping("/{id}")
 	ApiResponse<Void> delete(@PathVariable String id) {

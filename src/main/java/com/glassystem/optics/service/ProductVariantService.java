@@ -76,7 +76,6 @@ public class ProductVariantService {
         if(newQuantity < 0){
             throw new AppException(ErrorCode.OUT_OF_STOCK);
         }
-
         inventory.setQuantity(newQuantity);
         inventoryRepository.save(inventory);
         return productVariantMapper.toResponse(inventory.getProductVariant());
