@@ -1,5 +1,6 @@
 package com.glassystem.optics.controller;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -17,6 +18,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/products")
@@ -39,6 +41,25 @@ public class ProductController {
 	ApiResponse<ProductResponse> update(@PathVariable String id, @RequestBody @Valid ProductUpsertRequest request) {
 		return ApiResponse.<ProductResponse>builder().result(productService.update(id, request)).build();
 	}
+
+    @PostMapping("/{productId}/images")
+    public ApiResponse<ProductResponse> uploadImages(
+            @PathVariable String productId,
+            @RequestParam("files") List<MultipartFile> files) throws IOException {
+
+        return ApiResponse.<ProductResponse>builder()
+                .result(productService.uploadProductImages(productId, files))
+                .message("Uploaded successfully")
+                .build();
+    }
+
+    @DeleteMapping("/images/{imageId}")
+    public ApiResponse<Void> deleteImage(@PathVariable String imageId) {
+        productService.deleteProductImage(imageId);
+        return ApiResponse.<Void>builder()
+                .message("Deleted image successfully")
+                .build();
+    }
 
 	@DeleteMapping("/{id}")
 	ApiResponse<Void> delete(@PathVariable String id) {
