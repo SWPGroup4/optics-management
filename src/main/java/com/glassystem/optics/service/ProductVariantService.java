@@ -44,7 +44,15 @@ public class ProductVariantService {
         if(existingVariant.isPresent()) {
             ProductVariant productVariant = existingVariant.get();
             Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+                    .orElseGet(()-> inventoryRepository.save(
+                            Inventory.builder()
+                                    .productVariant(productVariant)
+                                    .quantity(0)
+                                    .reservedQuantity(0)
+                                    .build()
+                    ));
+            inventory.setQuantity(inventory.getQuantity() + request.getQuantity());
+            inventoryRepository.save(inventory);
 
             return productVariantMapper.toResponse(productVariant);
         }
@@ -58,7 +66,7 @@ public class ProductVariantService {
 
         Inventory inventory = Inventory.builder()
                 .productVariant(variant)
-                .quantity(0)
+                .quantity(request.getQuantity())
                 .reservedQuantity(0)
                 .build();
         inventoryRepository.save(inventory);
@@ -100,12 +108,30 @@ public class ProductVariantService {
 		return productVariantMapper.toResponse(variant);
 	}
 
-	public void delete(String id) {
-		if (!productVariantRepository.existsById(id)) {
-			throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND);
-		}
-		productVariantRepository.deleteById(id);
-	}
+
+    public void delete(String id) {
+
+        ProductVariant productVariant = productVariantRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+
+        Inventory inventory = inventoryRepository
+                .findByProductVariantId(id)
+                .orElse(null);
+
+        if (inventory == null) {
+            productVariantRepository.delete(productVariant);
+            return;
+        }
+
+        if (inventory.getQuantity() == 0) {
+            inventoryRepository.delete(inventory);
+            productVariantRepository.delete(productVariant);
+            return;
+        }
+
+        productVariant.setStatus(ProductVariantStatus.INACTIVE);
+        productVariantRepository.save(productVariant);
+    }
 
 
 

@@ -43,6 +43,7 @@ public class ProductVariant {
     @Column(precision = 12, scale = 2)
     BigDecimal price;
 
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     ProductVariantStatus status;
