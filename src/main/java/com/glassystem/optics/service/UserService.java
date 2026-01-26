@@ -79,9 +79,9 @@ public class UserService {
 
     public UserResponse getMyInfo() {
         var context = SecurityContextHolder.getContext();
-        String name = context.getAuthentication().getName();
+        String userId = context.getAuthentication().getName();
 
-        User user = userRepository.findByUsername(name).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        User user = userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         return userMapper.toUserResponse(user);
     }
@@ -125,7 +125,7 @@ public class UserService {
         userRepository.save(user);
 
         if (avatarFile != null && !avatarFile.isEmpty()) {
-            fileStorageService.deleteFileByUrl(oldAvatarUrl);
+            fileStorageService.deleteFileByKey(oldAvatarUrl);
         }
 
         return userMapper.toUserResponse(user);
@@ -135,9 +135,7 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
         userMapper.updateUserByAdmin(user, request);
-        if (request.getPassword() != null) {
-            user.setPassword(passwordEncoder.encode(request.getPassword()));
-        }
+
 
         if (request.getRoles() != null) {
             var roles = roleRepository.findAllById(request.getRoles());

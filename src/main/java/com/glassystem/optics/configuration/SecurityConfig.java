@@ -26,7 +26,9 @@ import org.springframework.web.filter.CorsFilter;
 public class SecurityConfig {
 
     public final String[] PUBLIC_ENDPOINTS = {
-            "/users/registration", "/auth/login", "/auth/check-token", "/auth/logout", "/auth/refresh-token"
+            "/users/registration", "/auth/login", "/auth/check-token", "/auth/logout", "/auth/refresh-token",
+
+
     };
 
     private final String[] SWAGGER_ENDPOINTS = {
@@ -39,7 +41,19 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity.authorizeHttpRequests(requests -> requests.requestMatchers(SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
+                .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
+                .requestMatchers(HttpMethod.POST, "/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/products/**").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/products/**").permitAll()
+
+                .requestMatchers(HttpMethod.POST, "/product-variants/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/product-variants/**").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/product-variants/**").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/product-variants/**").permitAll()
+
                 .anyRequest()
+
                 .authenticated());
 
         httpSecurity.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwtConfigurer -> jwtConfigurer
@@ -77,6 +91,8 @@ public class SecurityConfig {
 
         JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
         jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(jwtGrantedAuthoritiesConverter);
+
+        jwtAuthenticationConverter.setPrincipalClaimName("userId");
         return jwtAuthenticationConverter;
     }
 

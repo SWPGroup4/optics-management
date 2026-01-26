@@ -2,6 +2,7 @@ package com.glassystem.optics.entity;
 
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 import com.glassystem.optics.enums.UserStatus;
@@ -25,6 +26,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
+
     String username;
     String password;
     String firstName;
@@ -46,4 +48,7 @@ public class User {
                             inverseJoinColumns = @JoinColumn(name = "role_name")
             )
     Set<Role> roles;
+
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
+     List<Orders> orders;
 }
