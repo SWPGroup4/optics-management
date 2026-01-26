@@ -1,6 +1,7 @@
 package com.glassystem.optics.dto.response;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import com.glassystem.optics.enums.ProductCategory;
 import com.glassystem.optics.enums.ProductStatus;
@@ -29,4 +30,5 @@ public class ProductResponse {
 	String nosePadType;
 	BigDecimal weightGram;
 	ProductStatus status;
+    List<String> imageUrl;
 }
