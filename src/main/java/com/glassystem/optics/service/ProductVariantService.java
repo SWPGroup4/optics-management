@@ -2,7 +2,9 @@ package com.glassystem.optics.service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
+import com.glassystem.optics.dto.request.InventoryUpdateRequest;
 import com.glassystem.optics.dto.request.ProductVariantRequest;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.entity.Inventory;
@@ -34,10 +36,23 @@ public class ProductVariantService {
     InventoryRepository inventoryRepository;
 
 	public ProductVariantResponse create(ProductVariantRequest request) {
+
+        Optional<ProductVariant> existingVariant = productVariantRepository
+                .findByProductIdAndColorNameAndSizeLabel
+                        (request.getProductId(),request.getColorName(),request.getSizeLabel());
+
+        if(existingVariant.isPresent()) {
+            ProductVariant productVariant = existingVariant.get();
+            Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+
+            return productVariantMapper.toResponse(productVariant);
+        }
+
 		Product product = productRepository.findById(request.getProductId())
 				.orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-		ProductVariant variant = productVariantMapper.toEntity(request);
+		ProductVariant variant = productVariantMapper.toProductVariant(request);
 		variant.setProduct(product);
 		variant = productVariantRepository.save(variant);
 
@@ -50,6 +65,22 @@ public class ProductVariantService {
 
 		return productVariantMapper.toResponse(variant);
 	}
+
+    public ProductVariantResponse updateQuantity (InventoryUpdateRequest request){
+        Inventory inventory = inventoryRepository.findByProductVariantId(request.getProductVariantId())
+                .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
+
+        int newQuantity = inventory.getQuantity() + request.getChangeAmount();
+        inventory.setQuantity(newQuantity);
+
+        if(newQuantity < 0){
+            throw new AppException(ErrorCode.OUT_OF_STOCK);
+        }
+
+        inventory.setQuantity(newQuantity);
+        inventoryRepository.save(inventory);
+        return productVariantMapper.toResponse(inventory.getProductVariant());
+    }
 
 	public ProductVariantResponse getById(String id) {
 		ProductVariant variant = productVariantRepository.findById(id)

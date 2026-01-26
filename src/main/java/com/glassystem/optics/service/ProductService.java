@@ -12,7 +12,7 @@ import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.ProductMapper;
 import com.glassystem.optics.repository.ProductRepository;
-import com.glassystem.optics.specification.ProductSpecifications;
+
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -28,6 +28,10 @@ public class ProductService {
 	ProductMapper productMapper;
 
 	public ProductResponse create(ProductCreateRequest request) {
+
+        productRepository.findByNameAndBrand(request.getName(),request.getBrand()).ifPresent(product
+                -> {throw new AppException(ErrorCode.PRODUCT_ALREADY_EXISTED);});
+
 		Product product = productMapper.toProduct(request);
 		product = productRepository.save(product);
 		return productMapper.toProductResponse(product);

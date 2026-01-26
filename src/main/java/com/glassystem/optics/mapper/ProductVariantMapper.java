@@ -11,7 +11,7 @@ import org.mapstruct.MappingTarget;
 public interface ProductVariantMapper {
 	@Mapping(target = "id", ignore = true)
 	@Mapping(target = "product", ignore = true)
-	ProductVariant toEntity(ProductVariantRequest request);
+	ProductVariant toProductVariant(ProductVariantRequest request);
 
 	@Mapping(target = "productId", source = "product.id")
 	ProductVariantResponse toResponse(ProductVariant variant);
