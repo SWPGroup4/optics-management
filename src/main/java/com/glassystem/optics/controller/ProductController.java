@@ -7,6 +7,7 @@ import java.util.List;
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.dto.response.ProductImageResponse;
 import com.glassystem.optics.dto.response.ProductPageResponse;
 import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.enums.ProductStatus;
@@ -44,11 +45,11 @@ public class ProductController {
 	}
 
     @PostMapping(value = "/{productId}/images", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<ProductResponse> uploadImages(
+    public ApiResponse<List<ProductImageResponse>> uploadImages(
             @PathVariable String productId,
             @RequestParam("files") List<MultipartFile> files) throws IOException {
 
-        return ApiResponse.<ProductResponse>builder()
+        return ApiResponse.<List<ProductImageResponse>>builder()
                 .result(productService.uploadProductImages(productId, files))
                 .message("Uploaded successfully")
                 .build();

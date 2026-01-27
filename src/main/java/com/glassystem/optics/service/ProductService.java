@@ -2,10 +2,12 @@ package com.glassystem.optics.service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
+import com.glassystem.optics.dto.response.ProductImageResponse;
 import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.entity.Product;
 import com.glassystem.optics.entity.ProductImage;
@@ -23,6 +25,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.services.s3.endpoints.internal.Value;
 
@@ -70,7 +73,10 @@ public class ProductService {
 		return  productRepository.findAll().stream().map(productMapper::toProductResponse).toList();
     }
 
-    public  ProductResponse uploadProductImages(String productId, List<MultipartFile>  files) throws IOException {
+    @Transactional
+    public List<ProductImageResponse> uploadProductImages(String productId,
+            List<MultipartFile> files
+    ) throws IOException {
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
@@ -80,18 +86,28 @@ public class ProductService {
             throw new AppException(ErrorCode.IMAGE_LIMIT_EXCEEDED);
         }
 
+        List<ProductImageResponse> responses = new ArrayList<>();
+
         for (MultipartFile file : files) {
             String url = fileStorageService.uploadFile(file, S3ImageName.PRODUCT);
 
-            ProductImage  productImage = ProductImage.builder()
+            ProductImage productImage = ProductImage.builder()
                     .imageUrl(url)
                     .product(product)
                     .build();
-            productImageRepository.save(productImage);
-        }
-        return productMapper.toProductResponse(product);
-    }
 
+            productImage = productImageRepository.save(productImage);
+
+            responses.add(
+                    ProductImageResponse.builder()
+                            .id(productImage.getId())
+                            .imageUrl(productImage.getImageUrl())
+                            .build()
+            );
+        }
+
+        return responses;
+    }
     public  void deleteProductImage(String imageId) {
         ProductImage productImage = productImageRepository.findById(imageId)
                 .orElseThrow(()-> new AppException(ErrorCode.IMAGE_NOT_FOUND));
