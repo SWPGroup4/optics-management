@@ -44,6 +44,7 @@ public class ProductController {
 		return ApiResponse.<ProductResponse>builder().result(productService.update(id, request)).build();
 	}
 
+
     @PostMapping(value = "/{productId}/images", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<List<ProductImageResponse>> uploadImages(
             @PathVariable String productId,
@@ -63,16 +64,4 @@ public class ProductController {
                 .build();
     }
 
-	@DeleteMapping("/{id}")
-	ApiResponse<Void> delete(@PathVariable String id) {
-		productService.delete(id);
-		return ApiResponse.<Void>builder().build();
-	}
-
-	@GetMapping
-    ApiResponse<List<ProductResponse>> getProducts(){
-        return ApiResponse.<List<ProductResponse>>builder()
-                .result(productService.getProducts())
-                .build();
-    }
 }
