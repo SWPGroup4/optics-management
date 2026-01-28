@@ -53,6 +53,8 @@ public enum ErrorCode {
     PRESCRIPTION_REQUIRED(1020, "Prescription information is required for this item type!", HttpStatus.BAD_REQUEST),
 
     ORDER_ALREADY_PROCESSED(1021, "Order already processed!", HttpStatus.BAD_REQUEST),
+
+    INVALID_COD_PAYMENT(1022, "COD payment is only allowed when the order status is SHIPPED.", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

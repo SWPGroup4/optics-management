@@ -1,19 +1,14 @@
 package com.glassystem.optics.controller.payment;
 
-
-
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.enums.PaymentMethod;
 import com.glassystem.optics.service.PaymentService;
-import com.glassystem.optics.service.VNPayService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -28,9 +23,10 @@ public class PaymentController {
 
     @PostMapping("/checkout")
     public ApiResponse<String> checkout(@RequestParam String orderId,
-                                        @RequestParam PaymentMethod paymentMethod,
-                                        HttpServletRequest request){
-        String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + "/optics";
+            @RequestParam PaymentMethod paymentMethod,
+            HttpServletRequest request) {
+        String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort()
+                + "/optics";
         PaymentMethod method = PaymentMethod.valueOf(paymentMethod.name());
 
         String paymentUrl = paymentService.initiatePayment(orderId, method, baseUrl);
@@ -39,7 +35,6 @@ public class PaymentController {
                 .result(paymentUrl)
                 .build();
     }
-
 
     @GetMapping("/vnpay-callback")
     public void vnpayCallback(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -53,7 +48,5 @@ public class PaymentController {
             response.sendRedirect("http://localhost:3000/payment/failed");
         }
     }
-
-
 
 }
