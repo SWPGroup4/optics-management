@@ -39,6 +39,8 @@ public class ProductVariantRequest {
 	@PositiveOrZero(message = "PRODUCT_VARIANT_PRICE_INVALID")
 	BigDecimal price;
 
+    Integer quantity;
+
 	@NotNull(message = "PRODUCT_VARIANT_STATUS_REQUIRED")
 	ProductVariantStatus status;
 }

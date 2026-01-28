@@ -1,15 +1,10 @@
 package com.glassystem.optics.dto.response;
 
-import java.math.BigDecimal;
-
-import com.glassystem.optics.enums.ProductCategory;
 import com.glassystem.optics.enums.ProductStatus;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.math.BigDecimal;
 
 @Data
 @Builder
@@ -20,7 +15,7 @@ public class ProductResponse {
 	String id;
 	String name;
 	String brand;
-	ProductCategory category;
+	String category;
 	String frameType;
 	String gender;
 	String shape;

@@ -40,12 +40,6 @@ public class ProductVariantController {
 		return ApiResponse.<ProductVariantResponse>builder().result(productVariantService.update(id, request)).build();
 	}
 
-    @PutMapping("/quantity")
-    public ApiResponse<ProductVariantResponse> updateQuantity(@RequestBody @Valid InventoryUpdateRequest request) {
-        return ApiResponse.<ProductVariantResponse>builder()
-                .result(productVariantService.updateQuantity(request))
-                .build();
-    }
 
 	@DeleteMapping("/{id}")
 	ApiResponse<Void> delete(@PathVariable String id) {
@@ -53,10 +47,5 @@ public class ProductVariantController {
 		return ApiResponse.<Void>builder().build();
 	}
 
-	@GetMapping
-    ApiResponse<List<ProductVariantResponse>> getVariants() {
-        return ApiResponse.<List<ProductVariantResponse>>builder()
-                .result(productVariantService.getVariants())
-                .build();
-    }
+
 }

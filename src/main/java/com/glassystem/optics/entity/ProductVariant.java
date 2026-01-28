@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 
 
 @Entity
-@Table(name = "productvariant")
+@Table(name = "product_variant")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -42,6 +42,8 @@ public class ProductVariant {
 
     @Column(precision = 12, scale = 2)
     BigDecimal price;
+    @Column(name = "quantity")
+    Integer quantity;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
