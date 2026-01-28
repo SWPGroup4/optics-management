@@ -51,6 +51,8 @@ public enum ErrorCode {
     INVALID_ORDER_ITEM_TYPE(1018, "Invalid order type", HttpStatus.BAD_REQUEST),
     ORDER_ITEM_NOT_FOUND(1019, "Order item not found!", HttpStatus.BAD_REQUEST),
     PRESCRIPTION_REQUIRED(1020, "Prescription information is required for this item type!", HttpStatus.BAD_REQUEST),
+
+    ORDER_ALREADY_PROCESSED(1021, "Order already processed!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

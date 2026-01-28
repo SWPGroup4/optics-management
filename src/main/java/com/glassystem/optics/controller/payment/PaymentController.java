@@ -2,41 +2,58 @@ package com.glassystem.optics.controller.payment;
 
 
 
+import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.enums.PaymentMethod;
+import com.glassystem.optics.service.PaymentService;
 import com.glassystem.optics.service.VNPayService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-@RestController
-public class PaymentController {
-    @Autowired
-    private VNPayService vnPayService;
+import java.io.IOException;
 
-    @PostMapping("/submitOrder")
-    public String submitOrder(@RequestParam("amount") int orderTotal,
-                              @RequestParam("orderInfo") String orderInfo,
-                              HttpServletRequest request) {
-        String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
-        String vnpayUrl = vnPayService.createOrder(orderTotal, orderInfo, baseUrl); //
-        return "redirect:" + vnpayUrl;
+@RestController
+@RequestMapping("/payment")
+@RequiredArgsConstructor
+@Tag(name = "Payment Controller")
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+public class PaymentController {
+    final PaymentService paymentService;
+
+    @PostMapping("/checkout")
+    public ApiResponse<String> checkout(@RequestParam String orderId,
+                                        @RequestParam PaymentMethod paymentMethod,
+                                        HttpServletRequest request){
+        String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + "/optics";
+        PaymentMethod method = PaymentMethod.valueOf(paymentMethod.name());
+
+        String paymentUrl = paymentService.initiatePayment(orderId, method, baseUrl);
+
+        return ApiResponse.<String>builder()
+                .result(paymentUrl)
+                .build();
     }
 
-    @GetMapping("/vnpay-payment")
-    @ResponseBody // Trả về text trực tiếp lên màn hình browser/swagger
-    public String paymentCallback(HttpServletRequest request) {
-        int paymentStatus = vnPayService.orderReturn(request);
 
-        String orderInfo = request.getParameter("vnp_OrderInfo");
-        String paymentTime = request.getParameter("vnp_PayDate");
-        String transactionId = request.getParameter("vnp_TransactionNo");
+    @GetMapping("/vnpay-callback")
+    public void vnpayCallback(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String status = paymentService.processVnPayCallback(request);
 
-        if (paymentStatus == 1) {
-            return "THANH TOAN THANH CONG | Ma GD: " + transactionId + " | Noi dung: " + orderInfo;
-        } else if (paymentStatus == 0) {
-            return "THANH TOAN THAT BAI";
+        if ("SUCCESS".equals(status)) {
+            // Redirect về trang Frontend báo thành công
+            response.sendRedirect("http://localhost:3000/payment/success");
         } else {
-            return "LOI XAC THUC CHU KY (Check HashSecret)";
+            // Redirect về trang Frontend báo lỗi
+            response.sendRedirect("http://localhost:3000/payment/failed");
         }
     }
+
+
+
 }
