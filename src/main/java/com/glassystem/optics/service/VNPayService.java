@@ -29,15 +29,14 @@ public class VNPayService {
         vnp_Params.put("vnp_Amount", String.valueOf(amount));
         vnp_Params.put("vnp_CurrCode", "VND");
         vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
-        vnp_Params.put("vnp_OrderInfo", "Thanh toan don dang " + payment.getOrder().getId());
+        vnp_Params.put("vnp_OrderInfo", "Thanh toan don dang "+ payment.getOrder().getId());
         vnp_Params.put("vnp_OrderType", "other");
         vnp_Params.put("vnp_Locale", "vn");
         vnp_Params.put("vnp_ReturnUrl", returnUrlBase + VNPayConfig.vnp_Returnurl);
         vnp_Params.put("vnp_IpAddr", "127.0.0.1");
 
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        formatter.setTimeZone(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         vnp_Params.put("vnp_CreateDate", formatter.format(cld.getTime()));
 
         cld.add(Calendar.MINUTE, 15);
@@ -52,12 +51,12 @@ public class VNPayService {
             String fieldName = (String) itr.next();
             String fieldValue = (String) vnp_Params.get(fieldName);
             if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                // Cả hashData và query đều cần URL encode theo chuẩn VNPay
+                hashData.append(fieldName);
+                hashData.append('=');
                 try {
-                    String encodedValue = URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString());
-                    hashData.append(fieldName).append('=').append(encodedValue);
-                    query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString())).append('=')
-                            .append(encodedValue);
+
+                    hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
+                    query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString())).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
                 } catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
                 }

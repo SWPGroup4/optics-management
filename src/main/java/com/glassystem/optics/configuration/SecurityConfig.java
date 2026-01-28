@@ -51,8 +51,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/product-variants/**").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/product-variants/**").permitAll()
 
-                .requestMatchers(HttpMethod.GET, "/payment/vnpay-callback").permitAll()
-
                 .anyRequest()
 
                 .authenticated());
@@ -68,6 +66,8 @@ public class SecurityConfig {
         httpSecurity.csrf(AbstractHttpConfigurer::disable);
         return httpSecurity.build();
     }
+
+
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

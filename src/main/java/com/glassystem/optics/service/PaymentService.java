@@ -44,7 +44,7 @@ public class PaymentService {
 
         if(PaymentMethod.COD.equals(paymentMethod)){
             if(!order.getStatus().equals(OrderStatus.SHIPPED)){
-                throw new AppException(ErrorCode.INVALID_COD_PAYMENT);
+                throw new RuntimeException("Phương thức COD chỉ được phép thanh toán khi đơn hàng đã ở trạng thái SHIPPED.");
             }
         }
 
