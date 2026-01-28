@@ -23,6 +23,8 @@ public class ProductSpecifications {
 			String nosePadType,
 			BigDecimal minWeightGram,
 			BigDecimal maxWeightGram,
+			BigDecimal minPrice,
+			BigDecimal maxPrice,
 			ProductStatus status) {
 		return (root, query, cb) -> {
 			Predicate predicate = cb.conjunction();
@@ -31,7 +33,7 @@ public class ProductSpecifications {
 				String like = "%" + q.trim().toLowerCase() + "%";
 				Predicate name = cb.like(cb.lower(root.get("name")), like);
 				Predicate brandLike = cb.like(cb.lower(root.get("brand")), like);
-				Predicate categoryLike = cb.like(cb.lower(root.get("category")), like);
+				Predicate categoryLike = cb.like(cb.lower(root.get("category").as(String.class)), like);
 				Predicate frameTypeLike = cb.like(cb.lower(root.get("frameType")), like);
 				Predicate genderLike = cb.like(cb.lower(root.get("gender")), like);
 				Predicate shapeLike = cb.like(cb.lower(root.get("shape")), like);
@@ -50,7 +52,7 @@ public class ProductSpecifications {
 
 			if (category != null && !category.isBlank()) {
 				String like = "%" + category.trim().toLowerCase() + "%";
-				predicate = cb.and(predicate, cb.like(cb.lower(root.get("category")), like));
+				predicate = cb.and(predicate, cb.like(cb.lower(root.get("category").as(String.class)), like));
 			}
 
 			if (frameType != null && !frameType.isBlank()) {
@@ -89,6 +91,14 @@ public class ProductSpecifications {
 
 			if (maxWeightGram != null) {
 				predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("weightGram"), maxWeightGram));
+			}
+
+			if (minPrice != null) {
+				predicate = cb.and(predicate, cb.greaterThanOrEqualTo(root.get("price"), minPrice));
+			}
+
+			if (maxPrice != null) {
+				predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("price"), maxPrice));
 			}
 
 			if (status != null) {
