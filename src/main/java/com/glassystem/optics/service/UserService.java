@@ -45,6 +45,7 @@ public class UserService {
     PasswordEncoder passwordEncoder;
     FileStorageService fileStorageService;
 
+
     public UserResponse createUser(UserCreationRequest request, MultipartFile avatarFile) {
         log.info("User creation request");
 
