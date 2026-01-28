@@ -1,30 +1,23 @@
 package com.glassystem.optics.service;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.util.List;
-
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
 import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.entity.Product;
-import com.glassystem.optics.entity.ProductImage;
 import com.glassystem.optics.enums.ProductStatus;
-import com.glassystem.optics.enums.S3ImageName;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.ProductMapper;
-import com.glassystem.optics.repository.ProductImageRepository;
 import com.glassystem.optics.repository.ProductRepository;
-
+import com.glassystem.optics.specification.ProductSpecifications;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.services.s3.endpoints.internal.Value;
+
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -32,17 +25,9 @@ import software.amazon.awssdk.services.s3.endpoints.internal.Value;
 public class ProductService {
 	ProductRepository productRepository;
 	ProductMapper productMapper;
-    FileStorageService fileStorageService;
-    ProductImageRepository  productImageRepository;
 
 	public ProductResponse create(ProductCreateRequest request) {
-
-        productRepository.findByNameAndBrand(request.getName(),request.getBrand()).ifPresent(product
-                -> {throw new AppException(ErrorCode.PRODUCT_ALREADY_EXISTED);});
-
 		Product product = productMapper.toProduct(request);
-
-
 		product = productRepository.save(product);
 		return productMapper.toProductResponse(product);
 	}
@@ -66,37 +51,33 @@ public class ProductService {
 		productRepository.deleteById(id);
 	}
 
-	public List<ProductResponse> getProducts() {
-		return  productRepository.findAll().stream().map(productMapper::toProductResponse).toList();
-    }
-
-    public  ProductResponse uploadProductImages(String productId, List<MultipartFile>  files) throws IOException {
-
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-
-        int currentImageCount = product.getImageUrl().size();
-        if (currentImageCount + files.size() > 5) {
-            throw new AppException(ErrorCode.IMAGE_LIMIT_EXCEEDED);
-        }
-
-        for (MultipartFile file : files) {
-            String url = fileStorageService.uploadFile(file, S3ImageName.PRODUCT);
-
-            ProductImage  productImage = ProductImage.builder()
-                    .imageUrl(url)
-                    .product(product)
-                    .build();
-            productImageRepository.save(productImage);
-        }
-        return productMapper.toProductResponse(product);
-    }
-
-    public  void deleteProductImage(String imageId) {
-        ProductImage productImage = productImageRepository.findById(imageId)
-                .orElseThrow(()-> new AppException(ErrorCode.IMAGE_NOT_FOUND));
-
-        fileStorageService.deleteFileByKey(productImage.getImageUrl());
-        productImageRepository.delete(productImage);
-    }
+	public Page<ProductResponse> getProducts(
+			String q,
+			String brand,
+			String category,
+			String frameType,
+			String gender,
+			String shape,
+			String frameMaterial,
+			String hingeType,
+			String nosePadType,
+			BigDecimal minWeightGram,
+			BigDecimal maxWeightGram,
+			ProductStatus status,
+			Pageable pageable) {
+		var spec = ProductSpecifications.build(
+				q,
+				brand,
+				category,
+				frameType,
+				gender,
+				shape,
+				frameMaterial,
+				hingeType,
+				nosePadType,
+				minWeightGram,
+				maxWeightGram,
+				status);
+		return productRepository.findAll(spec, pageable).map(productMapper::toProductResponse);
+	}
 }

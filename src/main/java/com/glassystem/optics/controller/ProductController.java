@@ -43,24 +43,6 @@ public class ProductController {
 		return ApiResponse.<ProductResponse>builder().result(productService.update(id, request)).build();
 	}
 
-    @PostMapping(value = "/{productId}/images", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<ProductResponse> uploadImages(
-            @PathVariable String productId,
-            @RequestParam("files") List<MultipartFile> files) throws IOException {
-
-        return ApiResponse.<ProductResponse>builder()
-                .result(productService.uploadProductImages(productId, files))
-                .message("Uploaded successfully")
-                .build();
-    }
-
-    @DeleteMapping("/images/{imageId}")
-    public ApiResponse<Void> deleteImage(@PathVariable String imageId) {
-        productService.deleteProductImage(imageId);
-        return ApiResponse.<Void>builder()
-                .message("Deleted image successfully")
-                .build();
-    }
 
 	@DeleteMapping("/{id}")
 	ApiResponse<Void> delete(@PathVariable String id) {
@@ -68,10 +50,50 @@ public class ProductController {
 		return ApiResponse.<Void>builder().build();
 	}
 
+
 	@GetMapping
-    ApiResponse<List<ProductResponse>> getProducts(){
-        return ApiResponse.<List<ProductResponse>>builder()
-                .result(productService.getProducts())
-                .build();
-    }
+	ApiResponse<ProductPageResponse> getProducts(
+			@RequestParam(required = false) String q,
+			@RequestParam(required = false) String brand,
+			@RequestParam(required = false) String category,
+			@RequestParam(required = false) String frameType,
+			@RequestParam(required = false) String gender,
+			@RequestParam(required = false) String shape,
+			@RequestParam(required = false) String frameMaterial,
+			@RequestParam(required = false) String hingeType,
+			@RequestParam(required = false) String nosePadType,
+			@RequestParam(required = false) BigDecimal minWeightGram,
+			@RequestParam(required = false) BigDecimal maxWeightGram,
+			@RequestParam(required = false) ProductStatus status,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(defaultValue = "id") String sortBy,
+			@RequestParam(defaultValue = "desc") String sortDir) {
+		Sort.Direction direction = Sort.Direction.fromString(sortDir);
+		var pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+		var resultPage = productService.getProducts(
+				q,
+				brand,
+				category,
+				frameType,
+				gender,
+				shape,
+				frameMaterial,
+				hingeType,
+				nosePadType,
+				minWeightGram,
+				maxWeightGram,
+				status,
+				pageable);
+
+		ProductPageResponse response = ProductPageResponse.builder()
+				.items(resultPage.getContent())
+				.page(resultPage.getNumber())
+				.size(resultPage.getSize())
+				.totalElements(resultPage.getTotalElements())
+				.totalPages(resultPage.getTotalPages())
+				.build();
+
+		return ApiResponse.<ProductPageResponse>builder().result(response).build();
+	}
 }
