@@ -23,6 +23,7 @@ public class OrderItem {
     String id;
     Integer quantity;
     BigDecimal unitPrice;
+    BigDecimal totalPrice;
 
     @Enumerated(EnumType.STRING)
     OrderItemType orderItemType;

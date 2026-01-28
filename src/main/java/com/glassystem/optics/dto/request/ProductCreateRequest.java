@@ -1,8 +1,11 @@
 package com.glassystem.optics.dto.request;
 
 import java.math.BigDecimal;
+import java.util.List;
 
+import com.glassystem.optics.enums.ProductCategory;
 import com.glassystem.optics.enums.ProductStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -23,7 +26,7 @@ public class ProductCreateRequest {
 	String name;
 
 	String brand;
-	String category;
+	ProductCategory category;
 	String frameType;
 	String gender;
 	String shape;
@@ -36,4 +39,7 @@ public class ProductCreateRequest {
 
 	@NotNull(message = "PRODUCT_STATUS_REQUIRED")
 	ProductStatus status;
+
+    @Schema(hidden = true)
+    List<String> imageUrl;
 }

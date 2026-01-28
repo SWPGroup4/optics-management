@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.glassystem.optics.enums.ProductCategory;
 import com.glassystem.optics.enums.ProductStatus;
 import jakarta.persistence.*;
 
@@ -31,7 +32,8 @@ public class Product {
 
 	String brand;
 
-	String category;
+    @Enumerated(EnumType.STRING)
+	ProductCategory category;
 
 	@Column(name = "frame_type")
 	String frameType;
@@ -59,5 +61,6 @@ public class Product {
 	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
 	@Builder.Default
 	List<ProductVariant> variants = new ArrayList<>();
+
 }
 // product status acctive

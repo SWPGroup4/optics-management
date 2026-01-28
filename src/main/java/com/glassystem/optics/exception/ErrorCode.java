@@ -34,6 +34,9 @@ public enum ErrorCode {
     PRODUCT_VARIANT_LENS_WIDTH_INVALID(2014, "Lens width must be greater than 0!", HttpStatus.BAD_REQUEST),
     PRODUCT_VARIANT_BRIDGE_WIDTH_INVALID(2015, "Bridge width must be greater than 0!", HttpStatus.BAD_REQUEST),
     PRODUCT_VARIANT_TEMPLE_LENGTH_INVALID(2016, "Temple length must be greater than 0!", HttpStatus.BAD_REQUEST),
+    PRODUCT_ALREADY_EXISTED(2017, "Product already existed!", HttpStatus.NOT_FOUND),
+    IMAGE_LIMIT_EXCEEDED(2017, "Max 5 images per product!", HttpStatus.NOT_FOUND),
+    IMAGE_NOT_FOUND(2017, "Image not found!", HttpStatus.NOT_FOUND),
 
     INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
     INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
@@ -46,8 +49,10 @@ public enum ErrorCode {
     INVALID_ORDER_STATUS(1017, "Invalid order status", HttpStatus.BAD_REQUEST),
 
     INVALID_ORDER_ITEM_TYPE(1018, "Invalid order type", HttpStatus.BAD_REQUEST),
-    ORDER_ITEM_NOT_FOUND(1017, "Order item not found!", HttpStatus.BAD_REQUEST),
+    ORDER_ITEM_NOT_FOUND(1019, "Order item not found!", HttpStatus.BAD_REQUEST),
+    PRESCRIPTION_REQUIRED(1020, "Prescription information is required for this item type!", HttpStatus.BAD_REQUEST),
 
+    ORDER_ALREADY_PROCESSED(1021, "Order already processed!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

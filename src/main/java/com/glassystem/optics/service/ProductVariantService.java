@@ -1,7 +1,5 @@
 package com.glassystem.optics.service;
 
-import java.math.BigDecimal;
-
 import com.glassystem.optics.dto.request.ProductVariantRequest;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.entity.Product;
@@ -13,12 +11,15 @@ import com.glassystem.optics.mapper.ProductVariantMapper;
 import com.glassystem.optics.repository.ProductRepository;
 import com.glassystem.optics.repository.ProductVariantRepository;
 import com.glassystem.optics.specification.ProductVariantSpecifications;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +29,7 @@ public class ProductVariantService {
 	ProductRepository productRepository;
 	ProductVariantMapper productVariantMapper;
 
-	public ProductVariantResponse create(ProductVariantRequest request) {
+	public ProductVariantResponse create(@Valid  ProductVariantRequest request) {
 		Product product = productRepository.findById(request.getProductId())
 				.orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -44,7 +45,7 @@ public class ProductVariantService {
 		return productVariantMapper.toResponse(variant);
 	}
 
-	public ProductVariantResponse update(String id, ProductVariantRequest request) {
+	public ProductVariantResponse update(String id, @Valid  ProductVariantRequest request) {
 		ProductVariant variant = productVariantRepository.findById(id)
 				.orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
 

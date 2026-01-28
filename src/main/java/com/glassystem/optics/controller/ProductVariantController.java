@@ -1,7 +1,9 @@
 package com.glassystem.optics.controller;
 
 import java.math.BigDecimal;
+import java.util.List;
 
+import com.glassystem.optics.dto.request.InventoryUpdateRequest;
 import com.glassystem.optics.dto.request.ProductVariantRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.ProductVariantPageResponse;
@@ -38,54 +40,12 @@ public class ProductVariantController {
 		return ApiResponse.<ProductVariantResponse>builder().result(productVariantService.update(id, request)).build();
 	}
 
+
 	@DeleteMapping("/{id}")
 	ApiResponse<Void> delete(@PathVariable String id) {
 		productVariantService.delete(id);
 		return ApiResponse.<Void>builder().build();
 	}
 
-	// search , sort , paging , filter
-	@GetMapping
-	ApiResponse<ProductVariantPageResponse> getVariants(
-			@RequestParam(required = false) String q,
-			@RequestParam(required = false) String productId,
-			@RequestParam(required = false) String colorName,
-			@RequestParam(required = false) String frameFinish,
-			@RequestParam(required = false) String sizeLabel,
-			@RequestParam(required = false) Integer lensWidthMm,
-			@RequestParam(required = false) Integer bridgeWidthMm,
-			@RequestParam(required = false) Integer templeLengthMm,
-			@RequestParam(required = false) BigDecimal minPrice,
-			@RequestParam(required = false) BigDecimal maxPrice,
-			@RequestParam(required = false) ProductVariantStatus status,
-			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size,
-			@RequestParam(defaultValue = "id") String sortBy,
-			@RequestParam(defaultValue = "desc") String sortDir) {
-		Sort.Direction direction = Sort.Direction.fromString(sortDir);
-		var pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-		var resultPage = productVariantService.getVariants(
-				q,
-				productId,
-				colorName,
-				frameFinish,
-				sizeLabel,
-				lensWidthMm,
-				bridgeWidthMm,
-				templeLengthMm,
-				minPrice,
-				maxPrice,
-				status,
-				pageable);
 
-		ProductVariantPageResponse response = ProductVariantPageResponse.builder()
-				.items(resultPage.getContent())
-				.page(resultPage.getNumber())
-				.size(resultPage.getSize())
-				.totalElements(resultPage.getTotalElements())
-				.totalPages(resultPage.getTotalPages())
-				.build();
-
-		return ApiResponse.<ProductVariantPageResponse>builder().result(response).build();
-	}
 }

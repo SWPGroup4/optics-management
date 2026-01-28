@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 
 
 @Entity
-@Table(name = "productvariant")
+@Table(name = "product_variant")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,10 +21,6 @@ public class ProductVariant {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    Product product;
 
     @Column(name = "color_name")
     String colorName;
@@ -46,9 +42,16 @@ public class ProductVariant {
 
     @Column(precision = 12, scale = 2)
     BigDecimal price;
+    @Column(name = "quantity")
+    Integer quantity;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     ProductVariantStatus status;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    Product product;
 
 }
