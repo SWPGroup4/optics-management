@@ -40,5 +40,6 @@ public class ProductCreateRequest {
 	@NotNull(message = "PRODUCT_STATUS_REQUIRED")
 	ProductStatus status;
 
-
+    @Schema(hidden = true)
+    List<String> imageUrl;
 }

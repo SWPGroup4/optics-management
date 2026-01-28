@@ -54,9 +54,6 @@ public class Product {
 	@Column(name = "weight_gram", precision = 6, scale = 2)
 	BigDecimal weightGram;
 
-	@Column(precision = 12, scale = 2)
-	BigDecimal price;
-
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
 	ProductStatus status;
@@ -65,7 +62,5 @@ public class Product {
 	@Builder.Default
 	List<ProductVariant> variants = new ArrayList<>();
 
-	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
-	List<ProductImage> imageUrl;
 }
 // product status acctive
