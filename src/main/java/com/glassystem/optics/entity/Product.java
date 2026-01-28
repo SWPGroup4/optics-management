@@ -62,7 +62,5 @@ public class Product {
 	@Builder.Default
 	List<ProductVariant> variants = new ArrayList<>();
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
-    List<ProductImage> imageUrl;
 }
 // product status acctive
