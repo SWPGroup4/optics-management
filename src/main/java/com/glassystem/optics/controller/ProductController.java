@@ -18,6 +18,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/products")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@PreAuthorize("hasRole('CUSTOMER')  ")
 public class ProductController {
 	ProductService productService;
     ProductVariantService productVariantService;
@@ -63,7 +65,12 @@ public class ProductController {
                 .message("Deleted image successfully")
                 .build();
     }
-
+	@GetMapping
+	ApiResponse<List<ProductResponse>> getProducts(){
+		return ApiResponse.<List<ProductResponse>>builder()
+				.result(productService.getProducts())
+				.build();
+	}
 
 	@GetMapping("/filter")
 	ApiResponse<ProductPageResponse> filterProducts(
