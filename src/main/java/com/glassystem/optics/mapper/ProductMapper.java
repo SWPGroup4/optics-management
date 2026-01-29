@@ -12,6 +12,7 @@ import org.mapstruct.MappingTarget;
 public interface ProductMapper {
 	@Mapping(target = "id", ignore = true)
 	@Mapping(target = "variants", ignore = true)
+    @Mapping(target = "imageUrl", ignore = true)
 	Product toProduct(ProductCreateRequest request);
 
 	@Mapping(target = "id", ignore = true)
