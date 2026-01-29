@@ -1,7 +1,6 @@
 package com.glassystem.optics.service;
 
 import com.glassystem.optics.dto.request.ProductVariantRequest;
-import com.glassystem.optics.dto.response.ProductVariantPageResponse;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.entity.Product;
 import com.glassystem.optics.entity.ProductVariant;
@@ -17,7 +16,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -94,43 +92,5 @@ public class ProductVariantService {
 				status);
 
 		return productVariantRepository.findAll(spec, pageable).map(productVariantMapper::toResponse);
-	}
-
-
-	public ProductVariantPageResponse filterVariants(
-			String q,
-			String productId,
-			String colorName,
-			String frameFinish,
-			String sizeLabel,
-			Integer lensWidthMm,
-			Integer bridgeWidthMm,
-			Integer templeLengthMm,
-			BigDecimal minPrice,
-			BigDecimal maxPrice,
-			ProductVariantStatus status,
-			Pageable pageable) {
-		Page<ProductVariant> page = productVariantRepository.findAll(
-				ProductVariantSpecifications.build(
-						q,
-						productId,
-						colorName,
-						frameFinish,
-						sizeLabel,
-						lensWidthMm,
-						bridgeWidthMm,
-						templeLengthMm,
-						minPrice,
-						maxPrice,
-						status),
-				pageable);
-
-		return ProductVariantPageResponse.builder()
-				.items(page.getContent().stream().map(productVariantMapper::toResponse).toList())
-				.page(page.getNumber())
-				.size(page.getSize())
-				.totalElements(page.getTotalElements())
-				.totalPages(page.getTotalPages())
-				.build();
 	}
 }

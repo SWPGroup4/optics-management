@@ -6,11 +6,12 @@ import java.util.List;
 
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
-import com.glassystem.optics.dto.response.*;
+import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.dto.response.ProductImageResponse;
+import com.glassystem.optics.dto.response.ProductPageResponse;
+import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.enums.ProductStatus;
-import com.glassystem.optics.enums.ProductVariantStatus;
 import com.glassystem.optics.service.ProductService;
-import com.glassystem.optics.service.ProductVariantService;
 import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProductController {
 	ProductService productService;
-	ProductVariantService productVariantService;
+
 	@PostMapping
 	ApiResponse<ProductResponse> create(@RequestBody @Valid ProductCreateRequest request) {
 		return ApiResponse.<ProductResponse>builder().result(productService.create(request)).build();
@@ -146,5 +147,6 @@ public class ProductController {
 						pageable))
 				.build();
 	}
+
 
 }

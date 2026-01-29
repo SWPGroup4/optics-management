@@ -1,5 +1,5 @@
 server:
-  port: 8081 # Đổi root thành port
+  port: 8080
   servlet:
     context-path: /optics
 

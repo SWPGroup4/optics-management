@@ -10,7 +10,6 @@ import java.util.List;
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
 import com.glassystem.optics.dto.response.ProductImageResponse;
-import com.glassystem.optics.dto.response.ProductPageResponse;
 import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.entity.Product;
 import com.glassystem.optics.entity.ProductImage;
@@ -26,9 +25,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -42,43 +39,44 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProductService {
-	ProductRepository productRepository;
-	ProductMapper productMapper;
-	FileStorageService fileStorageService;
-	ProductImageRepository productImageRepository;
-	public ProductResponse create(ProductCreateRequest request) {
-		Product product = productMapper.toProduct(request);
-		product = productRepository.save(product);
-		return productMapper.toProductResponse(product);
-	}
+    ProductRepository productRepository;
+    ProductMapper productMapper;
+    FileStorageService fileStorageService;
+    ProductImageRepository productImageRepository;
 
-	public ProductResponse getById(String id) {
-		Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-		return productMapper.toProductResponse(product);
-	}
+    public ProductResponse create(ProductCreateRequest request) {
+        Product product = productMapper.toProduct(request);
+        product = productRepository.save(product);
+        return productMapper.toProductResponse(product);
+    }
 
-	public ProductResponse update(String id, ProductUpsertRequest request) {
-		Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-		productMapper.updateProduct(product, request);
-		product = productRepository.save(product);
-		return productMapper.toProductResponse(product);
-	}
+    public ProductResponse getById(String id) {
+        Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        return productMapper.toProductResponse(product);
+    }
 
-	public void delete(String id) {
-		if (!productRepository.existsById(id)) {
-			throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
-		}
-		productRepository.deleteById(id);
-	}
+    public ProductResponse update(String id, ProductUpsertRequest request) {
+        Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        productMapper.updateProduct(product, request);
+        product = productRepository.save(product);
+        return productMapper.toProductResponse(product);
+    }
+
+    public void delete(String id) {
+        if (!productRepository.existsById(id)) {
+            throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+        productRepository.deleteById(id);
+    }
 
 
-	public List<ProductResponse> getProducts() {
-		return  productRepository.findAll().stream().map(productMapper::toProductResponse).toList();
+    public List<ProductResponse> getProducts() {
+        return  productRepository.findAll().stream().map(productMapper::toProductResponse).toList();
     }
 
     @Transactional
     public List<ProductImageResponse> uploadProductImages(String productId,
-            List<MultipartFile> files
+                                                          List<MultipartFile> files
     ) throws IOException {
 
         Product product = productRepository.findById(productId)
@@ -99,7 +97,7 @@ public class ProductService {
                     .product(product)
                     .build();
 
-			productImage = productImageRepository.save(productImage);
+            productImage = productImageRepository.save(productImage);
 
             responses.add(
                     ProductImageResponse.builder()
@@ -119,46 +117,4 @@ public class ProductService {
         productImageRepository.delete(productImage);
     }
 
-	public ProductPageResponse filterProducts(
-			String q,
-			String brand,
-			String category,
-			String frameType,
-			String gender,
-			String shape,
-			String frameMaterial,
-			String hingeType,
-			String nosePadType,
-			BigDecimal minWeightGram,
-			BigDecimal maxWeightGram,
-			BigDecimal minPrice,
-			BigDecimal maxPrice,
-			ProductStatus status,
-			Pageable pageable) {
-		Page<Product> page = productRepository.findAll(
-				ProductSpecifications.build(
-						q,
-						brand,
-						category,
-						frameType,
-						gender,
-						shape,
-						frameMaterial,
-						hingeType,
-						nosePadType,
-						minWeightGram,
-						maxWeightGram,
-						minPrice,
-						maxPrice,
-						status),
-				pageable);
-
-		return ProductPageResponse.builder()
-				.items(page.getContent().stream().map(productMapper::toProductResponse).toList())
-				.page(page.getNumber())
-				.size(page.getSize())
-				.totalElements(page.getTotalElements())
-				.totalPages(page.getTotalPages())
-				.build();
-	}
 }
