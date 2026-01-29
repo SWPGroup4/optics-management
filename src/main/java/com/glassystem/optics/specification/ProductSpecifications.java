@@ -9,7 +9,8 @@ import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.Predicate;
 
 public class ProductSpecifications {
-	private ProductSpecifications() {}
+	private ProductSpecifications() {
+	}
 
 	public static Specification<Product> build(
 			String q,
@@ -23,6 +24,8 @@ public class ProductSpecifications {
 			String nosePadType,
 			BigDecimal minWeightGram,
 			BigDecimal maxWeightGram,
+			BigDecimal minPrice,
+			BigDecimal maxPrice,
 			ProductStatus status) {
 		return (root, query, cb) -> {
 			Predicate predicate = cb.conjunction();
@@ -40,7 +43,8 @@ public class ProductSpecifications {
 				Predicate nosePadTypeLike = cb.like(cb.lower(root.get("nosePadType")), like);
 				predicate = cb.and(
 						predicate,
-						cb.or(name, brandLike, categoryLike, frameTypeLike, genderLike, shapeLike, frameMaterialLike, hingeTypeLike, nosePadTypeLike));
+						cb.or(name, brandLike, categoryLike, frameTypeLike, genderLike, shapeLike, frameMaterialLike,
+								hingeTypeLike, nosePadTypeLike));
 			}
 
 			if (brand != null && !brand.isBlank()) {
@@ -89,6 +93,14 @@ public class ProductSpecifications {
 
 			if (maxWeightGram != null) {
 				predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("weightGram"), maxWeightGram));
+			}
+
+			if (minPrice != null) {
+				predicate = cb.and(predicate, cb.greaterThanOrEqualTo(root.get("basePrice"), minPrice));
+			}
+
+			if (maxPrice != null) {
+				predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("basePrice"), maxPrice));
 			}
 
 			if (status != null) {

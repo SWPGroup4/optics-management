@@ -41,16 +41,6 @@ public class SecurityConfig {
         httpSecurity.authorizeHttpRequests(requests -> requests.requestMatchers(SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
-                .requestMatchers(HttpMethod.POST, "/products/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
-                .requestMatchers(HttpMethod.PUT, "/products/**").permitAll()
-                .requestMatchers(HttpMethod.DELETE, "/products/**").permitAll()
-
-                .requestMatchers(HttpMethod.POST, "/product-variants/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/product-variants/**").permitAll()
-                .requestMatchers(HttpMethod.PUT, "/product-variants/**").permitAll()
-                .requestMatchers(HttpMethod.DELETE, "/product-variants/**").permitAll()
-
                 .requestMatchers(HttpMethod.GET, "/payment/vnpay-callback").permitAll()
 
                 .anyRequest()
