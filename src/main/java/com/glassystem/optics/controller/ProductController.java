@@ -63,12 +63,7 @@ public class ProductController {
                 .message("Deleted image successfully")
                 .build();
     }
-	@GetMapping
-	ApiResponse<List<ProductResponse>> getProducts(){
-		return ApiResponse.<List<ProductResponse>>builder()
-				.result(productService.getProducts())
-				.build();
-	}
+
 
 	@GetMapping("/filter")
 	ApiResponse<ProductPageResponse> filterProducts(
