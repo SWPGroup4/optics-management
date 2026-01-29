@@ -1,24 +1,29 @@
 server:
-  port: 8080 # Đổi root thành port
+  port: 8080
   servlet:
     context-path: /optics
 
 spring:
   datasource:
-    # Sử dụng biến môi trường, nếu không có sẽ lấy giá trị mặc định sau dấu :
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/optics-management}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:12345}
-    driverClassName: org.postgresql.Driver
+
+      url: ${DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+      driverClassName: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
     properties:
       hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
-
+aws:
+  s3:
+    bucket-name: optics-management-storage
+    region: ap-southeast-1
+    access-key: ${AWS_ACCESS_KEY}
+    secret-key: ${AWS_SECRET_KEY}
 
 jwt:
-  signerKey: "elJbT%PFvonMBHVqs#@bmjZ8BmjJqwntnnR5K7S91KnLGZ#MxXSlfzMD%kX0CnKtsxDGM@8l9fpzThDGLfdZwg=="
-  valid-duration: 360
-  refreshable-duration: 36000
+  signerKey: ${JWT_SIGNER_KEY:dev-jwt-signer-key}
+  valid-duration: ${VALID_DURATION:3600}
+  refreshable-duration: ${REFRESH_DURATION:86400}

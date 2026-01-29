@@ -2,8 +2,10 @@ package com.glassystem.optics.entity;
 
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
+import com.glassystem.optics.enums.UserStatus;
 import jakarta.persistence.*;
 
 import lombok.AccessLevel;
@@ -25,19 +27,28 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
 
-    //xu ly ma register user cung luc
-    @Column(
-            name = "username",
-            nullable = false,
-            columnDefinition = "citext"
-    )
-
     String username;
     String password;
     String firstName;
     String lastName;
     LocalDate dob;
 
-    @ManyToMany
+    String imageUrl;
+    String email;
+    String phone;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    UserStatus status;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+            @JoinTable(
+                            name = "users_roles",
+                            joinColumns = @JoinColumn(name = "user_id"),
+                            inverseJoinColumns = @JoinColumn(name = "role_name")
+            )
     Set<Role> roles;
+
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
+     List<Orders> orders;
 }

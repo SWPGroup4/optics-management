@@ -5,6 +5,7 @@ import java.util.HashSet;
 
 import com.glassystem.optics.entity.Role;
 import com.glassystem.optics.entity.User;
+import com.glassystem.optics.enums.UserStatus;
 import com.glassystem.optics.repository.RoleRepository;
 import com.glassystem.optics.repository.UserRepository;
 import org.springframework.boot.ApplicationRunner;
@@ -45,6 +46,7 @@ public class ApplicationInitConfig {
                 User user = User.builder()
                         .username("admin")
                         .password(passwordEncoder.encode("admin"))
+                        .status(UserStatus.ACTIVE)
                         .roles(roles)
                         .build();
 
