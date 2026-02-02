@@ -93,9 +93,14 @@ public class UserService {
 
     // @PreAuthorize("hasRole('ADMIN')")
     // @PostAuthorize("hasAuthority('APPROVE_POST')")
-    public List<UserResponse> getUsers() {
-        log.info("In method getUsers");
-        return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
+    public List<UserResponse> getUsers(String role) {
+
+        if(role == null || role.isBlank()) {
+            return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
+        }
+
+        return userRepository.findAll().stream().filter(user -> user.getRoles().stream()
+                .anyMatch( r-> r.getName().equalsIgnoreCase(role))).map(userMapper::toUserResponse).toList();
     }
 
     public UserResponse getUser(String id) {

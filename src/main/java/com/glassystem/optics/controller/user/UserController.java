@@ -53,12 +53,12 @@ public class UserController {
         @GetMapping()
         @Operation(summary = "Get all users", description = "Restricted to ADMIN. Retrieves a complete list of users in the system")
         @PreAuthorize("hasRole('ADMIN')")
-        ApiResponse<List<UserResponse>> getUsers() {
+        ApiResponse<List<UserResponse>> getUsers(@RequestParam(value = "role", required = false) String role) {
                 var authentication = SecurityContextHolder.getContext().getAuthentication();
                 authentication.getAuthorities().forEach(grantedAuthority -> log.info(grantedAuthority.getAuthority()));
 
                 return ApiResponse.<List<UserResponse>>builder()
-                                .result(userService.getUsers())
+                                .result(userService.getUsers(role))
                                 .build();
         }
 
