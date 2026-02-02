@@ -7,31 +7,37 @@ import java.util.List;
 
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
+import com.glassystem.optics.dto.response.ProductDetailResponse;
 import com.glassystem.optics.dto.response.ProductImageResponse;
 import com.glassystem.optics.dto.response.ProductPageResponse;
 import com.glassystem.optics.dto.response.ProductResponse;
+import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.entity.Product;
 import com.glassystem.optics.entity.ProductImage;
+
+import com.glassystem.optics.enums.ProductCategory;
 import com.glassystem.optics.enums.ProductStatus;
+import com.glassystem.optics.enums.ProductVariantStatus;
 import com.glassystem.optics.enums.S3ImageName;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.ProductMapper;
+import com.glassystem.optics.mapper.ProductVariantMapper;
 import com.glassystem.optics.repository.ProductImageRepository;
 import com.glassystem.optics.repository.ProductRepository;
+import com.glassystem.optics.repository.ProductVariantRepository;
 import com.glassystem.optics.specification.ProductSpecifications;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.services.s3.endpoints.internal.Value;
-
-import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +47,8 @@ public class ProductService {
     ProductMapper productMapper;
     FileStorageService fileStorageService;
     ProductImageRepository productImageRepository;
+    ProductVariantRepository productVariantRepository;
+    ProductVariantMapper productVariantMapper;
 
     public ProductResponse create(ProductCreateRequest request) {
         Product product = productMapper.toProduct(request);
@@ -158,4 +166,64 @@ public class ProductService {
                 .build();
     }
 
+    /**
+     * API-06: Lấy chi tiết Product (Product + Variant + Image).
+     *
+     * Note:
+     * - Trả về dữ liệu đủ cho trang chi tiết sản phẩm.
+     * - Ảnh và variant được query riêng thay vì rely vào lazy-loading để tránh lỗi LazyInitialization
+     *   khi controller không mở transaction.
+     */
+    public ProductDetailResponse getPublicProductDetail(String productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        List<ProductImageResponse> images = productImageRepository.findAllByProduct_Id(productId)
+                .stream()
+                .map(img -> ProductImageResponse.builder()
+                        .id(img.getId())
+                        .imageUrl(img.getImageUrl())
+                        .build())
+                .toList();
+
+        List<ProductVariantResponse> variants = productVariantRepository
+                .findAllByProduct_IdAndStatus(productId, ProductVariantStatus.ACTIVE)
+                .stream()
+                .map(productVariantMapper::toResponse)
+                .toList();
+
+        return ProductDetailResponse.builder()
+                .product(productMapper.toProductResponse(product))
+                .images(images)
+                .variants(variants)
+                .build();
+    }
+
+    /**
+     * API-01: Gợi ý sản phẩm tương tự.
+     *
+     * Rule:
+     * - Cùng category
+     * - Cùng gender
+     * - Khác product id hiện tại
+     */
+    public List<ProductResponse> getSimilarProducts(String productId, int limit) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        ProductCategory category = product.getCategory();
+        String gender = product.getGender();
+        if (category == null || gender == null || gender.isBlank()) {
+            return List.of();
+        }
+
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        PageRequest pageable = PageRequest.of(0, safeLimit, Sort.by("name").ascending());
+
+        return productRepository
+                .findByCategoryAndGenderAndIdNotAndStatus(category, gender, productId, ProductStatus.ACTIVE, pageable)
+                .stream()
+                .map(productMapper::toProductResponse)
+                .toList();
+    }
 }

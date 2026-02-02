@@ -1,13 +1,12 @@
 package com.glassystem.optics.repository;
 
-
 import com.glassystem.optics.entity.ProductImage;
-import com.glassystem.optics.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
-
+import java.util.List;
 
 @Repository
-public interface ProductImageRepository extends JpaRepository<ProductImage, String> {}
+public interface ProductImageRepository extends JpaRepository<ProductImage, String> {
+    List<ProductImage> findAllByProduct_Id(String productId);
+}

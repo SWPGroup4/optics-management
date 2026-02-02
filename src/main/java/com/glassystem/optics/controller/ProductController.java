@@ -26,7 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/products")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+
 public class ProductController {
 	ProductService productService;
     ProductVariantService productVariantService;
@@ -42,6 +42,7 @@ public class ProductController {
 	}
 
 	@PutMapping("/{id}")
+	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
 	ApiResponse<ProductResponse> update(@PathVariable String id, @RequestBody @Valid ProductUpsertRequest request) {
 		return ApiResponse.<ProductResponse>builder().result(productService.update(id, request)).build();
 	}
@@ -74,7 +75,7 @@ public class ProductController {
 
 	@GetMapping("/filter")
 	ApiResponse<ProductPageResponse> filterProducts(
-			@RequestParam(required = false) String q,
+			@RequestParam(required = false) String search,
 			@RequestParam(required = false) String brand,
 			@RequestParam(required = false) String category,
 			@RequestParam(required = false) String frameType,
@@ -96,7 +97,7 @@ public class ProductController {
 		PageRequest pageable = PageRequest.of(page, size, sort);
 		return ApiResponse.<ProductPageResponse>builder()
 				.result(productService.filterProducts(
-						q,
+						search,
 						brand,
 						category,
 						frameType,
@@ -117,7 +118,7 @@ public class ProductController {
 	@GetMapping("/{productId}/variants")
 	ApiResponse<ProductVariantPageResponse> getVariantsByProductId(
 			@PathVariable String productId,
-			@RequestParam(required = false) String q,
+			@RequestParam(required = false) String search,
 			@RequestParam(required = false) String colorName,
 			@RequestParam(required = false) String frameFinish,
 			@RequestParam(required = false) String sizeLabel,
@@ -135,7 +136,7 @@ public class ProductController {
 		PageRequest pageable = PageRequest.of(page, size, sort);
 		return ApiResponse.<ProductVariantPageResponse>builder()
 				.result(productVariantService.filterVariants(
-						q,
+						search,
 						productId,
 						colorName,
 						frameFinish,

@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.GET, "/payment/vnpay-callback").permitAll()
+                .requestMatchers(HttpMethod.GET, "/public/**").permitAll()
 
                 .anyRequest()
 

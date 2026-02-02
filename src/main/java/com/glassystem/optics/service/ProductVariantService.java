@@ -3,9 +3,12 @@ package com.glassystem.optics.service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.glassystem.optics.dto.request.InventoryUpdateRequest;
 import com.glassystem.optics.dto.request.ProductVariantRequest;
+import com.glassystem.optics.dto.response.ProductVariantCompareResponse;
 import com.glassystem.optics.dto.response.ProductVariantPageResponse;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.entity.Inventory;
@@ -23,6 +26,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -38,7 +42,7 @@ public class ProductVariantService {
 	public ProductVariantResponse create(ProductVariantRequest request) {
 
 		Optional<ProductVariant> existingVariant = productVariantRepository
-				.findByProductIdAndColorNameAndSizeLabel
+				.findByProduct_IdAndColorNameAndSizeLabel
 						(request.getProductId(),request.getColorName(),request.getSizeLabel());
 
 		if(existingVariant.isPresent()) {
@@ -140,7 +144,7 @@ public class ProductVariantService {
 	}
 
 	public ProductVariantPageResponse filterVariants(
-			String q,
+			String search,
 			String productId,
 			String colorName,
 			String frameFinish,
@@ -154,7 +158,7 @@ public class ProductVariantService {
 			Pageable pageable) {
 		Page<ProductVariant> page = productVariantRepository.findAll(
 				ProductVariantSpecifications.build(
-						q,
+						search,
 						productId,
 						colorName,
 						frameFinish,
@@ -173,6 +177,82 @@ public class ProductVariantService {
 				.size(page.getSize())
 				.totalElements(page.getTotalElements())
 				.totalPages(page.getTotalPages())
+				.build();
+	}
+
+	/**
+	 * API-04: Tìm Product Variant phù hợp theo thông số mặt kính.
+	 *
+	 * Rule:
+	 * - User nhập lensWidthMm, bridgeWidthMm, templeLengthMm.
+	 * - Hệ thống trả về variant ACTIVE có "khoảng cách" nhỏ nhất.
+	 * - Khoảng cách ở đây là tổng |lens-lens'| + |bridge-bridge'| + |temple-temple'|.
+	 *
+	 * Note:
+	 * - Nếu truyền thêm productId, chỉ tìm trong variants của product đó.
+	 */
+	public ProductVariantResponse findNearestVariantBySize(
+			Integer lensWidthMm,
+			Integer bridgeWidthMm,
+			Integer templeLengthMm,
+			String productId) {
+		if (lensWidthMm == null || lensWidthMm <= 0) {
+			throw new AppException(ErrorCode.PRODUCT_VARIANT_LENS_WIDTH_INVALID);
+		}
+		if (bridgeWidthMm == null || bridgeWidthMm <= 0) {
+			throw new AppException(ErrorCode.PRODUCT_VARIANT_BRIDGE_WIDTH_INVALID);
+		}
+		if (templeLengthMm == null || templeLengthMm <= 0) {
+			throw new AppException(ErrorCode.PRODUCT_VARIANT_TEMPLE_LENGTH_INVALID);
+		}
+
+		List<ProductVariant> candidates = productVariantRepository.findNearestBySize(
+				lensWidthMm,
+				bridgeWidthMm,
+				templeLengthMm,
+				productId,
+				ProductVariantStatus.ACTIVE,
+				PageRequest.of(0, 1));
+
+		if (candidates.isEmpty()) {
+			throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND);
+		}
+
+		return productVariantMapper.toResponse(candidates.get(0));
+	}
+
+	/**
+	 * API-05: So sánh các Product Variant.
+	 *
+	 * Rule:
+	 * - Chỉ cho phép compare các variant thuộc cùng một product.
+	 * - Nếu client gửi variantIds không thuộc productId hoặc không tồn tại => báo lỗi.
+	 */
+	public ProductVariantCompareResponse compareVariants(String productId, List<String> variantIds) {
+		if (variantIds == null || variantIds.isEmpty()) {
+			throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND);
+		}
+
+		Product product = productRepository.findById(productId)
+				.orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+		List<ProductVariant> variants = productVariantRepository.findAllByIdIn(variantIds);
+		Set<String> foundIds = variants.stream().map(ProductVariant::getId).collect(Collectors.toSet());
+		for (String id : variantIds) {
+			if (!foundIds.contains(id)) {
+				throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND);
+			}
+		}
+
+		for (ProductVariant v : variants) {
+			if (v.getProduct() == null || v.getProduct().getId() == null || !v.getProduct().getId().equals(productId)) {
+				throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND);
+			}
+		}
+
+		return ProductVariantCompareResponse.builder()
+				.productId(product.getId())
+				.variants(variants.stream().map(productVariantMapper::toResponse).toList())
 				.build();
 	}
 }
