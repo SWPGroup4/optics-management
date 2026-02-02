@@ -60,7 +60,11 @@ public class UserService {
             } catch (IOException e) {
                 throw new AppException(ErrorCode.CANNOT_UPLOAD_IMAGE);
             }
+        } else  {
+            String defaultAvatar = "https://i.pinimg.com/1200x/3a/61/2c/3a612c76f58249ad16349f0cebc9d2b6.jpg";
+            user.setImageUrl(defaultAvatar);
         }
+
 
         user.setStatus(UserStatus.ACTIVE);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
