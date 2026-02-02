@@ -57,6 +57,7 @@ public enum ErrorCode {
     INVALID_QUANTITY(1022, "Quantity at least 1 !", HttpStatus.BAD_REQUEST),
     FIELD_MISSING(1023, "This information cannot null", HttpStatus.BAD_REQUEST),
     LIST_EMPTY(1024, "Product list cannot null", HttpStatus.BAD_REQUEST),
+    ORDER_NO_VERIFICATION_NEEDED(1025, "Only verify prescription & pre-order of order item", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

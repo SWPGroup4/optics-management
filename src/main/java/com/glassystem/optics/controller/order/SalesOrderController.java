@@ -26,12 +26,12 @@ public class SalesOrderController {
     OrderService orderService;
 
     @PutMapping("/{orderId}/verify")
-    @Operation(summary = "Verify order prescription", description = "Allows sales staff to confirm the validity of a customer's uploaded prescription")
+    @Operation(summary = "Verify order ", description = "Allows sales staff to confirm the validity of a customer's order ")
     public ApiResponse<OrderResponse> verifyOrder(
             @PathVariable("orderId") String orderId,
-            @RequestParam("isPrescriptionValid") boolean isPrescriptionValid) {
+            @RequestParam("isApproved") boolean isApproved) {
         return ApiResponse.<OrderResponse>builder()
-                .result(orderService.verifyOrder(orderId, isPrescriptionValid))
+                .result(orderService.verifyOrder(orderId, isApproved))
                 .build();
     }
 
