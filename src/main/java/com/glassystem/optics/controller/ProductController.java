@@ -26,7 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/products")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-
+@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
 public class ProductController {
 	ProductService productService;
     ProductVariantService productVariantService;

@@ -53,7 +53,6 @@ public class SecurityConfig {
                 .jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 .authenticationEntryPoint(new JwtAuthenticationEntryPoint()));
 
-        httpSecurity.cors(AbstractHttpConfigurer::disable);
         httpSecurity.cors(Customizer.withDefaults());
 
         httpSecurity.csrf(AbstractHttpConfigurer::disable);

@@ -26,12 +26,21 @@ public class SalesOrderController {
     OrderService orderService;
 
     @PutMapping("/{orderId}/verify")
-    @Operation(summary = "Verify order prescription", description = "Allows sales staff to confirm the validity of a customer's uploaded prescription")
+    @Operation(summary = "Verify order ", description = "Allows sales staff to confirm the validity of a customer's order ")
     public ApiResponse<OrderResponse> verifyOrder(
             @PathVariable("orderId") String orderId,
-            @RequestParam("isPrescriptionValid") boolean isPrescriptionValid) {
+            @RequestParam("isApproved") boolean isApproved) {
         return ApiResponse.<OrderResponse>builder()
-                .result(orderService.verifyOrder(orderId, isPrescriptionValid))
+                .result(orderService.verifyOrder(orderId, isApproved))
+                .build();
+    }
+
+    @PutMapping("/{orderId}/revert-verify")
+    @Operation(summary = "Revert order verification", description = "Allows staff to undo a mistake in the verification process ")
+    public ApiResponse<OrderResponse> revertVerification(
+            @PathVariable("orderId") String orderId) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.revertVerification(orderId))
                 .build();
     }
 

@@ -210,7 +210,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse verifyOrder(String orderId, boolean isPrescriptionValid) {
+    public OrderResponse verifyOrder(String orderId, boolean isApproved) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
@@ -218,24 +218,32 @@ public class OrderService {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
-        boolean hasInvalidPrescription = false;
-        boolean hasPrescriptionItem = false;
+      boolean requiresProcessing = order.getItems().stream()
+              .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
+              || orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER));
 
-        for (OrderItem item : order.getItems()) {
-            if (item.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
-                hasPrescriptionItem = true;
-                if (!isPrescriptionValid) {
-                    hasInvalidPrescription = true;
-                    break;
-                }
-            }
-        }
 
-        if (hasPrescriptionItem && hasInvalidPrescription) {
+        if (isApproved) {
+            order.setStatus(requiresProcessing ? OrderStatus.PROCESSING : OrderStatus.CONFIRMED);
+        }else {
             order.setStatus(OrderStatus.ON_HOLD);
-        } else {
-            order.setStatus(OrderStatus.CONFIRMED);
         }
+
+        return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    @Transactional
+    public OrderResponse revertVerification (String orderId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        List<OrderStatus> revertsibleStatuses = List.of(OrderStatus.ON_HOLD, OrderStatus.PROCESSING, OrderStatus.CONFIRMED);
+
+        if(!revertsibleStatuses.contains(order.getStatus())){
+            throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
+        }
+
+        order.setStatus(OrderStatus.PENDING);
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
