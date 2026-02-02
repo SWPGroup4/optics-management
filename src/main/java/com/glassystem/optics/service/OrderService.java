@@ -194,9 +194,6 @@ public class OrderService {
 
     /* ===================== 2. MANAGEMENT FLOW (APIs cho Admin/Sales) ===================== */
 
-    public List<OrderResponse> getOrders() {
-        return orderRepository.findAll().stream().map(orderMapper::toOrderResponse).toList();
-    }
 
     public OrderResponse getOrderById(String orderId) {
         Orders order = orderRepository.findById(orderId)
@@ -270,6 +267,11 @@ public class OrderService {
     }
 
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
+
+        if(status == null){
+            return  orderRepository.findAll().stream().map(orderMapper::toOrderResponse).toList();
+        }
+
         return orderRepository.findByStatus(status)
                 .stream()
                 .map(orderMapper::toOrderResponse)
