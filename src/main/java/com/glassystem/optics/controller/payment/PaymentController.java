@@ -47,7 +47,8 @@ public class PaymentController {
 
         if ("SUCCESS".equals(status)) {
             // Redirect về trang Frontend báo thành công
-            response.sendRedirect("http://localhost:3000/payment/success");
+            response.sendRedirect("https://optics-management-frontend.vercel.app/checkout/" +
+                    "success?orderId=ORD-2026-7452&email=customer%40example.com");
         } else {
             // Redirect về trang Frontend báo lỗi
             response.sendRedirect("http://localhost:3000/payment/failed");
