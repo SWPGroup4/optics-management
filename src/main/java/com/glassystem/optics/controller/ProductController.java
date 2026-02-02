@@ -26,7 +26,11 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/products")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+<<<<<<< HEAD
 @PreAuthorize("hasRole('CUSTOMER')")
+=======
+@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+>>>>>>> bc09df169b0dbc8f44e0e02cc8bf21be0cc279a0
 public class ProductController {
 	ProductService productService;
     ProductVariantService productVariantService;
@@ -65,7 +69,12 @@ public class ProductController {
                 .message("Deleted image successfully")
                 .build();
     }
-
+	@GetMapping
+	ApiResponse<List<ProductResponse>> getProducts(){
+		return ApiResponse.<List<ProductResponse>>builder()
+				.result(productService.getProducts())
+				.build();
+	}
 
 	@GetMapping("/filter")
 	ApiResponse<ProductPageResponse> filterProducts(
