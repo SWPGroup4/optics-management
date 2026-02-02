@@ -233,6 +233,21 @@ public class OrderService {
     }
 
     @Transactional
+    public OrderResponse revertVerification (String orderId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        List<OrderStatus> revertsibleStatuses = List.of(OrderStatus.ON_HOLD, OrderStatus.PROCESSING, OrderStatus.CONFIRMED);
+
+        if(!revertsibleStatuses.contains(order.getStatus())){
+            throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
+        }
+
+        order.setStatus(OrderStatus.PENDING);
+        return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    @Transactional
     public OrderResponse rejectOrder(String orderId, String reason) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));

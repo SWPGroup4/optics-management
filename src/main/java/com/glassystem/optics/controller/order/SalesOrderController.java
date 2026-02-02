@@ -35,6 +35,15 @@ public class SalesOrderController {
                 .build();
     }
 
+    @PutMapping("/{orderId}/revert-verify")
+    @Operation(summary = "Revert order verification", description = "Allows staff to undo a mistake in the verification process ")
+    public ApiResponse<OrderResponse> revertVerification(
+            @PathVariable("orderId") String orderId) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.revertVerification(orderId))
+                .build();
+    }
+
     @PutMapping("/{orderId}/reject")
     @Operation(summary = "Reject order", description = "System-level rejection of an order due to invalid data or fraud detection. Automatically releases reserved inventory.")
     public ApiResponse<OrderResponse> rejectOrder(
