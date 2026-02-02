@@ -1,6 +1,5 @@
 package com.glassystem.optics.exception;
 
-
 import java.util.Map;
 import java.util.Objects;
 
@@ -12,7 +11,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,15 +62,17 @@ public class GlobalExceptionHandler {
         try {
             errorCode = ErrorCode.valueOf(enumkey);
 
-            var constraintViolation =
-                    exception.getBindingResult().getAllErrors().getFirst().unwrap(ConstraintViolation.class);
+            var constraintViolation = exception.getBindingResult().getAllErrors().getFirst()
+                    .unwrap(ConstraintViolation.class);
 
             attributes = constraintViolation.getConstraintDescriptor().getAttributes();
 
             log.info(attributes.toString());
 
         } catch (IllegalArgumentException error) {
-
+            log.error("Cannot find ErrorCode for key: '{}'. Error: {}", enumkey, error.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during validation handling. enumkey='{}', error: {}", enumkey, e.getMessage());
         }
 
         ApiResponse apiResponse = new ApiResponse();
