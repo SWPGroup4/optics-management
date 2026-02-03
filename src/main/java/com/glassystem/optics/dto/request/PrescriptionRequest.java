@@ -10,6 +10,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PrescriptionRequest {
+    String imageUrl;
     Double odSphere; Double odCylinder; Integer odAxis; Double odAdd; Double odPd;
     Double osSphere; Double osCylinder; Integer osAxis; Double osAdd; Double osPd;
     String note;

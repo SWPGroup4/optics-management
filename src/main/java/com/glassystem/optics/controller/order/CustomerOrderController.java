@@ -1,9 +1,11 @@
 package com.glassystem.optics.controller.order;
 
+import java.io.IOException;
 import java.util.List;
 
 import jakarta.validation.Valid;
 
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +23,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @RestController
@@ -28,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Tag(name = "Customer Order Management", description = "Endpoints for customers to manage their own orders and prescriptions")
-@PreAuthorize("hasRole('CUSTOMER')")
+@PreAuthorize("hasRole('CUSTOMER') or hasRole('ADMIN')")
 public class CustomerOrderController {
 
     OrderService orderService;
@@ -38,6 +41,17 @@ public class CustomerOrderController {
     public ApiResponse<OrderResponse> createOrder(@RequestBody @Valid OrderCreationRequest request) {
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.createOrder(request))
+                .build();
+    }
+
+    @PostMapping(value = "/items/{orderItemId}/prescription-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload prescription image", description = "Upload a photo of the medical prescription for a specific item")
+    public ApiResponse<PrescriptionResponse> uploadPrescriptionImage(
+            @PathVariable String orderItemId,
+            @RequestParam("file") MultipartFile file) throws IOException {
+
+        return ApiResponse.<PrescriptionResponse>builder()
+                .result(orderService.uploadPrescriptionImage(orderItemId, file))
                 .build();
     }
 

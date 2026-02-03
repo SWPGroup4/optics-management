@@ -7,8 +7,10 @@ import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.OrderItemStatus;
 import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.OrderStatus;
+import com.glassystem.optics.enums.S3ImageName;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
+import com.glassystem.optics.mapper.OrderItemMapper;
 import com.glassystem.optics.mapper.OrderMapper;
 import com.glassystem.optics.mapper.PrescriptionMapper;
 import com.glassystem.optics.repository.*;
@@ -18,7 +20,9 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,6 +38,7 @@ public class OrderService {
     private final InventoryRepository inventoryRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final OrderItemRepository orderItemRepository;
+    private final FileStorageService fileStorageService;
 
     /* ===================== 1. CUSTOMER FLOW (APIs cho khách hàng) ===================== */
 
@@ -90,6 +95,37 @@ public class OrderService {
         }
         order.setTotalAmount(totalAmount);
         return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    @Transactional
+    public PrescriptionResponse uploadPrescriptionImage(String orderItemId, MultipartFile file) throws IOException {
+        OrderItem orderItem = orderItemRepository.findById(orderItemId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
+
+        if (!orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+            throw new AppException(ErrorCode.INVALID_ORDER_ITEM_TYPE);
+        }
+
+
+        String url = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
+
+
+        Prescription prescription = orderItem.getPrescription();
+        if (prescription == null) {
+            prescription = new Prescription();
+        }
+
+        if (prescription.getImageUrl() != null) {
+            fileStorageService.deleteFileByKey(prescription.getImageUrl());
+        }
+
+        prescription.setImageUrl(url);
+        prescription = prescriptionRepository.save(prescription);
+
+        orderItem.setPrescription(prescription);
+        orderItemRepository.save(orderItem);
+
+        return prescriptionMapper.toPrescriptionResponse(prescription);
     }
 
     public List<OrderResponse> getMyOrders() {
