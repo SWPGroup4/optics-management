@@ -42,11 +42,6 @@ public class PaymentService {
         }
 
 
-        if(PaymentMethod.COD.equals(paymentMethod)){
-            if(!order.getStatus().equals(OrderStatus.SHIPPED)){
-                throw new RuntimeException("Phương thức COD chỉ được phép thanh toán khi đơn hàng đã ở trạng thái SHIPPED.");
-            }
-        }
 
         Payment payment = Payment.builder()
                 .order(order)
@@ -66,21 +61,21 @@ public class PaymentService {
     }
 
     @Transactional
-    public String processVnPayCallback(HttpServletRequest request){
+    public Payment processVnPayCallback(HttpServletRequest request){
         int payment_status = vnPayService.orderReturn(request);
 
 
-        String vnp_TxnRef = request.getParameter("vnp_TxnRef"); // Đây chính là Payment ID
+        String vnp_TxnRef = request.getParameter("vnp_TxnRef"); // Payment ID
         String vnp_TransactionNo = request.getParameter("vnp_TransactionNo");
         String vnp_Amount = request.getParameter("vnp_Amount");
 
-        Payment payment = paymentRepository.findById(String.valueOf(UUID.fromString(vnp_TxnRef)))
+        Payment payment = paymentRepository.findById(vnp_TxnRef)
                 .orElseThrow(() -> new RuntimeException("Payment Not Found"));
 
         if(payment_status ==1 ){
             payment.setStatus(String.valueOf(PaymentStatus.PAID));
             payment.setPaymentDate(LocalDateTime.now());
-            paymentRepository.save(payment);
+
 
             Transaction transaction = Transaction.builder()
                     .payment(payment)
@@ -93,14 +88,13 @@ public class PaymentService {
                     Orders order = payment.getOrder();
                     updateOrderStatusBasedOnItems(order);
                     orderRepository.save(order);
-                    return "SUCCESS";
 
         }else{
             payment.setStatus(String.valueOf(PaymentStatus.FAILED));
             payment.setPaymentDate(LocalDateTime.now());
-            paymentRepository.save(payment);
-            return "FAILED";
+
         }
+        return paymentRepository.save(payment);
     }
 
     private void updateOrderStatusBasedOnItems(Orders order){
