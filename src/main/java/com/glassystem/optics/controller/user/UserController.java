@@ -34,16 +34,22 @@ import org.springframework.web.multipart.MultipartFile;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserController {
         UserService userService;
-        @Autowired
-        ObjectMapper objectMapper;
+
 
     @PostMapping(value = "/registration", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Register a new user", description = "Standard registration for customers")
     ApiResponse<UserResponse> createUser(
-            @RequestPart("data") String dataString,
+            @RequestPart("username") String username,
+            @RequestPart("password") String password,
+            @RequestPart("email") String email,
             @RequestPart(value = "imageUrl", required = false) MultipartFile imageUrl) throws IOException {
 
-        UserCreationRequest request = objectMapper.readValue(dataString, UserCreationRequest.class);
+        UserCreationRequest request = UserCreationRequest.builder()
+                .username(username)
+                .password(password)
+                .email(email)
+                .build();
+
 
         ApiResponse<UserResponse> apiResponse = new ApiResponse<>();
         apiResponse.setResult(userService.createUser(request, imageUrl));

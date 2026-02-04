@@ -34,7 +34,6 @@ public class UserCreationRequest {
     @NotBlank(message = "FIELD_MISSING")
     @Gmail(message = "INVALID_GMAIL")
     @Column(unique = true, nullable = false)
-
     String email;
 
     @Schema(hidden = true)
