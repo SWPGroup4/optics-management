@@ -3,8 +3,6 @@ package com.glassystem.optics.controller.user;
 import java.io.IOException;
 import java.util.List;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.glassystem.optics.dto.request.AdminUserUpdateRequest;
 import com.glassystem.optics.dto.request.UserCreationRequest;
 import com.glassystem.optics.dto.request.UserUpdateRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
@@ -12,10 +10,10 @@ import com.glassystem.optics.dto.response.UserResponse;
 import com.glassystem.optics.enums.UserStatus;
 import com.glassystem.optics.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -98,6 +96,27 @@ public class UserController {
                                 .result(userService.updateUserStatusByAdmin(userId, status))
                                 .build();
         }
+
+
+    @PutMapping("/{id}/role")
+    @Operation(summary = "Update user role as Admin", description = "Admin selects role from a dropdown list")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<UserResponse> updateUserRole(
+            @PathVariable("id") String userId,
+            @RequestParam(value = "role", required = true)
+            @Schema(allowableValues = {"ADMIN", "SALE", "OPERATION", "MANAGER", "CUSTOMER"})
+            String roleName) {
+
+        return ApiResponse.<UserResponse>builder()
+                .result(userService.updateUserRole(userId, roleName))
+                .build();
+    }
+
+
+
+
+
+
 
         @DeleteMapping("/{userId}")
         @Operation(summary = "Delete user account", description = "Restricted to ADMIN. Permanently removes a user from the system")

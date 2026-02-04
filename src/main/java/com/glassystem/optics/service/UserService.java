@@ -1,13 +1,10 @@
 package com.glassystem.optics.service;
 
 import java.io.IOException;
-import java.time.LocalDate;
-import java.time.Period;
 import java.util.HashSet;
 import java.util.List;
 
 import com.glassystem.optics.constant.PredefinedRole;
-import com.glassystem.optics.dto.request.AdminUserUpdateRequest;
 import com.glassystem.optics.dto.request.UserCreationRequest;
 import com.glassystem.optics.dto.request.UserUpdateRequest;
 import com.glassystem.optics.dto.response.UserResponse;
@@ -21,7 +18,6 @@ import com.glassystem.optics.mapper.UserMapper;
 import com.glassystem.optics.repository.RoleRepository;
 import com.glassystem.optics.repository.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -145,19 +141,25 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
 
-
-
-//        if (request.getRoles() != null) {
-//            var roles = roleRepository.findAllById(request.getRoles());
-//            user.setRoles(new HashSet<>(roles));
-//        }
-
         if (status != null) {
             user.setStatus(status);
         }
         return userMapper.toUserResponse(userRepository.save(user));
     }
 
+    @Transactional
+    public UserResponse updateUserRole(String id, String roleName) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        Role role = roleRepository.findById(roleName)
+                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
+        user.getRoles().clear();
+        user.getRoles().add(role);
+
+        return userMapper.toUserResponse(userRepository.save(user));
+    }
 
 
     public void deleteUser(String id) {

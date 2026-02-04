@@ -58,6 +58,8 @@ public enum ErrorCode {
     FIELD_MISSING(1023, "This information cannot null", HttpStatus.BAD_REQUEST),
     LIST_EMPTY(1024, "Product list cannot null", HttpStatus.BAD_REQUEST),
     CANNOT_REVERT_STATUS(1025, "Order status has progressed too far to be reverted", HttpStatus.BAD_REQUEST),
+    ROLE_NOT_FOUND(1026, "Role not found", HttpStatus.BAD_REQUEST),
+
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {
