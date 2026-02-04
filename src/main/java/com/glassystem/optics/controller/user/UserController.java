@@ -39,16 +39,8 @@ public class UserController {
     @PostMapping(value = "/registration", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Register a new user", description = "Standard registration for customers")
     ApiResponse<UserResponse> createUser(
-            @RequestPart("username") String username,
-            @RequestPart("password") String password,
-            @RequestPart("email") String email,
+            @RequestPart(value = "UserInfor", required = true) @Valid UserCreationRequest request,
             @RequestPart(value = "imageUrl", required = false) MultipartFile imageUrl) throws IOException {
-
-        UserCreationRequest request = UserCreationRequest.builder()
-                .username(username)
-                .password(password)
-                .email(email)
-                .build();
 
 
         ApiResponse<UserResponse> apiResponse = new ApiResponse<>();
