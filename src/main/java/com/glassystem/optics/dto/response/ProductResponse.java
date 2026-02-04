@@ -23,5 +23,7 @@ public class ProductResponse {
 	String hingeType;
 	String nosePadType;
 	BigDecimal weightGram;
+	BigDecimal minPrice;
+	BigDecimal maxPrice;
 	ProductStatus status;
 }
