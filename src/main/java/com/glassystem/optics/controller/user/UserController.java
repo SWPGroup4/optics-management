@@ -47,17 +47,20 @@ public class UserController {
         return apiResponse;
     }
 
-        @GetMapping()
-        @Operation(summary = "Get all users", description = "Restricted to ADMIN. Retrieves a complete list of users in the system")
-        @PreAuthorize("hasRole('ADMIN')")
-        ApiResponse<List<UserResponse>> getUsers(@RequestParam(value = "role", required = false) String role) {
-                var authentication = SecurityContextHolder.getContext().getAuthentication();
-                authentication.getAuthorities().forEach(grantedAuthority -> log.info(grantedAuthority.getAuthority()));
+    @GetMapping()
+    @Operation(summary = "Get all users", description = "Restricted to ADMIN. Retrieves a complete list of users in the system")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<List<UserResponse>> getUsers(
+            @Schema(allowableValues = {"ADMIN", "MANAGER", "SALE", "OPERATION", "CUSTOMER"})
+            @RequestParam(value = "role", required = true) String role) {
 
-                return ApiResponse.<List<UserResponse>>builder()
-                                .result(userService.getUsers(role))
-                                .build();
-        }
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        authentication.getAuthorities().forEach(grantedAuthority -> log.info(grantedAuthority.getAuthority()));
+
+        return ApiResponse.<List<UserResponse>>builder()
+                .result(userService.getUsers(role))
+                .build();
+    }
 
         @GetMapping("/me")
         @Operation(summary = "Get current user profile", description = "Retrieves information about the currently authenticated user")
