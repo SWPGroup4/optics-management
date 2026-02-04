@@ -43,7 +43,7 @@ public class OrderService {
     /* ===================== 1. CUSTOMER FLOW (APIs cho khách hàng) ===================== */
 
     @Transactional
-    public OrderResponse createOrder(OrderCreationRequest request) {
+    public OrderResponse createOrder(OrderCreationRequest request, MultipartFile file) throws IOException {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         User customer = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
@@ -57,14 +57,15 @@ public class OrderService {
         order.setPaymentMethod(request.getPaymentMethod());
 
         BigDecimal totalAmount = BigDecimal.ZERO;
+        boolean fileUploaded = false;
 
         for (OrderItemCreationRequest orderItem : request.getItems()) {
             Inventory inventory = inventoryRepository.findByProductVariantId(orderItem.getProductVariantId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
-            if(orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) && orderItem.getPrescription()== null){
-                throw new AppException(ErrorCode.PRESCRIPTION_REQUIRED);
-            }
+//            if(orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) && orderItem.getPrescription()== null){
+//                throw new AppException(ErrorCode.PRESCRIPTION_REQUIRED);
+//            }
 
             int available = inventory.getQuantity() - inventory.getReservedQuantity();
             if (available < orderItem.getQuantity()) {
@@ -84,9 +85,19 @@ public class OrderService {
             BigDecimal itemTotalPrice = item.getUnitPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
             item.setTotalPrice(itemTotalPrice);
 
-            if(orderItem.getPrescription() != null) {
-                Prescription prescription = prescriptionMapper.toPrescription(orderItem.getPrescription());
-                prescription = prescriptionRepository.save(prescription);
+            if(orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)){
+                Prescription prescription = new Prescription();
+
+                if(orderItem.getPrescription() != null){
+                    prescriptionMapper.updatePrescription(prescription, orderItem.getPrescription());
+                }
+
+                if(file != null && !file.isEmpty() && !fileUploaded){
+                    String url = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
+                    prescription.setImageUrl(url);
+                    fileUploaded = true;
+                }
+                prescription =  prescriptionRepository.save(prescription);
                 item.setPrescription(prescription);
             }
 

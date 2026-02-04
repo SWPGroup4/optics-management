@@ -3,6 +3,9 @@ package com.glassystem.optics.controller.order;
 import java.io.IOException;
 import java.util.List;
 
+import com.glassystem.optics.enums.OrderItemStatus;
+import com.glassystem.optics.enums.OrderItemType;
+import com.glassystem.optics.enums.PaymentMethod;
 import jakarta.validation.Valid;
 
 import org.springframework.http.MediaType;
@@ -36,15 +39,21 @@ public class CustomerOrderController {
 
     OrderService orderService;
 
-    @PostMapping
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Place a new order", description = "Allows a customer to create a new order with multiple items")
-    public ApiResponse<OrderResponse> createOrder(@RequestBody @Valid OrderCreationRequest request) {
+    public ApiResponse<OrderResponse> createOrder(@RequestPart("orderInfo") @Valid OrderCreationRequest request,
+                                                  @RequestParam(value = "OrderItemType", required = true) OrderItemType type,
+                                                  @RequestParam(value = "PaymentMethod", required = true) PaymentMethod paymentMethod,
+                                                  @RequestPart(value = "prescriptionImage", required = false) MultipartFile file) throws IOException {
+
+
+
         return ApiResponse.<OrderResponse>builder()
-                .result(orderService.createOrder(request))
+                .result(orderService.createOrder(request, file))
                 .build();
     }
 
-    @PostMapping(value = "/items/{orderItemId}/prescription-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping(value = "/items/{orderItemId}/prescription-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload prescription image", description = "Upload a photo of the medical prescription for a specific item")
     public ApiResponse<PrescriptionResponse> uploadPrescriptionImage(
             @PathVariable String orderItemId,
