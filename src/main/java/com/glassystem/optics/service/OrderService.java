@@ -4,10 +4,7 @@ import com.glassystem.optics.dto.request.*;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.dto.response.PrescriptionResponse;
 import com.glassystem.optics.entity.*;
-import com.glassystem.optics.enums.OrderItemStatus;
-import com.glassystem.optics.enums.OrderItemType;
-import com.glassystem.optics.enums.OrderStatus;
-import com.glassystem.optics.enums.S3ImageName;
+import com.glassystem.optics.enums.*;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.OrderItemMapper;
@@ -56,6 +53,17 @@ public class OrderService {
         order.setPhoneNumber(request.getPhoneNumber());
         order.setPaymentMethod(request.getPaymentMethod());
 
+
+        boolean hasSpecialItem = request.getItems().stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRESCRIPTION
+                        || item.getOrderItemType() == OrderItemType.PRE_ORDER);
+
+        if (hasSpecialItem) {
+            order.setPaymentMethod(PaymentMethod.VNPAY);
+        } else {
+            order.setPaymentMethod(request.getPaymentMethod());
+        }
+
         BigDecimal totalAmount = BigDecimal.ZERO;
         boolean fileUploaded = false;
 
@@ -63,17 +71,11 @@ public class OrderService {
             Inventory inventory = inventoryRepository.findByProductVariantId(orderItem.getProductVariantId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
-//            if(orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) && orderItem.getPrescription()== null){
-//                throw new AppException(ErrorCode.PRESCRIPTION_REQUIRED);
-//            }
 
-            int available = inventory.getQuantity() - inventory.getReservedQuantity();
-            if (available < orderItem.getQuantity()) {
-                throw new AppException(ErrorCode.OUT_OF_STOCK);
-            }
 
-            inventory.setReservedQuantity(inventory.getReservedQuantity() + orderItem.getQuantity());
-            inventory.setQuantity(inventory.getQuantity() - orderItem.getQuantity());
+            validateInventory(inventory, orderItem.getQuantity());
+
+
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
@@ -99,13 +101,28 @@ public class OrderService {
                 }
                 prescription =  prescriptionRepository.save(prescription);
                 item.setPrescription(prescription);
+            }else {
+                item.setPrescription(null);
             }
-
+            updateInventoryStock(inventory, orderItem.getQuantity());
             order.getItems().add(item);
             totalAmount = totalAmount.add(inventory.getProductVariant().getPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity())));
         }
         order.setTotalAmount(totalAmount);
         return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    private void validateInventory(Inventory inventory, int quantity) {
+        int available = inventory.getQuantity() - inventory.getReservedQuantity();
+        if (available < quantity) {
+            throw new AppException(ErrorCode.OUT_OF_STOCK);
+        }
+    }
+
+    private void updateInventoryStock(Inventory inventory, int quantity) {
+        inventory.setReservedQuantity(inventory.getReservedQuantity() + quantity);
+        inventory.setQuantity(inventory.getQuantity() - quantity);
+        inventoryRepository.save(inventory);
     }
 
     @Transactional
@@ -160,18 +177,28 @@ public class OrderService {
         if (request.getDeliveryAddress() != null) {
             orders.setDeliveryAddress(request.getDeliveryAddress());
         }
+        if(request.getPhoneNumber() != null){
+            orders.setPhoneNumber(request.getPhoneNumber());
+        }
         if (request.getItems() != null) {
             for (OrderItemUpdateRequest requestItem : request.getItems()) {
                 OrderItem orderItem = orderItemRepository.findById(requestItem.getOrderItemId())
                         .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
 
-                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+                if(orderItem.getQuantity() != null && !orderItem.getQuantity().equals(requestItem.getQuantity())){
+                    updateQuantityAndInventory(orderItem, requestItem.getQuantity());
+                }
+
+
+                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) && requestItem.getPrescription() != null) {
                     updatePrescriptionLogic(orderItem, requestItem.getPrescription());
                 }
             }
         }
         return orderMapper.toOrderResponse(orderRepository.save(orders));
     }
+
+
 
     @Transactional
     public PrescriptionResponse updatePrescription(String orderItemId, PrescriptionRequest prescriptionRequest) {
@@ -463,5 +490,23 @@ public class OrderService {
 
         orderItem.setPrescription(prescription);
         orderItemRepository.save(orderItem);
+    }
+
+    private void updateQuantityAndInventory(OrderItem item, Integer newQty) {
+        Inventory inventory = item.getInventory();
+        int diff = newQty - item.getQuantity();
+
+
+        if (diff > 0) {
+            int available = inventory.getQuantity() - inventory.getReservedQuantity();
+            if (available < diff) throw new AppException(ErrorCode.OUT_OF_STOCK);
+        }
+
+        inventory.setReservedQuantity(inventory.getReservedQuantity() + diff);
+        inventory.setQuantity(inventory.getQuantity() - diff);
+        inventoryRepository.save(inventory);
+
+        item.setQuantity(newQty);
+        item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(newQty)));
     }
 }

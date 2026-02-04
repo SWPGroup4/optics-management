@@ -9,6 +9,7 @@ import com.glassystem.optics.dto.request.UserCreationRequest;
 import com.glassystem.optics.dto.request.UserUpdateRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.UserResponse;
+import com.glassystem.optics.enums.UserStatus;
 import com.glassystem.optics.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -89,12 +90,12 @@ public class UserController {
         }
 
         @PutMapping("/{id}")
-        @Operation(summary = "Update user as Admin", description = "Restricted to ADMIN. Allows modifying user status, roles")
+        @Operation(summary = "Update user as Admin", description = "Restricted to ADMIN. Allows modifying user status ")
         @PreAuthorize("hasRole('ADMIN')")
         ApiResponse<UserResponse> updateUser(@PathVariable("id") String userId,
-                        @RequestBody @Valid AdminUserUpdateRequest request) {
+                                             @RequestParam(value = "UserStatus",  required = true) UserStatus status){
                 return ApiResponse.<UserResponse>builder()
-                                .result(userService.updateUserByAdmin(userId, request))
+                                .result(userService.updateUserStatusByAdmin(userId, status))
                                 .build();
         }
 

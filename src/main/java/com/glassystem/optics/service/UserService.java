@@ -141,21 +141,24 @@ public class UserService {
         return userMapper.toUserResponse(user);
     }
 
-    public UserResponse updateUserByAdmin(String id, AdminUserUpdateRequest request) {
+    public UserResponse updateUserStatusByAdmin(String id, UserStatus status) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException(ErrorCode.USER_NOT_EXISTED.getMessage()));
-        userMapper.updateUserByAdmin(user, request);
 
 
-        if (request.getRoles() != null) {
-            var roles = roleRepository.findAllById(request.getRoles());
-            user.setRoles(new HashSet<>(roles));
-        }
-        if (request.getStatus() != null) {
-            user.setStatus(request.getStatus());
+
+//        if (request.getRoles() != null) {
+//            var roles = roleRepository.findAllById(request.getRoles());
+//            user.setRoles(new HashSet<>(roles));
+//        }
+
+        if (status != null) {
+            user.setStatus(status);
         }
         return userMapper.toUserResponse(userRepository.save(user));
     }
+
+
 
     public void deleteUser(String id) {
         userRepository.deleteById(id);

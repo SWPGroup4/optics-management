@@ -24,10 +24,12 @@ public class OrderCreationRequest {
     @NotBlank(message = "FIELD_MISSING")
     @VietNamPhone(message = "INVALID_VNPHONE")
     String phoneNumber;
-    @NotBlank(message = "FIELD_MISSING")
-            @Schema(hidden = true)
+    @NotNull(message = "FIELD_MISSING")
+    @Schema(hidden = true)
     PaymentMethod paymentMethod;
     @Valid
             @NotEmpty(message = "LIST_EMPTY")
     List<OrderItemCreationRequest> items;
+
+
 }
