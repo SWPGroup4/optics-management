@@ -36,6 +36,11 @@ public class UserCreationRequest {
     @Column(unique = true, nullable = false)
     String email;
 
+    String firstName;
+    String lastName;
+    @DobConstraint(min = 10, message = "INVALID_DOB")
+    LocalDate dob;
+
     @Schema(hidden = true)
     String imageUrl;
 
