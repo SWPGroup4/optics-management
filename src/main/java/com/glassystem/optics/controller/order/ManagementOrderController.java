@@ -23,18 +23,12 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Tag(name = "Order Management", description = "Administrative endpoints for managing and auditing all customer orders")
-@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN') or hasRole('SALE') or hasRole('OPERATION')")
 public class ManagementOrderController {
 
     OrderService orderService;
 
-    @GetMapping
-    @Operation(summary = "Get all system orders", description = "Retrieves a comprehensive list of all orders across the system")
-    public ApiResponse<List<OrderResponse>> getAllOrders() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getOrders())
-                .build();
-    }
+
 
     @GetMapping("/{orderId}")
     @Operation(summary = "Get order details", description = "Provides full details of a specific order including items and prescriptions")
@@ -44,9 +38,9 @@ public class ManagementOrderController {
                 .build();
     }
 
-    @GetMapping("/filter")
+    @GetMapping
     @Operation(summary = "Filter orders by status", description = "Retrieves a list of orders based on a specific OrderStatus (e.g., PENDING, PROCESSING)")
-    public ApiResponse<List<OrderResponse>> getOrdersByStatus(@RequestParam("status") OrderStatus status) {
+    public ApiResponse<List<OrderResponse>> getOrdersByStatus(@RequestParam(value = "status", required = false) OrderStatus status) {
         return ApiResponse.<List<OrderResponse>>builder()
                 .result(orderService.getOrdersByStatus(status))
                 .build();

@@ -3,13 +3,16 @@ package com.glassystem.optics.specification;
 import java.math.BigDecimal;
 
 import com.glassystem.optics.entity.Product;
+import com.glassystem.optics.enums.ProductVariantStatus;
 import com.glassystem.optics.enums.ProductStatus;
 import org.springframework.data.jpa.domain.Specification;
 
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 
 public class ProductSpecifications {
-	private ProductSpecifications() {}
+	private ProductSpecifications() {
+	}
 
 	public static Specification<Product> build(
 			String q,
@@ -23,8 +26,11 @@ public class ProductSpecifications {
 			String nosePadType,
 			BigDecimal minWeightGram,
 			BigDecimal maxWeightGram,
+			BigDecimal minPrice,
+			BigDecimal maxPrice,
 			ProductStatus status) {
 		return (root, query, cb) -> {
+			query.distinct(true);
 			Predicate predicate = cb.conjunction();
 
 			if (q != null && !q.isBlank()) {
@@ -40,7 +46,8 @@ public class ProductSpecifications {
 				Predicate nosePadTypeLike = cb.like(cb.lower(root.get("nosePadType")), like);
 				predicate = cb.and(
 						predicate,
-						cb.or(name, brandLike, categoryLike, frameTypeLike, genderLike, shapeLike, frameMaterialLike, hingeTypeLike, nosePadTypeLike));
+						cb.or(name, brandLike, categoryLike, frameTypeLike, genderLike, shapeLike, frameMaterialLike,
+								hingeTypeLike, nosePadTypeLike));
 			}
 
 			if (brand != null && !brand.isBlank()) {
@@ -89,6 +96,19 @@ public class ProductSpecifications {
 
 			if (maxWeightGram != null) {
 				predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("weightGram"), maxWeightGram));
+			}
+
+			if (minPrice != null || maxPrice != null) {
+				Join<?, ?> variantJoin = root.join("variants");
+				predicate = cb.and(predicate, cb.equal(variantJoin.get("status"), ProductVariantStatus.ACTIVE));
+
+				if (minPrice != null) {
+					predicate = cb.and(predicate, cb.greaterThanOrEqualTo(variantJoin.get("price"), minPrice));
+				}
+
+				if (maxPrice != null) {
+					predicate = cb.and(predicate, cb.lessThanOrEqualTo(variantJoin.get("price"), maxPrice));
+				}
 			}
 
 			if (status != null) {

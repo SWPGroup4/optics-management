@@ -30,7 +30,9 @@ public class Orders {
     BigDecimal depositAmount;
     LocalDate createdAt;
 
+    @NonNull
     String deliveryAddress;
+    @NonNull
     String phoneNumber;
     @Enumerated(EnumType.STRING)
     PaymentMethod paymentMethod;

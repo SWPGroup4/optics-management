@@ -18,6 +18,8 @@ public class Prescription {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
+    String imageUrl;
+
     // Mắt phải (OD - Right Eye)
     Double odSphere;
     Double odCylinder;

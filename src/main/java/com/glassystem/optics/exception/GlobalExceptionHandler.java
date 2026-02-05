@@ -1,18 +1,17 @@
 package com.glassystem.optics.exception;
 
-
 import java.util.Map;
 import java.util.Objects;
 
 import com.glassystem.optics.dto.response.ApiResponse;
 import jakarta.validation.ConstraintViolation;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,8 +28,11 @@ public class GlobalExceptionHandler {
 
         ApiResponse apiResponse = new ApiResponse();
         apiResponse.setCode(ErrorCode.UNCAUGHT_EXCEPTION.getCode());
-        apiResponse.setMessage(ErrorCode.UNCAUGHT_EXCEPTION.getMessage());
-        return ResponseEntity.badRequest().body(apiResponse);
+
+        String detailMessage = ErrorCode.UNCAUGHT_EXCEPTION.getMessage() + ": " + exception.getMessage();
+        apiResponse.setMessage(detailMessage);
+
+        return ResponseEntity.status(ErrorCode.UNCAUGHT_EXCEPTION.getStatusCode()).body(apiResponse);
     }
 
     @ExceptionHandler(value = AppException.class)
@@ -64,15 +66,17 @@ public class GlobalExceptionHandler {
         try {
             errorCode = ErrorCode.valueOf(enumkey);
 
-            var constraintViolation =
-                    exception.getBindingResult().getAllErrors().getFirst().unwrap(ConstraintViolation.class);
+            var constraintViolation = exception.getBindingResult().getAllErrors().getFirst()
+                    .unwrap(ConstraintViolation.class);
 
             attributes = constraintViolation.getConstraintDescriptor().getAttributes();
 
             log.info(attributes.toString());
 
         } catch (IllegalArgumentException error) {
-
+            log.error("Cannot find ErrorCode for key: '{}'. Error: {}", enumkey, error.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during validation handling. enumkey='{}', error: {}", enumkey, e.getMessage());
         }
 
         ApiResponse apiResponse = new ApiResponse();
@@ -83,6 +87,17 @@ public class GlobalExceptionHandler {
                         : errorCode.getMessage());
 
         return ResponseEntity.badRequest().body(apiResponse);
+    }
+
+    @ExceptionHandler(value = Exception.class)
+    ResponseEntity<ApiResponse> handlingGeneralException(Exception exception) {
+        log.error("General Exception: ", exception);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.builder()
+                        .code(9999)
+                        .message("System error: " + exception.getMessage())
+                        .build());
     }
 
     private String mapAttribute(String message, Map<String, Object> attributes) {
