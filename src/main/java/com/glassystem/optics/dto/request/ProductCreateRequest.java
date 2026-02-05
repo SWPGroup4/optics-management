@@ -26,6 +26,7 @@ public class ProductCreateRequest {
 	String name;
 
 	String brand;
+    @Schema(hidden = true)
 	ProductCategory category;
 	String frameType;
 	String gender;
