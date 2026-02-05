@@ -359,17 +359,10 @@ public class OrderService {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStatus().equals(OrderStatus.CONFIRMED)) {
+        if (!order.getStatus().equals(OrderStatus.PROCESSING)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
-        boolean hasPrescriptionItem = order.getItems().stream()
-                .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION));
-
-        if (!hasPrescriptionItem) {
-            throw new AppException(ErrorCode.INVALID_ORDER_ITEM_TYPE);
-        }
-        order.setStatus(OrderStatus.PROCESSING);
 
         for (OrderItem orderItem : order.getItems()) {
             if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
@@ -404,9 +397,6 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
-    public List<OrderResponse> getOrdersFinishProduction() {
-        return orderRepository.findByStatus(OrderStatus.PRODUCED).stream().map(orderMapper::toOrderResponse).toList();
-    }
 
     @Transactional
     public OrderResponse updateOrderItemProductionStatus(String orderItemId, OrderItemStatus status) {
@@ -424,8 +414,13 @@ public class OrderService {
         boolean allFinished = order.getItems().stream()
                 .allMatch(item -> item.getStatus().equals(OrderItemStatus.PRODUCED));
 
+        boolean anyInProduction = order.getItems().stream()
+                .allMatch(item -> item.getStatus().equals(OrderItemStatus.IN_PRODUCTION));
+
         if (allFinished) {
             order.setStatus(OrderStatus.PRODUCED);
+        } else if (anyInProduction) {
+            order.setStatus(OrderStatus.PROCESSING);
         }
 
         return orderMapper.toOrderResponse(orderRepository.save(order));

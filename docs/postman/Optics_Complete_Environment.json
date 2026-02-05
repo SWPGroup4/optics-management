@@ -1,0 +1,79 @@
+{
+    "id": "optics-complete-env",
+    "name": "Optics Management Environment",
+    "values": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8080/optics",
+            "enabled": true
+        },
+        {
+            "key": "username",
+            "value": "admin",
+            "enabled": true
+        },
+        {
+            "key": "password",
+            "value": "admin123",
+            "type": "secret",
+            "enabled": true
+        },
+        {
+            "key": "access_token",
+            "value": "",
+            "type": "secret",
+            "enabled": true
+        },
+        {
+            "key": "token_expiry",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "logged_out_token",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "user_id",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "product_id",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "variant_id",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "order_id",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "order_item_id",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "payment_url",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "vnp_tmn_code",
+            "value": "",
+            "enabled": true
+        },
+        {
+            "key": "secure_hash",
+            "value": "",
+            "enabled": true
+        }
+    ],
+    "_postman_variable_scope": "environment"
+}
