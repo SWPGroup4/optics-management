@@ -22,9 +22,19 @@ public class Payment {
     @Id
             @GeneratedValue(strategy = GenerationType.UUID)
     String id;
+
+    BigDecimal percentage;
+    String description;
+
+
+    @Enumerated(EnumType.STRING)
     PaymentMethod paymentMethod;
+
+    @Enumerated(EnumType.STRING)
     PaymentPurpose paymentPurpose;
     BigDecimal amount;
+
+    @Enumerated(EnumType.STRING)
     PaymentStatus status;
     LocalDateTime paymentDate;
 

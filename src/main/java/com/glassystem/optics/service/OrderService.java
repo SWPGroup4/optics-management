@@ -38,6 +38,7 @@ public class OrderService {
     private final PrescriptionRepository prescriptionRepository;
     private final OrderItemRepository orderItemRepository;
     private final FileStorageService fileStorageService;
+    private final PaymentRepository paymentRepository;
 
     /* ===================== 1. CUSTOMER FLOW (APIs cho khách hàng) ===================== */
 
@@ -97,10 +98,20 @@ public class OrderService {
 
         if (hasPrescription) {
             order.setDepositAmount(totalAmount);
+            order.setRemainingAmount(BigDecimal.ZERO);
             order.setPaymentMethod(PaymentMethod.VNPAY);
         } else if (hasPreOrder) {
             order.setDepositAmount(totalAmount.multiply(BigDecimal.valueOf(0.5)));
+            order.setRemainingAmount(totalAmount.multiply(BigDecimal.valueOf(0.5)));
+            order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PENDING);
             order.setPaymentMethod(PaymentMethod.VNPAY);
+
+            for(OrderItem item :  order.getItems()) {
+                if(item.getOrderItemType().equals(OrderItemType.PRE_ORDER)) {
+                    item.setDepositPrice(item.getTotalPrice().multiply(BigDecimal.valueOf(0.5)));
+                    item.setRemainingPrice(item.getTotalPrice().multiply(BigDecimal.valueOf(0.5)));
+                }
+            }
         } else {
             order.setDepositAmount(BigDecimal.ZERO);
             PaymentMethod paymentMethod = request.getPaymentMethod() != null
@@ -109,6 +120,8 @@ public class OrderService {
             order.setPaymentMethod(paymentMethod);
             if (paymentMethod == PaymentMethod.VNPAY) {
                 order.setDepositAmount(totalAmount);
+            }else {
+                order.setDepositAmount(BigDecimal.ZERO);
             }
         }
 
@@ -142,9 +155,15 @@ public class OrderService {
         boolean hasPreOrder = items.stream()
                 .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
 
+        List<Payment> payments = paymentRepository.findByOrderId(orderId);
+        boolean hasDepositPaid = payments.stream()
+                .anyMatch(payment -> payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT
+                && payment.getStatus() == PaymentStatus.PAID);
+
+
         double percentage = 0;
         boolean allowCOD = true;
-        String message = "Đơn hàng có thể thanh toán khi nhận hàng (COD).";
+        String message;
 
 
 
@@ -153,9 +172,15 @@ public class OrderService {
             allowCOD = false;
             message = "Đơn hàng có sản phẩm kê đơn, bắt buộc thanh toán trước 100%.";
         }else if (hasPreOrder) {
-            percentage = 0.5;
             allowCOD = false;
-            message = "Đơn hàng có sản phẩm đặt trước (Pre-order), bắt buộc cọc trước 50%.";
+            if(!hasDepositPaid){
+                percentage = 0.5;
+                message = "Bắt buộc cọc 50% (pre-order)";
+            }else {
+                percentage = 0.5;
+                message = "Đã cọc 50%, vui lòng thanh toán 50% còn lại";
+            }
+
         } else{
 
 
