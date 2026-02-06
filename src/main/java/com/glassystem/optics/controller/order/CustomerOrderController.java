@@ -3,6 +3,8 @@ package com.glassystem.optics.controller.order;
 import java.io.IOException;
 import java.util.List;
 
+import com.glassystem.optics.dto.request.OrderItemCreationRequest;
+import com.glassystem.optics.dto.response.PaymentRequirementResponse;
 import com.glassystem.optics.enums.OrderItemStatus;
 import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.PaymentMethod;
@@ -46,6 +48,13 @@ public class CustomerOrderController {
                                                   @RequestParam(value = "PaymentMethod", required = true) PaymentMethod paymentMethod,
                                                   @RequestPart(value = "prescriptionImage", required = false) MultipartFile file) throws IOException {
 
+
+        if (paymentMethod != null) {
+            request.setPaymentMethod(paymentMethod);
+        }
+        for(OrderItemCreationRequest item : request.getItems()) {
+            item.setOrderItemType(type);
+        }
 
 
         return ApiResponse.<OrderResponse>builder()
@@ -115,6 +124,16 @@ public class CustomerOrderController {
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.completeOrder(orderId))
                 .message("Order completed successfully. Thank you!")
+                .build();
+    }
+
+
+    @GetMapping("/{orderId}/payment-requirement")
+    @Operation(summary = "Kiểm tra yêu cầu đặt cọc",
+            description = "Dùng để xác định số tiền khách cần trả trước dựa trên các loại sản phẩm trong giỏ hàng")
+    public ApiResponse<PaymentRequirementResponse> validatePayment(@PathVariable String orderId) {
+        return ApiResponse.<PaymentRequirementResponse>builder()
+                .result(orderService.getPaymentRequirement(orderId))
                 .build();
     }
 }

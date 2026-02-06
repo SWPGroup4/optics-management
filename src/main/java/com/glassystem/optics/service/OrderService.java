@@ -2,6 +2,7 @@ package com.glassystem.optics.service;
 
 import com.glassystem.optics.dto.request.*;
 import com.glassystem.optics.dto.response.OrderResponse;
+import com.glassystem.optics.dto.response.PaymentRequirementResponse;
 import com.glassystem.optics.dto.response.PrescriptionResponse;
 import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.*;
@@ -14,6 +15,7 @@ import com.glassystem.optics.repository.*;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,63 +53,65 @@ public class OrderService {
         order.setCreatedAt(LocalDate.now());
         order.setDeliveryAddress(request.getDeliveryAddress());
         order.setPhoneNumber(request.getPhoneNumber());
-        order.setPaymentMethod(request.getPaymentMethod());
 
-
-        boolean hasSpecialItem = request.getItems().stream()
-                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRESCRIPTION
-                        || item.getOrderItemType() == OrderItemType.PRE_ORDER);
-
-        if (hasSpecialItem) {
-            order.setPaymentMethod(PaymentMethod.VNPAY);
-        } else {
-            order.setPaymentMethod(request.getPaymentMethod());
-        }
+        boolean hasPrescription = request.getItems().stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRESCRIPTION);
+        boolean hasPreOrder = request.getItems().stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         boolean fileUploaded = false;
 
-        for (OrderItemCreationRequest orderItem : request.getItems()) {
-            Inventory inventory = inventoryRepository.findByProductVariantId(orderItem.getProductVariantId())
+        for (OrderItemCreationRequest orderItemRequest : request.getItems()) {
+            Inventory inventory = inventoryRepository.findByProductVariantId(orderItemRequest.getProductVariantId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
-
-
-            validateInventory(inventory, orderItem.getQuantity());
-
-
+            validateInventory(inventory, orderItemRequest.getQuantity());
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
-            item.setOrderItemType(orderItem.getOrderItemType());
+            item.setOrderItemType(orderItemRequest.getOrderItemType());
             item.setInventory(inventory);
-            item.setQuantity(orderItem.getQuantity());
+            item.setQuantity(orderItemRequest.getQuantity());
             item.setUnitPrice(inventory.getProductVariant().getPrice());
+            item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(orderItemRequest.getQuantity())));
 
-            BigDecimal itemTotalPrice = item.getUnitPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
-            item.setTotalPrice(itemTotalPrice);
-
-            if(orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)){
+            if (orderItemRequest.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
                 Prescription prescription = new Prescription();
-
-                if(orderItem.getPrescription() != null){
-                    prescriptionMapper.updatePrescription(prescription, orderItem.getPrescription());
+                if (orderItemRequest.getPrescription() != null) {
+                    prescriptionMapper.updatePrescription(prescription, orderItemRequest.getPrescription());
                 }
-
-                if(file != null && !file.isEmpty() && !fileUploaded){
+                if (file != null && !file.isEmpty() && !fileUploaded) {
                     String url = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
                     prescription.setImageUrl(url);
                     fileUploaded = true;
                 }
-                prescription =  prescriptionRepository.save(prescription);
-                item.setPrescription(prescription);
-            }else {
-                item.setPrescription(null);
+                item.setPrescription(prescriptionRepository.save(prescription));
             }
-            updateInventoryStock(inventory, orderItem.getQuantity());
+
+            updateInventoryStock(inventory, orderItemRequest.getQuantity());
             order.getItems().add(item);
-            totalAmount = totalAmount.add(inventory.getProductVariant().getPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity())));
+            totalAmount = totalAmount.add(inventory.getProductVariant().getPrice()
+                    .multiply(BigDecimal.valueOf(orderItemRequest.getQuantity())));
         }
+
+        if (hasPrescription) {
+            order.setDepositAmount(totalAmount);
+            order.setPaymentMethod(PaymentMethod.VNPAY);
+        } else if (hasPreOrder) {
+            order.setDepositAmount(totalAmount.multiply(BigDecimal.valueOf(0.5)));
+            order.setPaymentMethod(PaymentMethod.VNPAY);
+        } else {
+            order.setDepositAmount(BigDecimal.ZERO);
+            PaymentMethod paymentMethod = request.getPaymentMethod() != null
+                ? request.getPaymentMethod()
+                : PaymentMethod.COD;
+            order.setPaymentMethod(paymentMethod);
+            if (paymentMethod == PaymentMethod.VNPAY) {
+                order.setDepositAmount(totalAmount);
+            }
+        }
+
         order.setTotalAmount(totalAmount);
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
@@ -123,6 +127,55 @@ public class OrderService {
         inventory.setReservedQuantity(inventory.getReservedQuantity() + quantity);
         inventory.setQuantity(inventory.getQuantity() - quantity);
         inventoryRepository.save(inventory);
+    }
+
+
+    @Transactional
+    public PaymentRequirementResponse getPaymentRequirement (String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(()-> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        List<OrderItem> items = order.getItems();
+
+        boolean hasPrescription = items.stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRESCRIPTION);
+        boolean hasPreOrder = items.stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
+
+        double percentage = 0;
+        boolean allowCOD = true;
+        String message = "Đơn hàng có thể thanh toán khi nhận hàng (COD).";
+
+
+
+        if (hasPrescription) {
+            percentage = 1.0;
+            allowCOD = false;
+            message = "Đơn hàng có sản phẩm kê đơn, bắt buộc thanh toán trước 100%.";
+        }else if (hasPreOrder) {
+            percentage = 0.5;
+            allowCOD = false;
+            message = "Đơn hàng có sản phẩm đặt trước (Pre-order), bắt buộc cọc trước 50%.";
+        } else{
+
+
+            if (order.getPaymentMethod() == PaymentMethod.VNPAY) {
+                percentage = 1.0;
+                allowCOD = false;
+                message = "Thanh toán trước 100% với phương thức VNPAY.";
+            } else {
+                percentage = 0;
+                message = "Đơn hàng có thể thanh toán khi nhận hàng (COD).";
+            }
+        }
+
+        return PaymentRequirementResponse.builder()
+                .depositPercentage(percentage)
+                .requiredAmount(order.getTotalAmount().multiply(BigDecimal.valueOf(percentage)))
+                .allowCOD(allowCOD)
+                .message(message)
+                .build();
+
     }
 
     @Transactional

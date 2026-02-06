@@ -41,14 +41,14 @@ public class PaymentService {
             throw new AppException(ErrorCode.ORDER_ALREADY_PROCESSED);
         }
 
-
+        BigDecimal amountToPay = order.getDepositAmount();
 
         Payment payment = Payment.builder()
                 .order(order)
                 .paymentMethod(paymentMethod)
-                .paymentPurpose(String.valueOf(PaymentPurpose.FULL))
-                .amount(order.getTotalAmount())
-                .status(String.valueOf(PaymentStatus.UNPAID))
+                .paymentPurpose(amountToPay.equals(order.getTotalAmount()) ? PaymentPurpose.FULL : PaymentPurpose.DEPOSIT)
+                .amount(amountToPay)
+                .status(PaymentStatus.UNPAID)
                 .build();
 
         payment = paymentRepository.save(payment);
@@ -73,7 +73,7 @@ public class PaymentService {
                 .orElseThrow(() -> new RuntimeException("Payment Not Found"));
 
         if(payment_status ==1 ){
-            payment.setStatus(String.valueOf(PaymentStatus.PAID));
+            payment.setStatus(PaymentStatus.PAID);
             payment.setPaymentDate(LocalDateTime.now());
 
 
@@ -90,7 +90,7 @@ public class PaymentService {
                     orderRepository.save(order);
 
         }else{
-            payment.setStatus(String.valueOf(PaymentStatus.FAILED));
+            payment.setStatus(PaymentStatus.FAILED);
             payment.setPaymentDate(LocalDateTime.now());
 
         }
