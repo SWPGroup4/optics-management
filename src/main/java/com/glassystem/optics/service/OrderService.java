@@ -304,7 +304,14 @@ public class OrderService {
     public OrderResponse cancelOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        if (!order.getStatus().equals(OrderStatus.PENDING)) {
+        
+        List<OrderStatus> cancellableStatuses = List.of(
+                OrderStatus.PENDING, 
+                OrderStatus.AWAITING_VERIFICATION,
+                OrderStatus.ON_HOLD
+        );
+        
+        if (!cancellableStatuses.contains(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
@@ -363,18 +370,19 @@ public class OrderService {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStatus().equals(OrderStatus.PENDING) && !order.getStatus().equals(OrderStatus.ON_HOLD)) {
+        if (!order.getStatus().equals(OrderStatus.PENDING) && 
+            !order.getStatus().equals(OrderStatus.ON_HOLD) &&
+            !order.getStatus().equals(OrderStatus.AWAITING_VERIFICATION)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
-      boolean requiresProcessing = order.getItems().stream()
-              .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
-              || orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER));
-
+        boolean requiresProcessing = order.getItems().stream()
+                .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
+                        || orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER));
 
         if (isApproved) {
             order.setStatus(requiresProcessing ? OrderStatus.PROCESSING : OrderStatus.CONFIRMED);
-        }else {
+        } else {
             order.setStatus(OrderStatus.ON_HOLD);
         }
 
@@ -386,7 +394,12 @@ public class OrderService {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        List<OrderStatus> revertsibleStatuses = List.of(OrderStatus.ON_HOLD, OrderStatus.PROCESSING, OrderStatus.CONFIRMED);
+        List<OrderStatus> revertsibleStatuses = List.of(
+                OrderStatus.ON_HOLD, 
+                OrderStatus.PROCESSING, 
+                OrderStatus.CONFIRMED,
+                OrderStatus.AWAITING_VERIFICATION
+        );
 
         if(!revertsibleStatuses.contains(order.getStatus())){
             throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);

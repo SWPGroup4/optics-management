@@ -151,7 +151,7 @@ public class PaymentService {
             }
         }
         if(hasSpecialItem){
-            order.setStatus(OrderStatus.PROCESSING);
+            order.setStatus(OrderStatus.AWAITING_VERIFICATION);
         }else{
             order.setStatus(OrderStatus.COMPLETED);
         }

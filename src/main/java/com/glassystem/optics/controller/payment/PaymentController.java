@@ -59,14 +59,15 @@ public class PaymentController {
     public void vnpayCallback(HttpServletRequest request, HttpServletResponse response) throws IOException {
         Payment payment = paymentService.processVnPayCallback(request);
 
-        if (payment != null && payment.getStatus().equals(String.valueOf(PaymentStatus.PAID))) {
+        if (payment != null && payment.getStatus().equals((PaymentStatus.PAID))) {
             String orderId = payment.getOrder().getId();
             String email = payment.getOrder().getCustomer().getEmail();
 
             response.sendRedirect(String.format("%s/checkout/success?orderId=%s&email=%s",
                     frontendUrl, orderId, email));
         } else {
-            response.sendRedirect(String.format(frontendUrl + "%s/checkout/failure"));
+            response.sendRedirect(String.format("%s/checkout/failure", frontendUrl));
+
         }
     }
 
