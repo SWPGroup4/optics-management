@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class OrderItemResponse {
+    String orderItemId;
     String productVariantId;
     OrderItemType orderItemType;
     Integer quantity;

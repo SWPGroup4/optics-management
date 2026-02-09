@@ -2,6 +2,7 @@ package com.glassystem.optics.entity;
 
 import com.glassystem.optics.enums.OrderStatus;
 import com.glassystem.optics.enums.PaymentMethod;
+import com.glassystem.optics.enums.PreOrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -26,14 +27,25 @@ public class Orders {
 
     @Enumerated(EnumType.STRING)
     OrderStatus status;
+
+
     BigDecimal totalAmount;
     BigDecimal depositAmount;
+    BigDecimal remainingAmount;
+
     LocalDate createdAt;
 
+    @NonNull
     String deliveryAddress;
+
+    @NonNull
     String phoneNumber;
+
     @Enumerated(EnumType.STRING)
     PaymentMethod paymentMethod;
+
+    @Enumerated(EnumType.STRING)
+    PreOrderStatus preOrderStatus;
 
 
     @ManyToOne

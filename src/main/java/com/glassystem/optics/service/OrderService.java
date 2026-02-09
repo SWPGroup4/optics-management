@@ -2,23 +2,26 @@ package com.glassystem.optics.service;
 
 import com.glassystem.optics.dto.request.*;
 import com.glassystem.optics.dto.response.OrderResponse;
+import com.glassystem.optics.dto.response.PaymentRequirementResponse;
 import com.glassystem.optics.dto.response.PrescriptionResponse;
 import com.glassystem.optics.entity.*;
-import com.glassystem.optics.enums.OrderItemStatus;
-import com.glassystem.optics.enums.OrderItemType;
-import com.glassystem.optics.enums.OrderStatus;
+import com.glassystem.optics.enums.*;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
+import com.glassystem.optics.mapper.OrderItemMapper;
 import com.glassystem.optics.mapper.OrderMapper;
 import com.glassystem.optics.mapper.PrescriptionMapper;
 import com.glassystem.optics.repository.*;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,11 +37,13 @@ public class OrderService {
     private final InventoryRepository inventoryRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final OrderItemRepository orderItemRepository;
+    private final FileStorageService fileStorageService;
+    private final PaymentRepository paymentRepository;
 
     /* ===================== 1. CUSTOMER FLOW (APIs cho khách hàng) ===================== */
 
     @Transactional
-    public OrderResponse createOrder(OrderCreationRequest request) {
+    public OrderResponse createOrder(OrderCreationRequest request, MultipartFile file) throws IOException {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         User customer = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
@@ -49,47 +54,184 @@ public class OrderService {
         order.setCreatedAt(LocalDate.now());
         order.setDeliveryAddress(request.getDeliveryAddress());
         order.setPhoneNumber(request.getPhoneNumber());
-        order.setPaymentMethod(request.getPaymentMethod());
+
+        boolean hasPrescription = request.getItems().stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRESCRIPTION);
+        boolean hasPreOrder = request.getItems().stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
+        boolean fileUploaded = false;
 
-        for (OrderItemCreationRequest orderItem : request.getItems()) {
-            Inventory inventory = inventoryRepository.findByProductVariantId(orderItem.getProductVariantId())
+        for (OrderItemCreationRequest orderItemRequest : request.getItems()) {
+            Inventory inventory = inventoryRepository.findByProductVariantId(orderItemRequest.getProductVariantId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
-            if(orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) && orderItem.getPrescription()== null){
-                throw new AppException(ErrorCode.PRESCRIPTION_REQUIRED);
-            }
-
-            int available = inventory.getQuantity() - inventory.getReservedQuantity();
-            if (available < orderItem.getQuantity()) {
-                throw new AppException(ErrorCode.OUT_OF_STOCK);
-            }
-
-            inventory.setReservedQuantity(inventory.getReservedQuantity() + orderItem.getQuantity());
-            inventory.setQuantity(inventory.getQuantity() - orderItem.getQuantity());
+            validateInventory(inventory, orderItemRequest.getQuantity());
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
-            item.setOrderItemType(orderItem.getOrderItemType());
+            item.setOrderItemType(orderItemRequest.getOrderItemType());
             item.setInventory(inventory);
-            item.setQuantity(orderItem.getQuantity());
+            item.setQuantity(orderItemRequest.getQuantity());
             item.setUnitPrice(inventory.getProductVariant().getPrice());
+            item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(orderItemRequest.getQuantity())));
 
-            BigDecimal itemTotalPrice = item.getUnitPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
-            item.setTotalPrice(itemTotalPrice);
-
-            if(orderItem.getPrescription() != null) {
-                Prescription prescription = prescriptionMapper.toPrescription(orderItem.getPrescription());
-                prescription = prescriptionRepository.save(prescription);
-                item.setPrescription(prescription);
+            if (orderItemRequest.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+                Prescription prescription = new Prescription();
+                if (orderItemRequest.getPrescription() != null) {
+                    prescriptionMapper.updatePrescription(prescription, orderItemRequest.getPrescription());
+                }
+                if (file != null && !file.isEmpty() && !fileUploaded) {
+                    String url = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
+                    prescription.setImageUrl(url);
+                    fileUploaded = true;
+                }
+                item.setPrescription(prescriptionRepository.save(prescription));
             }
 
+            updateInventoryStock(inventory, orderItemRequest.getQuantity());
             order.getItems().add(item);
-            totalAmount = totalAmount.add(inventory.getProductVariant().getPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity())));
+            totalAmount = totalAmount.add(inventory.getProductVariant().getPrice()
+                    .multiply(BigDecimal.valueOf(orderItemRequest.getQuantity())));
         }
+
+        if (hasPrescription) {
+            order.setDepositAmount(totalAmount);
+            order.setRemainingAmount(BigDecimal.ZERO);
+            order.setPaymentMethod(PaymentMethod.VNPAY);
+        } else if (hasPreOrder) {
+            order.setDepositAmount(totalAmount.multiply(BigDecimal.valueOf(0.5)));
+            order.setRemainingAmount(totalAmount.multiply(BigDecimal.valueOf(0.5)));
+            order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PENDING);
+            order.setPaymentMethod(PaymentMethod.VNPAY);
+
+            for(OrderItem item :  order.getItems()) {
+                if(item.getOrderItemType().equals(OrderItemType.PRE_ORDER)) {
+                    item.setDepositPrice(item.getTotalPrice().multiply(BigDecimal.valueOf(0.5)));
+                    item.setRemainingPrice(item.getTotalPrice().multiply(BigDecimal.valueOf(0.5)));
+                }
+            }
+        } else {
+            order.setDepositAmount(BigDecimal.ZERO);
+            PaymentMethod paymentMethod = request.getPaymentMethod() != null
+                ? request.getPaymentMethod()
+                : PaymentMethod.COD;
+            order.setPaymentMethod(paymentMethod);
+            if (paymentMethod == PaymentMethod.VNPAY) {
+                order.setDepositAmount(totalAmount);
+            }else {
+                order.setDepositAmount(BigDecimal.ZERO);
+            }
+        }
+
         order.setTotalAmount(totalAmount);
         return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    private void validateInventory(Inventory inventory, int quantity) {
+        int available = inventory.getQuantity() - inventory.getReservedQuantity();
+        if (available < quantity) {
+            throw new AppException(ErrorCode.OUT_OF_STOCK);
+        }
+    }
+
+    private void updateInventoryStock(Inventory inventory, int quantity) {
+        inventory.setReservedQuantity(inventory.getReservedQuantity() + quantity);
+        inventory.setQuantity(inventory.getQuantity() - quantity);
+        inventoryRepository.save(inventory);
+    }
+
+
+    @Transactional
+    public PaymentRequirementResponse getPaymentRequirement (String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(()-> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        List<OrderItem> items = order.getItems();
+
+        boolean hasPrescription = items.stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRESCRIPTION);
+        boolean hasPreOrder = items.stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
+
+        List<Payment> payments = paymentRepository.findByOrderId(orderId);
+        boolean hasDepositPaid = payments.stream()
+                .anyMatch(payment -> payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT
+                && payment.getStatus() == PaymentStatus.PAID);
+
+
+        double percentage = 0;
+        boolean allowCOD = true;
+        String message;
+
+
+
+        if (hasPrescription) {
+            percentage = 1.0;
+            allowCOD = false;
+            message = "Đơn hàng có sản phẩm kê đơn, bắt buộc thanh toán trước 100%.";
+        }else if (hasPreOrder) {
+            allowCOD = false;
+            if(!hasDepositPaid){
+                percentage = 0.5;
+                message = "Bắt buộc cọc 50% (pre-order)";
+            }else {
+                percentage = 0.5;
+                message = "Đã cọc 50%, vui lòng thanh toán 50% còn lại";
+            }
+
+        } else{
+
+
+            if (order.getPaymentMethod() == PaymentMethod.VNPAY) {
+                percentage = 1.0;
+                allowCOD = false;
+                message = "Thanh toán trước 100% với phương thức VNPAY.";
+            } else {
+                percentage = 0;
+                message = "Đơn hàng có thể thanh toán khi nhận hàng (COD).";
+            }
+        }
+
+        return PaymentRequirementResponse.builder()
+                .depositPercentage(percentage)
+                .requiredAmount(order.getTotalAmount().multiply(BigDecimal.valueOf(percentage)))
+                .allowCOD(allowCOD)
+                .message(message)
+                .build();
+
+    }
+
+    @Transactional
+    public PrescriptionResponse uploadPrescriptionImage(String orderItemId, MultipartFile file) throws IOException {
+        OrderItem orderItem = orderItemRepository.findById(orderItemId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
+
+        if (!orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+            throw new AppException(ErrorCode.INVALID_ORDER_ITEM_TYPE);
+        }
+
+
+        String url = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
+
+
+        Prescription prescription = orderItem.getPrescription();
+        if (prescription == null) {
+            prescription = new Prescription();
+        }
+
+        if (prescription.getImageUrl() != null) {
+            fileStorageService.deleteFileByKey(prescription.getImageUrl());
+        }
+
+        prescription.setImageUrl(url);
+        prescription = prescriptionRepository.save(prescription);
+
+        orderItem.setPrescription(prescription);
+        orderItemRepository.save(orderItem);
+
+        return prescriptionMapper.toPrescriptionResponse(prescription);
     }
 
     public List<OrderResponse> getMyOrders() {
@@ -113,18 +255,28 @@ public class OrderService {
         if (request.getDeliveryAddress() != null) {
             orders.setDeliveryAddress(request.getDeliveryAddress());
         }
+        if(request.getPhoneNumber() != null){
+            orders.setPhoneNumber(request.getPhoneNumber());
+        }
         if (request.getItems() != null) {
             for (OrderItemUpdateRequest requestItem : request.getItems()) {
                 OrderItem orderItem = orderItemRepository.findById(requestItem.getOrderItemId())
                         .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
 
-                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+                if(orderItem.getQuantity() != null && !orderItem.getQuantity().equals(requestItem.getQuantity())){
+                    updateQuantityAndInventory(orderItem, requestItem.getQuantity());
+                }
+
+
+                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) && requestItem.getPrescription() != null) {
                     updatePrescriptionLogic(orderItem, requestItem.getPrescription());
                 }
             }
         }
         return orderMapper.toOrderResponse(orderRepository.save(orders));
     }
+
+
 
     @Transactional
     public PrescriptionResponse updatePrescription(String orderItemId, PrescriptionRequest prescriptionRequest) {
@@ -152,7 +304,14 @@ public class OrderService {
     public OrderResponse cancelOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        if (!order.getStatus().equals(OrderStatus.PENDING)) {
+        
+        List<OrderStatus> cancellableStatuses = List.of(
+                OrderStatus.PENDING, 
+                OrderStatus.AWAITING_VERIFICATION,
+                OrderStatus.ON_HOLD
+        );
+        
+        if (!cancellableStatuses.contains(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
@@ -194,9 +353,6 @@ public class OrderService {
 
     /* ===================== 2. MANAGEMENT FLOW (APIs cho Admin/Sales) ===================== */
 
-    public List<OrderResponse> getOrders() {
-        return orderRepository.findAll().stream().map(orderMapper::toOrderResponse).toList();
-    }
 
     public OrderResponse getOrderById(String orderId) {
         Orders order = orderRepository.findById(orderId)
@@ -210,32 +366,46 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse verifyOrder(String orderId, boolean isPrescriptionValid) {
+    public OrderResponse verifyOrder(String orderId, boolean isApproved) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStatus().equals(OrderStatus.PENDING) && !order.getStatus().equals(OrderStatus.ON_HOLD)) {
+        if (!order.getStatus().equals(OrderStatus.PENDING) && 
+            !order.getStatus().equals(OrderStatus.ON_HOLD) &&
+            !order.getStatus().equals(OrderStatus.AWAITING_VERIFICATION)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
-        boolean hasInvalidPrescription = false;
-        boolean hasPrescriptionItem = false;
+        boolean requiresProcessing = order.getItems().stream()
+                .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
+                        || orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER));
 
-        for (OrderItem item : order.getItems()) {
-            if (item.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
-                hasPrescriptionItem = true;
-                if (!isPrescriptionValid) {
-                    hasInvalidPrescription = true;
-                    break;
-                }
-            }
-        }
-
-        if (hasPrescriptionItem && hasInvalidPrescription) {
-            order.setStatus(OrderStatus.ON_HOLD);
+        if (isApproved) {
+            order.setStatus(requiresProcessing ? OrderStatus.PROCESSING : OrderStatus.CONFIRMED);
         } else {
-            order.setStatus(OrderStatus.CONFIRMED);
+            order.setStatus(OrderStatus.ON_HOLD);
         }
+
+        return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    @Transactional
+    public OrderResponse revertVerification (String orderId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        List<OrderStatus> revertsibleStatuses = List.of(
+                OrderStatus.ON_HOLD, 
+                OrderStatus.PROCESSING, 
+                OrderStatus.CONFIRMED,
+                OrderStatus.AWAITING_VERIFICATION
+        );
+
+        if(!revertsibleStatuses.contains(order.getStatus())){
+            throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
+        }
+
+        order.setStatus(OrderStatus.PENDING);
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
@@ -262,6 +432,11 @@ public class OrderService {
     }
 
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
+
+        if(status == null){
+            return  orderRepository.findAll().stream().map(orderMapper::toOrderResponse).toList();
+        }
+
         return orderRepository.findByStatus(status)
                 .stream()
                 .map(orderMapper::toOrderResponse)
@@ -275,17 +450,10 @@ public class OrderService {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStatus().equals(OrderStatus.CONFIRMED)) {
+        if (!order.getStatus().equals(OrderStatus.PROCESSING)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
-        boolean hasPrescriptionItem = order.getItems().stream()
-                .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION));
-
-        if (!hasPrescriptionItem) {
-            throw new AppException(ErrorCode.INVALID_ORDER_ITEM_TYPE);
-        }
-        order.setStatus(OrderStatus.PROCESSING);
 
         for (OrderItem orderItem : order.getItems()) {
             if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
@@ -320,9 +488,6 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
-    public List<OrderResponse> getOrdersFinishProduction() {
-        return orderRepository.findByStatus(OrderStatus.PRODUCED).stream().map(orderMapper::toOrderResponse).toList();
-    }
 
     @Transactional
     public OrderResponse updateOrderItemProductionStatus(String orderItemId, OrderItemStatus status) {
@@ -340,8 +505,13 @@ public class OrderService {
         boolean allFinished = order.getItems().stream()
                 .allMatch(item -> item.getStatus().equals(OrderItemStatus.PRODUCED));
 
+        boolean anyInProduction = order.getItems().stream()
+                .allMatch(item -> item.getStatus().equals(OrderItemStatus.IN_PRODUCTION));
+
         if (allFinished) {
             order.setStatus(OrderStatus.PRODUCED);
+        } else if (anyInProduction) {
+            order.setStatus(OrderStatus.PROCESSING);
         }
 
         return orderMapper.toOrderResponse(orderRepository.save(order));
@@ -406,5 +576,23 @@ public class OrderService {
 
         orderItem.setPrescription(prescription);
         orderItemRepository.save(orderItem);
+    }
+
+    private void updateQuantityAndInventory(OrderItem item, Integer newQty) {
+        Inventory inventory = item.getInventory();
+        int diff = newQty - item.getQuantity();
+
+
+        if (diff > 0) {
+            int available = inventory.getQuantity() - inventory.getReservedQuantity();
+            if (available < diff) throw new AppException(ErrorCode.OUT_OF_STOCK);
+        }
+
+        inventory.setReservedQuantity(inventory.getReservedQuantity() + diff);
+        inventory.setQuantity(inventory.getQuantity() - diff);
+        inventoryRepository.save(inventory);
+
+        item.setQuantity(newQty);
+        item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(newQty)));
     }
 }

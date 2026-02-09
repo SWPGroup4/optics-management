@@ -1,11 +1,10 @@
 server:
-  port: 8080
+  port: 8081
   servlet:
     context-path: /optics
 
 spring:
   datasource:
-
       url: ${DB_URL}
       username: ${DB_USERNAME}
       password: ${DB_PASSWORD}
@@ -27,3 +26,6 @@ jwt:
   signerKey: ${JWT_SIGNER_KEY:dev-jwt-signer-key}
   valid-duration: ${VALID_DURATION:3600}
   refreshable-duration: ${REFRESH_DURATION:86400}
+
+app:
+  frontend-url: ${FRONTEND_URL}

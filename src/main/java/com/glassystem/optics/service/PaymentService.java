@@ -1,5 +1,6 @@
 package com.glassystem.optics.service;
 
+import com.glassystem.optics.dto.response.PaymentResponse;
 import com.glassystem.optics.entity.OrderItem;
 import com.glassystem.optics.entity.Orders;
 import com.glassystem.optics.entity.Payment;
@@ -7,6 +8,7 @@ import com.glassystem.optics.entity.Transaction;
 import com.glassystem.optics.enums.*;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
+import com.glassystem.optics.mapper.PaymentMapper;
 import com.glassystem.optics.repository.OrderRepository;
 import com.glassystem.optics.repository.PaymentRepository;
 import com.glassystem.optics.repository.TransactionRepository;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -30,30 +33,34 @@ public class PaymentService {
     final PaymentRepository paymentRepository;
     final TransactionRepository transactionRepository;
     final VNPayService vnPayService;
+    final PaymentMapper paymentMapper;
+
+
 
 
     @Transactional
-    public String initiatePayment(String orderid, PaymentMethod paymentMethod, String baseUrl){
-        Orders order = orderRepository.findById(orderid)
-                .orElseThrow(() -> new RuntimeException("Order Not Found"));
+    public String initiatePayment(String orderId, PaymentMethod paymentMethod, String baseUrl){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() ->new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         if(order.getStatus().equals(OrderStatus.COMPLETED)){
             throw new AppException(ErrorCode.ORDER_ALREADY_PROCESSED);
         }
 
+        PaymentPurpose purpose = determinePaymentPurpose(order);
+        BigDecimal amount = getAmountToPay(order, purpose);
 
-        if(PaymentMethod.COD.equals(paymentMethod)){
-            if(!order.getStatus().equals(OrderStatus.SHIPPED)){
-                throw new RuntimeException("Phương thức COD chỉ được phép thanh toán khi đơn hàng đã ở trạng thái SHIPPED.");
-            }
+        if (amount.compareTo(BigDecimal.ZERO) > 0 && !paymentMethod.equals(PaymentMethod.VNPAY)) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_METHOD);
         }
 
         Payment payment = Payment.builder()
                 .order(order)
                 .paymentMethod(paymentMethod)
-                .paymentPurpose(String.valueOf(PaymentPurpose.FULL))
-                .amount(order.getTotalAmount())
-                .status(String.valueOf(PaymentStatus.UNPAID))
+                .paymentPurpose(purpose)
+                .amount(amount)
+                .status(PaymentStatus.UNPAID)
+                .description("Payment for " + purpose.toString().toLowerCase())
                 .build();
 
         payment = paymentRepository.save(payment);
@@ -62,45 +69,75 @@ public class PaymentService {
             return  vnPayService.createPaymentUrl(payment, baseUrl);
         }
 
-        return "/order-success";
+        return "/order-confirmed";
     }
 
+
     @Transactional
-    public String processVnPayCallback(HttpServletRequest request){
+    public Payment processVnPayCallback(HttpServletRequest request){
         int payment_status = vnPayService.orderReturn(request);
 
 
-        String vnp_TxnRef = request.getParameter("vnp_TxnRef"); // Đây chính là Payment ID
+        String vnp_TxnRef = request.getParameter("vnp_TxnRef"); // Payment ID
         String vnp_TransactionNo = request.getParameter("vnp_TransactionNo");
         String vnp_Amount = request.getParameter("vnp_Amount");
 
-        Payment payment = paymentRepository.findById(String.valueOf(UUID.fromString(vnp_TxnRef)))
+        Payment payment = paymentRepository.findById(vnp_TxnRef)
                 .orElseThrow(() -> new RuntimeException("Payment Not Found"));
 
         if(payment_status ==1 ){
-            payment.setStatus(String.valueOf(PaymentStatus.PAID));
+            payment.setStatus(PaymentStatus.PAID);
             payment.setPaymentDate(LocalDateTime.now());
-            paymentRepository.save(payment);
+
+            TransactionType txnType = payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT
+                    ? TransactionType.DEPOSIT : TransactionType.CHARGE;
 
             Transaction transaction = Transaction.builder()
                     .payment(payment)
-                    .type(TransactionType.CHARGE)
+                    .type(txnType)
                     .amount(new BigDecimal(vnp_Amount).divide(new BigDecimal(100)))
                     .gatewayReference(vnp_TransactionNo)
                     .build();
                     transactionRepository.save(transaction);
 
                     Orders order = payment.getOrder();
+
+                    if (payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT) {
+                        order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
+                    } else if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
+                        order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
+                    }
+
+
                     updateOrderStatusBasedOnItems(order);
                     orderRepository.save(order);
-                    return "SUCCESS";
 
         }else{
-            payment.setStatus(String.valueOf(PaymentStatus.FAILED));
+            payment.setStatus(PaymentStatus.FAILED);
             payment.setPaymentDate(LocalDateTime.now());
-            paymentRepository.save(payment);
-            return "FAILED";
+
         }
+        return paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public List<PaymentResponse> getPaymentHistory(String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() ->new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+
+        List<Payment> payments = paymentRepository.findByOrderId(order.getId());
+
+        return payments.stream()
+                .sorted((p1, p2) -> {
+                    // Handle null paymentDate
+                    if (p1.getPaymentDate() == null && p2.getPaymentDate() == null) return 0;
+                    if (p1.getPaymentDate() == null) return 1;
+                    if (p2.getPaymentDate() == null) return -1;
+                    return p2.getPaymentDate().compareTo(p1.getPaymentDate());  // Desc order
+                })
+                .map(paymentMapper::toPaymentResponse)
+                .toList();
     }
 
     private void updateOrderStatusBasedOnItems(Orders order){
@@ -114,9 +151,41 @@ public class PaymentService {
             }
         }
         if(hasSpecialItem){
-            order.setStatus(OrderStatus.PROCESSING);
+            order.setStatus(OrderStatus.AWAITING_VERIFICATION);
         }else{
             order.setStatus(OrderStatus.COMPLETED);
         }
     }
+
+    private BigDecimal getAmountToPay(Orders order, PaymentPurpose purpose){
+        return switch (purpose){
+            case DEPOSIT -> order.getDepositAmount();
+            case REMAINING -> order.getRemainingAmount();
+            case FULL -> order.getTotalAmount();
+        };
+    }
+
+    private PaymentPurpose determinePaymentPurpose(Orders order){
+        List<OrderItem> items = order.getItems();
+        boolean hasPrescription = items.stream()
+                .anyMatch(item -> item.getOrderItemType().equals(OrderItemType.PRESCRIPTION));
+        boolean hasPreOrder = items.stream()
+                .anyMatch(item -> item.getOrderItemType().equals(OrderItemType.PRE_ORDER));
+
+        if(hasPrescription){
+            return PaymentPurpose.FULL;
+        }
+
+        if(hasPreOrder){
+            List<Payment> payments = paymentRepository.findByOrderId(order.getId());
+            boolean hasDepositPaid = payments.stream()
+                    .anyMatch(p -> p.getPaymentPurpose().equals(PaymentPurpose.DEPOSIT)
+                            && p.getStatus().equals(PaymentStatus.PAID));
+            return hasDepositPaid ? PaymentPurpose.REMAINING : PaymentPurpose.DEPOSIT;
+        }
+
+        return PaymentPurpose.FULL;
+    }
+
+
 }

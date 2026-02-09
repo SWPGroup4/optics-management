@@ -53,6 +53,14 @@ public enum ErrorCode {
     PRESCRIPTION_REQUIRED(1020, "Prescription information is required for this item type!", HttpStatus.BAD_REQUEST),
 
     ORDER_ALREADY_PROCESSED(1021, "Order already processed!", HttpStatus.BAD_REQUEST),
+
+    INVALID_QUANTITY(1022, "Quantity at least 1 !", HttpStatus.BAD_REQUEST),
+    FIELD_MISSING(1023, "This information cannot null", HttpStatus.BAD_REQUEST),
+    LIST_EMPTY(1024, "Product list cannot null", HttpStatus.BAD_REQUEST),
+    CANNOT_REVERT_STATUS(1025, "Order status has progressed too far to be reverted", HttpStatus.BAD_REQUEST),
+    ROLE_NOT_FOUND(1026, "Role not found", HttpStatus.BAD_REQUEST),
+
+    INVALID_PAYMENT_METHOD(1027, "Invalid payment method", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

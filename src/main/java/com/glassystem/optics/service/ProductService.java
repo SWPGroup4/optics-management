@@ -1,15 +1,14 @@
 package com.glassystem.optics.service;
 
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
 import com.glassystem.optics.dto.response.ProductImageResponse;
+import com.glassystem.optics.dto.response.ProductPageResponse;
 import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.entity.Product;
 import com.glassystem.optics.entity.ProductImage;
@@ -27,13 +26,8 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.services.s3.endpoints.internal.Value;
-
-import java.math.BigDecimal;
-
 
 @Service
 @RequiredArgsConstructor
@@ -51,12 +45,14 @@ public class ProductService {
     }
 
     public ProductResponse getById(String id) {
-        Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
         return productMapper.toProductResponse(product);
     }
 
     public ProductResponse update(String id, ProductUpsertRequest request) {
-        Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
         productMapper.updateProduct(product, request);
         product = productRepository.save(product);
         return productMapper.toProductResponse(product);
@@ -69,15 +65,13 @@ public class ProductService {
         productRepository.deleteById(id);
     }
 
-
     public List<ProductResponse> getProducts() {
-        return  productRepository.findAll().stream().map(productMapper::toProductResponse).toList();
+        return productRepository.findAll().stream().map(productMapper::toProductResponse).toList();
     }
 
     @Transactional
     public List<ProductImageResponse> uploadProductImages(String productId,
-                                                          List<MultipartFile> files
-    ) throws IOException {
+            List<MultipartFile> files) throws IOException {
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
@@ -103,18 +97,61 @@ public class ProductService {
                     ProductImageResponse.builder()
                             .id(productImage.getId())
                             .imageUrl(productImage.getImageUrl())
-                            .build()
-            );
+                            .build());
         }
 
         return responses;
     }
-    public  void deleteProductImage(String imageId) {
+
+    public void deleteProductImage(String imageId) {
         ProductImage productImage = productImageRepository.findById(imageId)
-                .orElseThrow(()-> new AppException(ErrorCode.IMAGE_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ErrorCode.IMAGE_NOT_FOUND));
 
         fileStorageService.deleteFileByKey(productImage.getImageUrl());
         productImageRepository.delete(productImage);
+    }
+
+    public ProductPageResponse filterProducts(
+            String q,
+            String brand,
+            String category,
+            String frameType,
+            String gender,
+            String shape,
+            String frameMaterial,
+            String hingeType,
+            String nosePadType,
+            BigDecimal minWeightGram,
+            BigDecimal maxWeightGram,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            ProductStatus status,
+            Pageable pageable) {
+        Page<Product> page = productRepository.findAll(
+                ProductSpecifications.build(
+                        q,
+                        brand,
+                        category,
+                        frameType,
+                        gender,
+                        shape,
+                        frameMaterial,
+                        hingeType,
+                        nosePadType,
+                        minWeightGram,
+                        maxWeightGram,
+                        minPrice,
+                        maxPrice,
+                        status),
+                pageable);
+
+        return ProductPageResponse.builder()
+                .items(page.getContent().stream().map(productMapper::toProductResponse).toList())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .build();
     }
 
 }

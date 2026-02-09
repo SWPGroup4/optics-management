@@ -12,6 +12,8 @@ import lombok.experimental.FieldDefaults;
 public class PrescriptionResponse {
     String id;
 
+    String imageUrl;
+
     // Mắt phải (OD)
     Double odSphere;
     Double odCylinder;
