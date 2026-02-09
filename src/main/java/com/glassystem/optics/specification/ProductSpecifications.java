@@ -3,9 +3,11 @@ package com.glassystem.optics.specification;
 import java.math.BigDecimal;
 
 import com.glassystem.optics.entity.Product;
+import com.glassystem.optics.enums.ProductVariantStatus;
 import com.glassystem.optics.enums.ProductStatus;
 import org.springframework.data.jpa.domain.Specification;
 
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 
 public class ProductSpecifications {
@@ -28,6 +30,7 @@ public class ProductSpecifications {
 			BigDecimal maxPrice,
 			ProductStatus status) {
 		return (root, query, cb) -> {
+			query.distinct(true);
 			Predicate predicate = cb.conjunction();
 
 			if (q != null && !q.isBlank()) {
@@ -95,12 +98,17 @@ public class ProductSpecifications {
 				predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("weightGram"), maxWeightGram));
 			}
 
-			if (minPrice != null) {
-				predicate = cb.and(predicate, cb.greaterThanOrEqualTo(root.get("basePrice"), minPrice));
-			}
+			if (minPrice != null || maxPrice != null) {
+				Join<?, ?> variantJoin = root.join("variants");
+				predicate = cb.and(predicate, cb.equal(variantJoin.get("status"), ProductVariantStatus.ACTIVE));
 
-			if (maxPrice != null) {
-				predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("basePrice"), maxPrice));
+				if (minPrice != null) {
+					predicate = cb.and(predicate, cb.greaterThanOrEqualTo(variantJoin.get("price"), minPrice));
+				}
+
+				if (maxPrice != null) {
+					predicate = cb.and(predicate, cb.lessThanOrEqualTo(variantJoin.get("price"), maxPrice));
+				}
 			}
 
 			if (status != null) {

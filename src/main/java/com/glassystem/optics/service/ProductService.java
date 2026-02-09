@@ -26,12 +26,8 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.services.s3.endpoints.internal.Value;
-
-import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -131,22 +127,30 @@ public class ProductService {
             BigDecimal maxPrice,
             ProductStatus status,
             Pageable pageable) {
-
-        Page<Product> productPage = productRepository.findAll(
+        Page<Product> page = productRepository.findAll(
                 ProductSpecifications.build(
-                        q, brand, category, frameType, gender, shape,
-                        frameMaterial, hingeType, nosePadType,
-                        minWeightGram, maxWeightGram, minPrice, maxPrice, status),
+                        q,
+                        brand,
+                        category,
+                        frameType,
+                        gender,
+                        shape,
+                        frameMaterial,
+                        hingeType,
+                        nosePadType,
+                        minWeightGram,
+                        maxWeightGram,
+                        minPrice,
+                        maxPrice,
+                        status),
                 pageable);
 
         return ProductPageResponse.builder()
-                .items(productPage.getContent().stream()
-                        .map(productMapper::toProductResponse)
-                        .toList())
-                .page(productPage.getNumber())
-                .size(productPage.getSize())
-                .totalElements(productPage.getTotalElements())
-                .totalPages(productPage.getTotalPages())
+                .items(page.getContent().stream().map(productMapper::toProductResponse).toList())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
                 .build();
     }
 

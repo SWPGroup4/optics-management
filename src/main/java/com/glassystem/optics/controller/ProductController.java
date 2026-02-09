@@ -7,6 +7,10 @@ import java.util.List;
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
 import com.glassystem.optics.dto.response.*;
+
+
+import com.glassystem.optics.enums.ProductCategory;
+
 import com.glassystem.optics.enums.ProductStatus;
 import com.glassystem.optics.enums.ProductVariantStatus;
 import com.glassystem.optics.service.ProductService;
@@ -18,6 +22,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,12 +30,17 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/products")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+
+
+
 public class ProductController {
 	ProductService productService;
     ProductVariantService productVariantService;
 
 	@PostMapping
-	ApiResponse<ProductResponse> create(@RequestBody @Valid ProductCreateRequest request) {
+    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	ApiResponse<ProductResponse> create(@RequestPart @Valid ProductCreateRequest request,
+                                        @RequestParam(value = "ProductCaterogy", required = true)ProductCategory productCategory) {
 		return ApiResponse.<ProductResponse>builder().result(productService.create(request)).build();
 	}
 
@@ -40,12 +50,14 @@ public class ProductController {
 	}
 
 	@PutMapping("/{id}")
+    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
 	ApiResponse<ProductResponse> update(@PathVariable String id, @RequestBody @Valid ProductUpsertRequest request) {
 		return ApiResponse.<ProductResponse>builder().result(productService.update(id, request)).build();
 	}
 
 
     @PostMapping(value = "/{productId}/images", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
     public ApiResponse<List<ProductImageResponse>> uploadImages(
             @PathVariable String productId,
             @RequestParam("files") List<MultipartFile> files) throws IOException {
@@ -57,13 +69,19 @@ public class ProductController {
     }
 
     @DeleteMapping("/images/{imageId}")
+    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
     public ApiResponse<Void> deleteImage(@PathVariable String imageId) {
         productService.deleteProductImage(imageId);
         return ApiResponse.<Void>builder()
                 .message("Deleted image successfully")
                 .build();
     }
-
+	@GetMapping
+	ApiResponse<List<ProductResponse>> getProducts(){
+		return ApiResponse.<List<ProductResponse>>builder()
+				.result(productService.getProducts())
+				.build();
+	}
 
 	@GetMapping("/filter")
 	ApiResponse<ProductPageResponse> filterProducts(
