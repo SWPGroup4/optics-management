@@ -1,9 +1,13 @@
 package com.glassystem.optics.controller.payment;
 
 import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.dto.response.PaymentRequirementResponse;
+import com.glassystem.optics.dto.response.PaymentResponse;
 import com.glassystem.optics.entity.Payment;
 import com.glassystem.optics.enums.PaymentMethod;
 import com.glassystem.optics.enums.PaymentStatus;
+import com.glassystem.optics.repository.PaymentRepository;
+import com.glassystem.optics.service.OrderService;
 import com.glassystem.optics.service.PaymentService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/payment")
@@ -23,8 +28,20 @@ import java.io.IOException;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PaymentController {
     final PaymentService paymentService;
+    final OrderService orderService;
     @Value("${app.frontend-url}")
     String frontendUrl;
+
+
+    @GetMapping("/orders/{orderId}/requirement")
+    public ApiResponse<PaymentRequirementResponse> getPaymentRequirement(
+            @PathVariable String orderId) {
+        return ApiResponse.<PaymentRequirementResponse>builder()
+                .result(orderService.getPaymentRequirement(orderId))
+                .build();
+    }
+
+
 
     @PostMapping("/checkout")
     public ApiResponse<String> checkout(@RequestParam String orderId, HttpServletRequest request) {
@@ -51,7 +68,14 @@ public class PaymentController {
         } else {
             response.sendRedirect(String.format(frontendUrl + "%s/checkout/failure"));
         }
+    }
 
+    @GetMapping("/orders/{orderId}/history")
+    public ApiResponse<List<PaymentResponse>> getPaymentHistory(
+            @PathVariable String orderId) {
+        return ApiResponse.<List<PaymentResponse>>builder()
+                .result(paymentService.getPaymentHistory(orderId))
+                .build();
     }
 
 }

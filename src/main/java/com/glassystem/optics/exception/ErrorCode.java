@@ -60,6 +60,7 @@ public enum ErrorCode {
     CANNOT_REVERT_STATUS(1025, "Order status has progressed too far to be reverted", HttpStatus.BAD_REQUEST),
     ROLE_NOT_FOUND(1026, "Role not found", HttpStatus.BAD_REQUEST),
 
+    INVALID_PAYMENT_METHOD(1027, "Invalid payment method", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

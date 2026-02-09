@@ -24,7 +24,7 @@ public class OrderCreationRequest {
     @NotBlank(message = "FIELD_MISSING")
     @VietNamPhone(message = "INVALID_VNPHONE")
     String phoneNumber;
-    @NotNull(message = "FIELD_MISSING")
+
     @Schema(hidden = true)
     PaymentMethod paymentMethod;
     @Valid

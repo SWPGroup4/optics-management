@@ -2,6 +2,8 @@ package com.glassystem.optics.entity;
 
 
 import com.glassystem.optics.enums.PaymentMethod;
+import com.glassystem.optics.enums.PaymentPurpose;
+import com.glassystem.optics.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -20,10 +22,20 @@ public class Payment {
     @Id
             @GeneratedValue(strategy = GenerationType.UUID)
     String id;
+
+    BigDecimal percentage;
+    String description;
+
+
+    @Enumerated(EnumType.STRING)
     PaymentMethod paymentMethod;
-    String paymentPurpose;
+
+    @Enumerated(EnumType.STRING)
+    PaymentPurpose paymentPurpose;
     BigDecimal amount;
-    String status;
+
+    @Enumerated(EnumType.STRING)
+    PaymentStatus status;
     LocalDateTime paymentDate;
 
     @ManyToOne(fetch = FetchType.LAZY)

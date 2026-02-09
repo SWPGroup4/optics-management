@@ -21,6 +21,8 @@ public class Transaction {
     @Id
             @GeneratedValue(strategy = GenerationType.UUID)
     String id;
+
+    @Enumerated(EnumType.STRING)
     TransactionType type;
     BigDecimal amount;
     String gatewayReference;

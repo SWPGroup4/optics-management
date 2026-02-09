@@ -18,8 +18,7 @@ public class OrderItemCreationRequest {
     @NotBlank(message = "FIELD_MISSING")
     String productVariantId;
 
-    @NotNull(message = "INVALID_ORDER_ITEM_TYPE")
-            @Schema(hidden = true)
+    @Schema(hidden = true)
     OrderItemType orderItemType;
 
     @NotNull(message = "QUANTITY_INVALID")

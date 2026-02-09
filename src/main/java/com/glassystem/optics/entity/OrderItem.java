@@ -30,6 +30,14 @@ public class OrderItem {
     @Enumerated(EnumType.STRING)
     OrderItemStatus status;
 
+
+    BigDecimal depositPrice;
+    BigDecimal remainingPrice;
+
+
+
+
+
     @ManyToOne
     @JoinColumn(name = "order_id")
     Orders order;
