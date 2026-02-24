@@ -61,6 +61,25 @@ public enum ErrorCode {
     ROLE_NOT_FOUND(1026, "Role not found", HttpStatus.BAD_REQUEST),
 
     INVALID_PAYMENT_METHOD(1027, "Invalid payment method", HttpStatus.BAD_REQUEST),
+
+    // ===== COMBO ERROR CODES (3xxx) =====
+    COMBO_NOT_FOUND(3001, "Combo not found!", HttpStatus.NOT_FOUND),
+    COMBO_NAME_REQUIRED(3002, "Combo name is required!", HttpStatus.BAD_REQUEST),
+    COMBO_DISCOUNT_TYPE_REQUIRED(3003, "Discount type is required!", HttpStatus.BAD_REQUEST),
+    COMBO_DISCOUNT_VALUE_INVALID(3004, "Discount value must be greater than 0!", HttpStatus.BAD_REQUEST),
+    COMBO_PERCENT_VALUE_INVALID(3005, "Percent discount must be between 0 and 100!", HttpStatus.BAD_REQUEST),
+    COMBO_TIME_REQUIRED(3006, "Start time and end time are required!", HttpStatus.BAD_REQUEST),
+    COMBO_TIME_INVALID(3007, "Start time must be before end time!", HttpStatus.BAD_REQUEST),
+    COMBO_ITEMS_REQUIRED(3008, "Combo must have at least one item!", HttpStatus.BAD_REQUEST),
+    COMBO_ITEM_QUANTITY_INVALID(3009, "Required quantity must be at least 1!", HttpStatus.BAD_REQUEST),
+    COMBO_ITEM_DUPLICATE_SKU(3010, "Duplicate SKU in combo items!", HttpStatus.BAD_REQUEST),
+    COMBO_ITEM_PRODUCT_OR_SKU_REQUIRED(3011, "Each combo item must have productId or skuId!", HttpStatus.BAD_REQUEST),
+    COMBO_EXPIRED(3012, "Combo has expired, cannot modify!", HttpStatus.BAD_REQUEST),
+    COMBO_CANNOT_ACTIVATE_EXPIRED(3013, "Cannot activate an expired combo!", HttpStatus.BAD_REQUEST),
+    COMBO_STATUS_INVALID(3014, "Invalid combo status!", HttpStatus.BAD_REQUEST),
+    COMBO_NOT_ACTIVE(3015, "Combo is not active!", HttpStatus.BAD_REQUEST),
+    COMBO_RULE_NOT_MATCH(3016, "Cart does not match combo rules!", HttpStatus.BAD_REQUEST),
+    COMBO_OUT_OF_STOCK(3017, "One or more combo items are out of stock!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {
