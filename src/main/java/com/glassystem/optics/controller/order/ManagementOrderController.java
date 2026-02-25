@@ -28,8 +28,6 @@ public class ManagementOrderController {
 
     OrderService orderService;
 
-
-
     @GetMapping("/{orderId}")
     @Operation(summary = "Get order details", description = "Provides full details of a specific order including items and prescriptions")
     public ApiResponse<OrderResponse> getOrderById(@PathVariable("orderId") String orderId) {
@@ -40,9 +38,18 @@ public class ManagementOrderController {
 
     @GetMapping
     @Operation(summary = "Filter orders by status", description = "Retrieves a list of orders based on a specific OrderStatus (e.g., PENDING, PROCESSING)")
-    public ApiResponse<List<OrderResponse>> getOrdersByStatus(@RequestParam(value = "status", required = false) OrderStatus status) {
+    public ApiResponse<List<OrderResponse>> getOrdersByStatus(
+            @RequestParam(value = "status", required = false) OrderStatus status) {
         return ApiResponse.<List<OrderResponse>>builder()
                 .result(orderService.getOrdersByStatus(status))
+                .build();
+    }
+
+    @GetMapping("/customer/{customerId}")
+    @Operation(summary = "Get orders by customer", description = "Retrieves all orders placed by a specific customer")
+    public ApiResponse<List<OrderResponse>> getOrdersByCustomerId(@PathVariable String customerId) {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getOrdersByCustomerId(customerId))
                 .build();
     }
 

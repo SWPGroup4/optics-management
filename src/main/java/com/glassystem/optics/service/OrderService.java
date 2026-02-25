@@ -40,7 +40,10 @@ public class OrderService {
     private final FileStorageService fileStorageService;
     private final PaymentRepository paymentRepository;
 
-    /* ===================== 1. CUSTOMER FLOW (APIs cho khách hàng) ===================== */
+    /*
+     * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
+     * =====================
+     */
 
     @Transactional
     public OrderResponse createOrder(OrderCreationRequest request, MultipartFile file) throws IOException {
@@ -106,8 +109,8 @@ public class OrderService {
             order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PENDING);
             order.setPaymentMethod(PaymentMethod.VNPAY);
 
-            for(OrderItem item :  order.getItems()) {
-                if(item.getOrderItemType().equals(OrderItemType.PRE_ORDER)) {
+            for (OrderItem item : order.getItems()) {
+                if (item.getOrderItemType().equals(OrderItemType.PRE_ORDER)) {
                     item.setDepositPrice(item.getTotalPrice().multiply(BigDecimal.valueOf(0.5)));
                     item.setRemainingPrice(item.getTotalPrice().multiply(BigDecimal.valueOf(0.5)));
                 }
@@ -115,12 +118,12 @@ public class OrderService {
         } else {
             order.setDepositAmount(BigDecimal.ZERO);
             PaymentMethod paymentMethod = request.getPaymentMethod() != null
-                ? request.getPaymentMethod()
-                : PaymentMethod.COD;
+                    ? request.getPaymentMethod()
+                    : PaymentMethod.COD;
             order.setPaymentMethod(paymentMethod);
             if (paymentMethod == PaymentMethod.VNPAY) {
                 order.setDepositAmount(totalAmount);
-            }else {
+            } else {
                 order.setDepositAmount(BigDecimal.ZERO);
             }
         }
@@ -142,11 +145,10 @@ public class OrderService {
         inventoryRepository.save(inventory);
     }
 
-
     @Transactional
-    public PaymentRequirementResponse getPaymentRequirement (String orderId) {
+    public PaymentRequirementResponse getPaymentRequirement(String orderId) {
         Orders order = orderRepository.findById(orderId)
-                .orElseThrow(()-> new AppException(ErrorCode.ORDER_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         List<OrderItem> items = order.getItems();
 
@@ -158,31 +160,27 @@ public class OrderService {
         List<Payment> payments = paymentRepository.findByOrderId(orderId);
         boolean hasDepositPaid = payments.stream()
                 .anyMatch(payment -> payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT
-                && payment.getStatus() == PaymentStatus.PAID);
-
+                        && payment.getStatus() == PaymentStatus.PAID);
 
         double percentage = 0;
         boolean allowCOD = true;
         String message;
 
-
-
         if (hasPrescription) {
             percentage = 1.0;
             allowCOD = false;
             message = "Đơn hàng có sản phẩm kê đơn, bắt buộc thanh toán trước 100%.";
-        }else if (hasPreOrder) {
+        } else if (hasPreOrder) {
             allowCOD = false;
-            if(!hasDepositPaid){
+            if (!hasDepositPaid) {
                 percentage = 0.5;
                 message = "Bắt buộc cọc 50% (pre-order)";
-            }else {
+            } else {
                 percentage = 0.5;
                 message = "Đã cọc 50%, vui lòng thanh toán 50% còn lại";
             }
 
-        } else{
-
+        } else {
 
             if (order.getPaymentMethod() == PaymentMethod.VNPAY) {
                 percentage = 1.0;
@@ -212,9 +210,7 @@ public class OrderService {
             throw new AppException(ErrorCode.INVALID_ORDER_ITEM_TYPE);
         }
 
-
         String url = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
-
 
         Prescription prescription = orderItem.getPrescription();
         if (prescription == null) {
@@ -255,7 +251,7 @@ public class OrderService {
         if (request.getDeliveryAddress() != null) {
             orders.setDeliveryAddress(request.getDeliveryAddress());
         }
-        if(request.getPhoneNumber() != null){
+        if (request.getPhoneNumber() != null) {
             orders.setPhoneNumber(request.getPhoneNumber());
         }
         if (request.getItems() != null) {
@@ -263,20 +259,18 @@ public class OrderService {
                 OrderItem orderItem = orderItemRepository.findById(requestItem.getOrderItemId())
                         .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
 
-                if(orderItem.getQuantity() != null && !orderItem.getQuantity().equals(requestItem.getQuantity())){
+                if (orderItem.getQuantity() != null && !orderItem.getQuantity().equals(requestItem.getQuantity())) {
                     updateQuantityAndInventory(orderItem, requestItem.getQuantity());
                 }
 
-
-                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) && requestItem.getPrescription() != null) {
+                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
+                        && requestItem.getPrescription() != null) {
                     updatePrescriptionLogic(orderItem, requestItem.getPrescription());
                 }
             }
         }
         return orderMapper.toOrderResponse(orderRepository.save(orders));
     }
-
-
 
     @Transactional
     public PrescriptionResponse updatePrescription(String orderItemId, PrescriptionRequest prescriptionRequest) {
@@ -304,13 +298,12 @@ public class OrderService {
     public OrderResponse cancelOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        
+
         List<OrderStatus> cancellableStatuses = List.of(
-                OrderStatus.PENDING, 
+                OrderStatus.PENDING,
                 OrderStatus.AWAITING_VERIFICATION,
-                OrderStatus.ON_HOLD
-        );
-        
+                OrderStatus.ON_HOLD);
+
         if (!cancellableStatuses.contains(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
@@ -351,8 +344,10 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
-    /* ===================== 2. MANAGEMENT FLOW (APIs cho Admin/Sales) ===================== */
-
+    /*
+     * ===================== 2. MANAGEMENT FLOW (APIs cho Admin/Sales)
+     * =====================
+     */
 
     public OrderResponse getOrderById(String orderId) {
         Orders order = orderRepository.findById(orderId)
@@ -370,9 +365,9 @@ public class OrderService {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStatus().equals(OrderStatus.PENDING) && 
-            !order.getStatus().equals(OrderStatus.ON_HOLD) &&
-            !order.getStatus().equals(OrderStatus.AWAITING_VERIFICATION)) {
+        if (!order.getStatus().equals(OrderStatus.PENDING) &&
+                !order.getStatus().equals(OrderStatus.ON_HOLD) &&
+                !order.getStatus().equals(OrderStatus.AWAITING_VERIFICATION)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
@@ -390,18 +385,17 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse revertVerification (String orderId){
+    public OrderResponse revertVerification(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         List<OrderStatus> revertsibleStatuses = List.of(
-                OrderStatus.ON_HOLD, 
-                OrderStatus.PROCESSING, 
+                OrderStatus.ON_HOLD,
+                OrderStatus.PROCESSING,
                 OrderStatus.CONFIRMED,
-                OrderStatus.AWAITING_VERIFICATION
-        );
+                OrderStatus.AWAITING_VERIFICATION);
 
-        if(!revertsibleStatuses.contains(order.getStatus())){
+        if (!revertsibleStatuses.contains(order.getStatus())) {
             throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
         }
 
@@ -433,8 +427,8 @@ public class OrderService {
 
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
 
-        if(status == null){
-            return  orderRepository.findAll().stream().map(orderMapper::toOrderResponse).toList();
+        if (status == null) {
+            return orderRepository.findAll().stream().map(orderMapper::toOrderResponse).toList();
         }
 
         return orderRepository.findByStatus(status)
@@ -443,7 +437,17 @@ public class OrderService {
                 .toList();
     }
 
-    /* ===================== 3. PRODUCTION FLOW (APIs cho Kỹ thuật/Sản xuất) ===================== */
+    public List<OrderResponse> getOrdersByCustomerId(String customerId) {
+        userRepository.findById(customerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        return orderRepository.findByCustomerId(customerId)
+                .stream().map(orderMapper::toOrderResponse).toList();
+    }
+
+    /*
+     * ===================== 3. PRODUCTION FLOW
+     * =====================
+     */
 
     @Transactional
     public OrderResponse startProduction(String orderId) {
@@ -453,7 +457,6 @@ public class OrderService {
         if (!order.getStatus().equals(OrderStatus.PROCESSING)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
-
 
         for (OrderItem orderItem : order.getItems()) {
             if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
@@ -488,7 +491,6 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
-
     @Transactional
     public OrderResponse updateOrderItemProductionStatus(String orderItemId, OrderItemStatus status) {
         OrderItem orderItem = orderItemRepository.findById(orderItemId)
@@ -517,7 +519,10 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
-    /* ===================== 4. LOGISTICS FLOW (Vận chuyển & Kết thúc) ===================== */
+    /*
+     * ===================== 4. LOGISTICS FLOW (Vận chuyển & Kết thúc)
+     * =====================
+     */
 
     @Transactional
     public OrderResponse markAsShipped(String orderId) {
@@ -530,7 +535,8 @@ public class OrderService {
                     throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                 }
             } else if (orderItem.getOrderItemType().equals(OrderItemType.IN_STOCK)) {
-                if (!order.getStatus().equals(OrderStatus.CONFIRMED) && !order.getStatus().equals(OrderStatus.PRODUCED)) {
+                if (!order.getStatus().equals(OrderStatus.CONFIRMED)
+                        && !order.getStatus().equals(OrderStatus.PRODUCED)) {
                     throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                 }
             }
@@ -543,8 +549,6 @@ public class OrderService {
     public List<OrderResponse> getOrdersShipped() {
         return orderRepository.findByStatus(OrderStatus.SHIPPED).stream().map(orderMapper::toOrderResponse).toList();
     }
-
-
 
     @Transactional
     public void deleteOrder(String orderId) {
@@ -582,10 +586,10 @@ public class OrderService {
         Inventory inventory = item.getInventory();
         int diff = newQty - item.getQuantity();
 
-
         if (diff > 0) {
             int available = inventory.getQuantity() - inventory.getReservedQuantity();
-            if (available < diff) throw new AppException(ErrorCode.OUT_OF_STOCK);
+            if (available < diff)
+                throw new AppException(ErrorCode.OUT_OF_STOCK);
         }
 
         inventory.setReservedQuantity(inventory.getReservedQuantity() + diff);
