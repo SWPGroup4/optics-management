@@ -35,15 +35,12 @@ public class PaymentService {
     final VNPayService vnPayService;
     final PaymentMapper paymentMapper;
 
-
-
-
     @Transactional
-    public String initiatePayment(String orderId, PaymentMethod paymentMethod, String baseUrl){
+    public String initiatePayment(String orderId, PaymentMethod paymentMethod, String baseUrl) {
         Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() ->new AppException(ErrorCode.ORDER_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if(order.getStatus().equals(OrderStatus.COMPLETED)){
+        if (order.getStatus().equals(OrderStatus.COMPLETED)) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PROCESSED);
         }
 
@@ -65,18 +62,16 @@ public class PaymentService {
 
         payment = paymentRepository.save(payment);
 
-        if(paymentMethod.equals(PaymentMethod.VNPAY)){
-            return  vnPayService.createPaymentUrl(payment, baseUrl);
+        if (paymentMethod.equals(PaymentMethod.VNPAY)) {
+            return vnPayService.createPaymentUrl(payment, baseUrl);
         }
 
         return "/order-confirmed";
     }
 
-
     @Transactional
-    public Payment processVnPayCallback(HttpServletRequest request){
+    public Payment processVnPayCallback(HttpServletRequest request) {
         int payment_status = vnPayService.orderReturn(request);
-
 
         String vnp_TxnRef = request.getParameter("vnp_TxnRef"); // Payment ID
         String vnp_TransactionNo = request.getParameter("vnp_TransactionNo");
@@ -85,12 +80,13 @@ public class PaymentService {
         Payment payment = paymentRepository.findById(vnp_TxnRef)
                 .orElseThrow(() -> new RuntimeException("Payment Not Found"));
 
-        if(payment_status ==1 ){
+        if (payment_status == 1) {
             payment.setStatus(PaymentStatus.PAID);
             payment.setPaymentDate(LocalDateTime.now());
 
             TransactionType txnType = payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT
-                    ? TransactionType.DEPOSIT : TransactionType.CHARGE;
+                    ? TransactionType.DEPOSIT
+                    : TransactionType.CHARGE;
 
             Transaction transaction = Transaction.builder()
                     .payment(payment)
@@ -98,21 +94,20 @@ public class PaymentService {
                     .amount(new BigDecimal(vnp_Amount).divide(new BigDecimal(100)))
                     .gatewayReference(vnp_TransactionNo)
                     .build();
-                    transactionRepository.save(transaction);
+            transactionRepository.save(transaction);
 
-                    Orders order = payment.getOrder();
+            Orders order = payment.getOrder();
 
-                    if (payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT) {
-                        order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
-                    } else if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
-                        order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
-                    }
+            if (payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT) {
+                order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
+            } else if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
+                order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
+            }
 
+            updateOrderStatusBasedOnItems(order);
+            orderRepository.save(order);
 
-                    updateOrderStatusBasedOnItems(order);
-                    orderRepository.save(order);
-
-        }else{
+        } else {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setPaymentDate(LocalDateTime.now());
 
@@ -123,60 +118,62 @@ public class PaymentService {
     @Transactional
     public List<PaymentResponse> getPaymentHistory(String orderId) {
         Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() ->new AppException(ErrorCode.ORDER_NOT_FOUND));
-
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         List<Payment> payments = paymentRepository.findByOrderId(order.getId());
 
         return payments.stream()
                 .sorted((p1, p2) -> {
                     // Handle null paymentDate
-                    if (p1.getPaymentDate() == null && p2.getPaymentDate() == null) return 0;
-                    if (p1.getPaymentDate() == null) return 1;
-                    if (p2.getPaymentDate() == null) return -1;
-                    return p2.getPaymentDate().compareTo(p1.getPaymentDate());  // Desc order
+                    if (p1.getPaymentDate() == null && p2.getPaymentDate() == null)
+                        return 0;
+                    if (p1.getPaymentDate() == null)
+                        return 1;
+                    if (p2.getPaymentDate() == null)
+                        return -1;
+                    return p2.getPaymentDate().compareTo(p1.getPaymentDate()); // Desc order
                 })
                 .map(paymentMapper::toPaymentResponse)
                 .toList();
     }
 
-    private void updateOrderStatusBasedOnItems(Orders order){
+    private void updateOrderStatusBasedOnItems(Orders order) {
         boolean hasSpecialItem = false;
 
-        for(OrderItem orderItem : order.getItems()){
-            if(orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) ||
-                orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER)){
+        for (OrderItem orderItem : order.getItems()) {
+            if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) ||
+                    orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER)) {
                 hasSpecialItem = true;
                 break;
             }
         }
-        if(hasSpecialItem){
+        if (hasSpecialItem) {
             order.setStatus(OrderStatus.AWAITING_VERIFICATION);
-        }else{
-            order.setStatus(OrderStatus.COMPLETED);
+        } else {
+            order.setStatus(OrderStatus.PREPARING);
         }
     }
 
-    private BigDecimal getAmountToPay(Orders order, PaymentPurpose purpose){
-        return switch (purpose){
+    private BigDecimal getAmountToPay(Orders order, PaymentPurpose purpose) {
+        return switch (purpose) {
             case DEPOSIT -> order.getDepositAmount();
             case REMAINING -> order.getRemainingAmount();
             case FULL -> order.getTotalAmount();
         };
     }
 
-    private PaymentPurpose determinePaymentPurpose(Orders order){
+    private PaymentPurpose determinePaymentPurpose(Orders order) {
         List<OrderItem> items = order.getItems();
         boolean hasPrescription = items.stream()
                 .anyMatch(item -> item.getOrderItemType().equals(OrderItemType.PRESCRIPTION));
         boolean hasPreOrder = items.stream()
                 .anyMatch(item -> item.getOrderItemType().equals(OrderItemType.PRE_ORDER));
 
-        if(hasPrescription){
+        if (hasPrescription) {
             return PaymentPurpose.FULL;
         }
 
-        if(hasPreOrder){
+        if (hasPreOrder) {
             List<Payment> payments = paymentRepository.findByOrderId(order.getId());
             boolean hasDepositPaid = payments.stream()
                     .anyMatch(p -> p.getPaymentPurpose().equals(PaymentPurpose.DEPOSIT)
@@ -186,6 +183,5 @@ public class PaymentService {
 
         return PaymentPurpose.FULL;
     }
-
 
 }
