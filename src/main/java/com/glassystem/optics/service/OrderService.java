@@ -16,6 +16,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -427,8 +428,10 @@ public class OrderService {
 
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
 
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+
         if (status == null) {
-            return orderRepository.findAll().stream().map(orderMapper::toOrderResponse).toList();
+            return orderRepository.findAll(sort).stream().map(orderMapper::toOrderResponse).toList();
         }
 
         return orderRepository.findByStatus(status)
