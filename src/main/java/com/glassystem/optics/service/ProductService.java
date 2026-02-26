@@ -65,8 +65,9 @@ public class ProductService {
         productRepository.deleteById(id);
     }
 
+    @Transactional(readOnly = true)
     public List<ProductResponse> getProducts() {
-        return productRepository.findAll().stream().map(productMapper::toProductResponse).toList();
+        return productRepository.findAllWithImages().stream().map(productMapper::toProductResponse).toList();
     }
 
     @Transactional
