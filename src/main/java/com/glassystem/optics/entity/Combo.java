@@ -5,6 +5,7 @@ import com.glassystem.optics.enums.DiscountType;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Where;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,6 +30,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Where(clause = "is_deleted = false")
 public class Combo {
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
@@ -76,6 +78,10 @@ public class Combo {
 
 	@Column(name = "updated_at")
 	LocalDateTime updatedAt;
+
+	@Column(name = "is_deleted", nullable = false)
+	@Builder.Default
+	Boolean isDeleted = false;
 
 	/** Danh sách các item trong combo */
 	@OneToMany(mappedBy = "combo", cascade = CascadeType.ALL, orphanRemoval = true)

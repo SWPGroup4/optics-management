@@ -19,11 +19,13 @@ public interface ProductMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "variants", ignore = true)
     @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "isDeleted", ignore = true)
     Product toProduct(ProductCreateRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "variants", ignore = true)
     @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "isDeleted", ignore = true)
     Product toProduct(ProductUpsertRequest request);
 
     @Mapping(target = "minPrice", expression = "java(calculateMinPrice(product))")
@@ -58,5 +60,6 @@ public interface ProductMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "variants", ignore = true)
     @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "isDeleted", ignore = true)
     void updateProduct(@MappingTarget Product product, ProductUpsertRequest request);
 }

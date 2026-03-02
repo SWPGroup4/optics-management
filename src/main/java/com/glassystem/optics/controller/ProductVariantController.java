@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,6 +25,8 @@ import org.springframework.web.bind.annotation.*;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProductVariantController {
 	ProductVariantService productVariantService;
+
+	@PreAuthorize("permitAll()")
 
 	@PostMapping
 	ApiResponse<ProductVariantResponse> create(@RequestBody @Valid ProductVariantRequest request) {
