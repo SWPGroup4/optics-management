@@ -35,8 +35,10 @@ public enum ErrorCode {
     PRODUCT_VARIANT_BRIDGE_WIDTH_INVALID(2015, "Bridge width must be greater than 0!", HttpStatus.BAD_REQUEST),
     PRODUCT_VARIANT_TEMPLE_LENGTH_INVALID(2016, "Temple length must be greater than 0!", HttpStatus.BAD_REQUEST),
     PRODUCT_ALREADY_EXISTED(2017, "Product already existed!", HttpStatus.NOT_FOUND),
-    IMAGE_LIMIT_EXCEEDED(2017, "Max 5 images per product!", HttpStatus.NOT_FOUND),
-    IMAGE_NOT_FOUND(2017, "Image not found!", HttpStatus.NOT_FOUND),
+    IMAGE_LIMIT_EXCEEDED(2018, "Max 5 images per product!", HttpStatus.BAD_REQUEST),
+    IMAGE_NOT_FOUND(2019, "Image not found!", HttpStatus.NOT_FOUND),
+    PRODUCT_ALREADY_DELETED(2020, "Product has already been deleted!", HttpStatus.BAD_REQUEST),
+    PRODUCT_VARIANT_ALREADY_DELETED(2021, "Product variant has already been deleted!", HttpStatus.BAD_REQUEST),
 
     INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
     INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
@@ -80,6 +82,7 @@ public enum ErrorCode {
     COMBO_NOT_ACTIVE(3015, "Combo is not active!", HttpStatus.BAD_REQUEST),
     COMBO_RULE_NOT_MATCH(3016, "Cart does not match combo rules!", HttpStatus.BAD_REQUEST),
     COMBO_OUT_OF_STOCK(3017, "One or more combo items are out of stock!", HttpStatus.BAD_REQUEST),
+    COMBO_ALREADY_DELETED(3018, "Combo has already been deleted!", HttpStatus.BAD_REQUEST),
 
     // ===== PRICE CHECK ERROR CODES (4xxx) =====
     PRICE_CHECK_ITEMS_REQUIRED(4001, "At least one item is required for price check!", HttpStatus.BAD_REQUEST),

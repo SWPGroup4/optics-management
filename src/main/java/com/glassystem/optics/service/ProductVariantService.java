@@ -110,25 +110,10 @@ public class ProductVariantService {
 
 
 	public void delete(String id) {
-
 		ProductVariant productVariant = productVariantRepository.findById(id)
 				.orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
 
-		Inventory inventory = inventoryRepository
-				.findByProductVariantId(id)
-				.orElse(null);
-
-		if (inventory == null) {
-			productVariantRepository.delete(productVariant);
-			return;
-		}
-
-		if (inventory.getQuantity() == 0) {
-			inventoryRepository.delete(inventory);
-			productVariantRepository.delete(productVariant);
-			return;
-		}
-
+		productVariant.setIsDeleted(true);
 		productVariant.setStatus(ProductVariantStatus.INACTIVE);
 		productVariantRepository.save(productVariant);
 	}

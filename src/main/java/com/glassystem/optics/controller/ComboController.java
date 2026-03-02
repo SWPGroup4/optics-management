@@ -237,4 +237,17 @@ public class ComboController {
 				.result(comboService.checkComboStock(comboId))
 				.build();
 	}
+
+	// =====================================================================
+	// API 9: DELETE /api/combos/{comboId} — Xóa combo (Soft Delete)
+	// =====================================================================
+
+	@DeleteMapping("/{comboId}")
+	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	ApiResponse<Void> deleteCombo(@PathVariable String comboId) {
+		comboService.deleteCombo(comboId);
+		return ApiResponse.<Void>builder()
+				.message("Combo deleted successfully")
+				.build();
+	}
 }
