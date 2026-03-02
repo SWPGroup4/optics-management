@@ -29,3 +29,8 @@ jwt:
 
 app:
   frontend-url: ${FRONTEND_URL}
+
+ghn:
+  base-url: https://dev-online-gateway.ghn.vn/shiip/public-api/v2/
+  token: 641ea953-123c-11f1-a3d6-dac90fb956b5
+  shop-id: "199410"

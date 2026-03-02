@@ -7,13 +7,13 @@ import java.util.List;
 import com.glassystem.optics.enums.ProductCategory;
 import com.glassystem.optics.enums.ProductStatus;
 import jakarta.persistence.*;
-
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Where;
 
 @Entity
 @Table(name = "product")
@@ -22,49 +22,55 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Where(clause = "is_deleted = false")
 public class Product {
-	@Id
-	@GeneratedValue(strategy = GenerationType.UUID)
-	String id;
 
-	@Column(nullable = false)
-	String name;
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    Boolean isDeleted = false;
 
-	String brand;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    String id;
+
+    @Column(nullable = false)
+    String name;
+
+    String brand;
 
     @Enumerated(EnumType.STRING)
-	ProductCategory category;
+    ProductCategory category;
 
-	@Column(name = "frame_type")
-	String frameType;
+    @Column(name = "frame_type")
+    String frameType;
 
-	String gender;
+    String gender;
 
-	String shape;
+    String shape;
 
-	@Column(name = "frame_material")
-	String frameMaterial;
+    @Column(name = "frame_material")
+    String frameMaterial;
 
-	@Column(name = "hinge_type")
-	String hingeType;
+    @Column(name = "hinge_type")
+    String hingeType;
 
-	@Column(name = "nose_pad_type")
-	String nosePadType;
+    @Column(name = "nose_pad_type")
+    String nosePadType;
 
-	@Column(name = "weight_gram", precision = 6, scale = 2)
-	BigDecimal weightGram;
+    @Column(name = "weight_gram", precision = 6, scale = 2)
+    BigDecimal weightGram;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	ProductStatus status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    ProductStatus status;
 
-	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
-	@Builder.Default
-	List<ProductVariant> variants = new ArrayList<>();
-
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    List<ProductVariant> variants = new ArrayList<>();
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
-    List<ProductImage> imageUrl;
+    @Builder.Default
+    List<ProductImage> imageUrl = new ArrayList<>();
 
 }
 // product status acctive

@@ -31,5 +31,6 @@ public class OrderCreationRequest {
             @NotEmpty(message = "LIST_EMPTY")
     List<OrderItemCreationRequest> items;
 
+    String comboId;
 
 }

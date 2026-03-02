@@ -47,6 +47,16 @@ public class Orders {
     @Enumerated(EnumType.STRING)
     PreOrderStatus preOrderStatus;
 
+    // ===== COMBO FIELDS =====
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "combo_id")
+    Combo combo;
+
+    @Column(name = "combo_discount_amount", precision = 12, scale = 2)
+    BigDecimal comboDiscountAmount;
+
+    @Column(name = "combo_snapshot", columnDefinition = "TEXT")
+    String comboSnapshot;
 
     @ManyToOne
     @JoinColumn(name = "customer_id")

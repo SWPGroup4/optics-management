@@ -11,8 +11,12 @@ import org.mapstruct.MappingTarget;
 public interface ProductVariantMapper {
 	@Mapping(target = "id", ignore = true)
 	@Mapping(target = "product", ignore = true)
+	@Mapping(target = "isDeleted", ignore = true)
 	ProductVariant toProductVariant(ProductVariantRequest request);
 
+	@Mapping(target = "id", ignore = true)
+	@Mapping(target = "isDeleted", ignore = true)
+	@Mapping(target = "product", ignore = true)
 	ProductVariant toEntity(ProductVariantRequest request);
 
 	@Mapping(target = "productId", source = "product.id")
@@ -20,5 +24,6 @@ public interface ProductVariantMapper {
 
 	@Mapping(target = "id", ignore = true)
 	@Mapping(target = "product", ignore = true)
+	@Mapping(target = "isDeleted", ignore = true)
 	void updateEntity(@MappingTarget ProductVariant variant, ProductVariantRequest request);
 }

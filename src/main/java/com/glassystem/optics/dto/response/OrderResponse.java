@@ -25,4 +25,10 @@ public class OrderResponse {
     BigDecimal totalAmount;
     BigDecimal depositAmount;
     List<OrderItemResponse> items;
+
+    // ===== COMBO INFO =====
+    String comboId;
+    String comboName;
+    BigDecimal comboDiscountAmount;
+    String comboSnapshot;
 }
