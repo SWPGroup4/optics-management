@@ -83,6 +83,13 @@ public class OrderService {
             Inventory inventory = inventoryRepository.findByProductVariantId(orderItemRequest.getProductVariantId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
+            ProductVariant variant = productVariantRepository.findById(orderItemRequest.getProductVariantId())
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+
+            if (variant.getPrice() == null) {
+                throw new AppException(ErrorCode.INVALID_PRICE);
+            }
+
             validateInventory(inventory, orderItemRequest.getQuantity());
 
             OrderItem item = new OrderItem();
@@ -487,6 +494,7 @@ public class OrderService {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
+
         boolean requiresProcessing = order.getItems().stream()
                 .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
                         || orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER));
@@ -496,28 +504,30 @@ public class OrderService {
         } else {
             order.setStatus(OrderStatus.ON_HOLD);
         }
+        Orders savedOrder = orderRepository.save(order);
 
-        return orderMapper.toOrderResponse(orderRepository.save(order));
+        return orderMapper.toOrderResponse(savedOrder);
     }
 
     @Transactional
     public OrderResponse revertVerification(String orderId) {
+
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        List<OrderStatus> revertsibleStatuses = List.of(
-                OrderStatus.ON_HOLD,
-                OrderStatus.PROCESSING,
-                OrderStatus.CONFIRMED,
-                OrderStatus.AWAITING_VERIFICATION);
-
-        if (!revertsibleStatuses.contains(order.getStatus())) {
+        if (order.getStatus() != OrderStatus.PROCESSING) {
             throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
         }
 
-        order.setStatus(OrderStatus.PENDING);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
+        OrderStatus currentStatus = order.getStatus();
+        OrderStatus previousStatus = OrderStatus.AWAITING_VERIFICATION;
+
+        order.setStatus(previousStatus);
+        orderRepository.save(order);
+
+        return orderMapper.toOrderResponse(order);
     }
+
 
     @Transactional
     public OrderResponse rejectOrder(String orderId, String reason) {
