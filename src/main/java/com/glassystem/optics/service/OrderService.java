@@ -485,7 +485,8 @@ public class OrderService {
         }
         if (order.getItems() != null) {
             for (OrderItem orderItem : order.getItems()) {
-                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
+                        || orderItem.getStatus().equals(OrderItemStatus.IN_PRODUCTION) ) {
                     orderItem.setStatus(OrderItemStatus.PRODUCED);
                 }
             }
