@@ -83,6 +83,13 @@ public class OrderService {
             Inventory inventory = inventoryRepository.findByProductVariantId(orderItemRequest.getProductVariantId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
+            ProductVariant variant = productVariantRepository.findById(orderItemRequest.getProductVariantId())
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+
+            if (variant.getPrice() == null) {
+                throw new AppException(ErrorCode.INVALID_PRICE);
+            }
+
             validateInventory(inventory, orderItemRequest.getQuantity());
 
             OrderItem item = new OrderItem();
