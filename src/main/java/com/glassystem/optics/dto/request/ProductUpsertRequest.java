@@ -38,5 +38,5 @@ public class ProductUpsertRequest {
 	@NotNull(message = "PRODUCT_STATUS_REQUIRED")
 	ProductStatus status;
 
-    List<String> imageUrls;
+    List<String> imageUrl;
 }

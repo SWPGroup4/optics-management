@@ -35,8 +35,10 @@ public enum ErrorCode {
     PRODUCT_VARIANT_BRIDGE_WIDTH_INVALID(2015, "Bridge width must be greater than 0!", HttpStatus.BAD_REQUEST),
     PRODUCT_VARIANT_TEMPLE_LENGTH_INVALID(2016, "Temple length must be greater than 0!", HttpStatus.BAD_REQUEST),
     PRODUCT_ALREADY_EXISTED(2017, "Product already existed!", HttpStatus.NOT_FOUND),
-    IMAGE_LIMIT_EXCEEDED(2017, "Max 5 images per product!", HttpStatus.NOT_FOUND),
-    IMAGE_NOT_FOUND(2017, "Image not found!", HttpStatus.NOT_FOUND),
+    IMAGE_LIMIT_EXCEEDED(2018, "Max 5 images per product!", HttpStatus.BAD_REQUEST),
+    IMAGE_NOT_FOUND(2019, "Image not found!", HttpStatus.NOT_FOUND),
+    PRODUCT_ALREADY_DELETED(2020, "Product has already been deleted!", HttpStatus.BAD_REQUEST),
+    PRODUCT_VARIANT_ALREADY_DELETED(2021, "Product variant has already been deleted!", HttpStatus.BAD_REQUEST),
 
     INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
     INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
@@ -61,6 +63,38 @@ public enum ErrorCode {
     ROLE_NOT_FOUND(1026, "Role not found", HttpStatus.BAD_REQUEST),
 
     INVALID_PAYMENT_METHOD(1027, "Invalid payment method", HttpStatus.BAD_REQUEST),
+
+    // ===== COMBO ERROR CODES (3xxx) =====
+    COMBO_NOT_FOUND(3001, "Combo not found!", HttpStatus.NOT_FOUND),
+    COMBO_NAME_REQUIRED(3002, "Combo name is required!", HttpStatus.BAD_REQUEST),
+    COMBO_DISCOUNT_TYPE_REQUIRED(3003, "Discount type is required!", HttpStatus.BAD_REQUEST),
+    COMBO_DISCOUNT_VALUE_INVALID(3004, "Discount value must be greater than 0!", HttpStatus.BAD_REQUEST),
+    COMBO_PERCENT_VALUE_INVALID(3005, "Percent discount must be between 0 and 100!", HttpStatus.BAD_REQUEST),
+    COMBO_TIME_REQUIRED(3006, "Start time and end time are required!", HttpStatus.BAD_REQUEST),
+    COMBO_TIME_INVALID(3007, "Start time must be before end time!", HttpStatus.BAD_REQUEST),
+    COMBO_ITEMS_REQUIRED(3008, "Combo must have at least one item!", HttpStatus.BAD_REQUEST),
+    COMBO_ITEM_QUANTITY_INVALID(3009, "Required quantity must be at least 1!", HttpStatus.BAD_REQUEST),
+    COMBO_ITEM_DUPLICATE_SKU(3010, "Duplicate SKU in combo items!", HttpStatus.BAD_REQUEST),
+    COMBO_ITEM_PRODUCT_OR_SKU_REQUIRED(3011, "Each combo item must have productId or skuId!", HttpStatus.BAD_REQUEST),
+    COMBO_EXPIRED(3012, "Combo has expired, cannot modify!", HttpStatus.BAD_REQUEST),
+    COMBO_CANNOT_ACTIVATE_EXPIRED(3013, "Cannot activate an expired combo!", HttpStatus.BAD_REQUEST),
+    COMBO_STATUS_INVALID(3014, "Invalid combo status!", HttpStatus.BAD_REQUEST),
+    COMBO_NOT_ACTIVE(3015, "Combo is not active!", HttpStatus.BAD_REQUEST),
+    COMBO_RULE_NOT_MATCH(3016, "Cart does not match combo rules!", HttpStatus.BAD_REQUEST),
+    COMBO_OUT_OF_STOCK(3017, "One or more combo items are out of stock!", HttpStatus.BAD_REQUEST),
+    COMBO_ALREADY_DELETED(3018, "Combo has already been deleted!", HttpStatus.BAD_REQUEST),
+
+    // ===== PRICE CHECK ERROR CODES (4xxx) =====
+    PRICE_CHECK_ITEMS_REQUIRED(4001, "At least one item is required for price check!", HttpStatus.BAD_REQUEST),
+    PRICE_CHECK_DISCOUNT_EXCEEDS_THRESHOLD(4002, "Discount exceeds the allowed threshold!", HttpStatus.BAD_REQUEST),
+    PRICE_CHECK_BELOW_MIN_PRICE(4003, "Final price is below the minimum allowed price!", HttpStatus.BAD_REQUEST),
+    PRICE_CHECK_COMBO_INVALID(4004, "Combo is not valid for this order!", HttpStatus.BAD_REQUEST),
+
+    // ===== ORDER-COMBO ERROR CODES (5xxx) =====
+    ORDER_COMBO_NOT_ACTIVE(5001, "Combo is not active or has expired!", HttpStatus.BAD_REQUEST),
+    ORDER_COMBO_STOCK_INSUFFICIENT(5002, "Insufficient stock for combo items!", HttpStatus.BAD_REQUEST),
+    ORDER_COMBO_RULE_NOT_MATCH(5003, "Order items do not match combo rules!", HttpStatus.BAD_REQUEST),
+    ORDER_COMBO_LOCK_FAILED(5004, "Failed to lock inventory for combo!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

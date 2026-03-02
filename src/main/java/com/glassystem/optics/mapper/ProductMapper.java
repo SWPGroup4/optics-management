@@ -2,8 +2,10 @@ package com.glassystem.optics.mapper;
 
 import com.glassystem.optics.dto.request.ProductCreateRequest;
 import com.glassystem.optics.dto.request.ProductUpsertRequest;
+import com.glassystem.optics.dto.response.ProductImageResponse;
 import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.entity.Product;
+import com.glassystem.optics.entity.ProductImage;
 import com.glassystem.optics.enums.ProductVariantStatus;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -17,16 +19,19 @@ public interface ProductMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "variants", ignore = true)
     @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "isDeleted", ignore = true)
     Product toProduct(ProductCreateRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "variants", ignore = true)
     @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "isDeleted", ignore = true)
     Product toProduct(ProductUpsertRequest request);
 
     @Mapping(target = "minPrice", expression = "java(calculateMinPrice(product))")
     @Mapping(target = "maxPrice", expression = "java(calculateMaxPrice(product))")
     ProductResponse toProductResponse(Product product);
+
 
     default BigDecimal calculateMinPrice(Product product) {
         if (product == null || product.getVariants() == null) {
@@ -55,5 +60,6 @@ public interface ProductMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "variants", ignore = true)
     @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "isDeleted", ignore = true)
     void updateProduct(@MappingTarget Product product, ProductUpsertRequest request);
 }
