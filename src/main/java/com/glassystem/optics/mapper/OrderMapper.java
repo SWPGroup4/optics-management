@@ -21,5 +21,9 @@ public interface OrderMapper {
     @Mapping(target = "customerId", source = "customer.id")
     @Mapping(target = "orderId", source = "id")
     @Mapping(target = "orderStatus", source = "status")
+    @Mapping(target = "comboId", source = "combo.id")
+    @Mapping(target = "comboName", source = "combo.name")
+    @Mapping(target = "comboDiscountAmount", source = "comboDiscountAmount")
+    @Mapping(target = "comboSnapshot", source = "comboSnapshot")
     OrderResponse toOrderResponse(Orders order);
 }
