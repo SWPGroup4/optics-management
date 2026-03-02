@@ -52,7 +52,6 @@ public class OrderService {
     private final ComboService comboService;
     private final ProductVariantRepository productVariantRepository;
     private final ObjectMapper objectMapper;
-    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
 
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
@@ -488,6 +487,7 @@ public class OrderService {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
+
         boolean requiresProcessing = order.getItems().stream()
                 .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
                         || orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER));
@@ -497,54 +497,30 @@ public class OrderService {
         } else {
             order.setStatus(OrderStatus.ON_HOLD);
         }
+        Orders savedOrder = orderRepository.save(order);
 
-        return orderMapper.toOrderResponse(orderRepository.save(order));
+        return orderMapper.toOrderResponse(savedOrder);
     }
 
     @Transactional
     public OrderResponse revertVerification(String orderId) {
+
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        List<OrderStatus> revertsibleStatuses = List.of(
-                OrderStatus.ON_HOLD,
-                OrderStatus.PROCESSING,
-                OrderStatus.CONFIRMED,
-                OrderStatus.AWAITING_VERIFICATION);
-
-        if (!revertsibleStatuses.contains(order.getStatus())) {
-            throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
-        }
-
-        //Lấy trạng thái gần nhất trong history
-        OrderStatusHistory lastHistory = orderStatusHistoryRepository
-                .findTopByOrderIdOrderByChangedAtDesc(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.CANNOT_REVERT_STATUS));
-
-        OrderStatus previousStatus = lastHistory.getOldStatus();
-
-        if (previousStatus == null) {
+        if (order.getStatus() != OrderStatus.PROCESSING) {
             throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
         }
 
         OrderStatus currentStatus = order.getStatus();
+        OrderStatus previousStatus = OrderStatus.AWAITING_VERIFICATION;
 
-        // Set lại trạng thái
         order.setStatus(previousStatus);
         orderRepository.save(order);
 
-        // Ghi lại lịch sử revert
-        OrderStatusHistory revertHistory = new OrderStatusHistory();
-        revertHistory.setOrderId(orderId);
-        revertHistory.setOldStatus(currentStatus);
-        revertHistory.setNewStatus(previousStatus);
-        revertHistory.setChangedAt(LocalDateTime.now());
-
-        orderStatusHistoryRepository.save(revertHistory);
-
         return orderMapper.toOrderResponse(order);
-
     }
+
 
     @Transactional
     public OrderResponse rejectOrder(String orderId, String reason) {
