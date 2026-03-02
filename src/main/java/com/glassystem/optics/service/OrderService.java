@@ -52,6 +52,7 @@ public class OrderService {
     private final ComboService comboService;
     private final ProductVariantRepository productVariantRepository;
     private final ObjectMapper objectMapper;
+    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
 
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
@@ -515,8 +516,34 @@ public class OrderService {
             throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
         }
 
-        order.setStatus(OrderStatus.PENDING);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
+        //Lấy trạng thái gần nhất trong history
+        OrderStatusHistory lastHistory = orderStatusHistoryRepository
+                .findTopByOrderIdOrderByChangedAtDesc(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.CANNOT_REVERT_STATUS));
+
+        OrderStatus previousStatus = lastHistory.getOldStatus();
+
+        if (previousStatus == null) {
+            throw new AppException(ErrorCode.CANNOT_REVERT_STATUS);
+        }
+
+        OrderStatus currentStatus = order.getStatus();
+
+        // Set lại trạng thái
+        order.setStatus(previousStatus);
+        orderRepository.save(order);
+
+        // Ghi lại lịch sử revert
+        OrderStatusHistory revertHistory = new OrderStatusHistory();
+        revertHistory.setOrderId(orderId);
+        revertHistory.setOldStatus(currentStatus);
+        revertHistory.setNewStatus(previousStatus);
+        revertHistory.setChangedAt(LocalDateTime.now());
+
+        orderStatusHistoryRepository.save(revertHistory);
+
+        return orderMapper.toOrderResponse(order);
+
     }
 
     @Transactional
