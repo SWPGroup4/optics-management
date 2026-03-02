@@ -81,8 +81,14 @@ public class CustomerOrderController {
                 .build();
     }
 
-
-
+    @GetMapping("/{orderId}")
+    @Operation(summary = "Get order detail with combo info",
+            description = "Retrieves full details of a specific order including applied combo, discount amount and snapshot")
+    public ApiResponse<OrderResponse> getOrderDetail(@PathVariable String orderId) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.getOrderById(orderId))
+                .build();
+    }
 
     @GetMapping("/me/cancelled")
     @Operation(summary = "Get my cancelled orders", description = "Retrieves only the cancelled orders of the current customer")

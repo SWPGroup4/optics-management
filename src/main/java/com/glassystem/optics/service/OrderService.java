@@ -1,9 +1,12 @@
 package com.glassystem.optics.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glassystem.optics.dto.request.*;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.dto.response.PaymentRequirementResponse;
 import com.glassystem.optics.dto.response.PrescriptionResponse;
+import com.glassystem.optics.dto.response.PriceCheckResponse;
 import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.*;
 import com.glassystem.optics.exception.AppException;
@@ -15,6 +18,7 @@ import com.glassystem.optics.repository.*;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,12 +28,16 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Slf4j
 public class OrderService {
     private final OrderMapper orderMapper;
     private final PrescriptionMapper prescriptionMapper;
@@ -40,6 +48,10 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final FileStorageService fileStorageService;
     private final PaymentRepository paymentRepository;
+    private final ComboRepository comboRepository;
+    private final ComboService comboService;
+    private final ProductVariantRepository productVariantRepository;
+    private final ObjectMapper objectMapper;
 
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
@@ -100,13 +112,24 @@ public class OrderService {
                     .multiply(BigDecimal.valueOf(orderItemRequest.getQuantity())));
         }
 
+        // ===== COMBO: Áp dụng combo nếu có =====
+        BigDecimal comboDiscountAmount = BigDecimal.ZERO;
+        if (request.getComboId() != null && !request.getComboId().isBlank()) {
+            comboDiscountAmount = applyComboToOrder(order, request.getComboId(), request.getItems(), totalAmount);
+        }
+
+        BigDecimal finalTotal = totalAmount.subtract(comboDiscountAmount);
+        if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
+            finalTotal = BigDecimal.ZERO;
+        }
+
         if (hasPrescription) {
-            order.setDepositAmount(totalAmount);
+            order.setDepositAmount(finalTotal);
             order.setRemainingAmount(BigDecimal.ZERO);
             order.setPaymentMethod(PaymentMethod.VNPAY);
         } else if (hasPreOrder) {
-            order.setDepositAmount(totalAmount.multiply(BigDecimal.valueOf(0.5)));
-            order.setRemainingAmount(totalAmount.multiply(BigDecimal.valueOf(0.5)));
+            order.setDepositAmount(finalTotal.multiply(BigDecimal.valueOf(0.5)));
+            order.setRemainingAmount(finalTotal.multiply(BigDecimal.valueOf(0.5)));
             order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PENDING);
             order.setPaymentMethod(PaymentMethod.VNPAY);
 
@@ -123,14 +146,106 @@ public class OrderService {
                     : PaymentMethod.COD;
             order.setPaymentMethod(paymentMethod);
             if (paymentMethod == PaymentMethod.VNPAY) {
-                order.setDepositAmount(totalAmount);
+                order.setDepositAmount(finalTotal);
             } else {
                 order.setDepositAmount(BigDecimal.ZERO);
             }
         }
 
-        order.setTotalAmount(totalAmount);
+        order.setTotalAmount(finalTotal);
+        log.info("Tạo đơn hàng: totalGốc={}, comboDiscount={}, finalTotal={}, comboId={}",
+                totalAmount, comboDiscountAmount, finalTotal, request.getComboId());
         return orderMapper.toOrderResponse(orderRepository.save(order));
+    }
+
+    /**
+     * Áp dụng combo vào đơn hàng:
+     * 1. Validate combo tồn tại, đang ACTIVE, trong thời gian hiệu lực
+     * 2. Validate rule: đơn hàng có đủ SKU + số lượng theo yêu cầu combo
+     * 3. Check tồn kho cho combo items
+     * 4. Tính discount amount
+     * 5. Lưu combo info vào order (combo reference + snapshot cho audit)
+     */
+    private BigDecimal applyComboToOrder(Orders order, String comboId,
+                                         List<OrderItemCreationRequest> orderItems, BigDecimal totalAmount) {
+        // 1. Check combo tồn tại
+        Combo combo = comboRepository.findById(comboId)
+                .orElseThrow(() -> new AppException(ErrorCode.COMBO_NOT_FOUND));
+
+        // 2. Check combo đang ACTIVE
+        if (combo.getStatus() != ComboStatus.ACTIVE) {
+            throw new AppException(ErrorCode.ORDER_COMBO_NOT_ACTIVE);
+        }
+
+        // 3. Check thời gian hiệu lực
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(combo.getStartTime()) || now.isAfter(combo.getEndTime())) {
+            throw new AppException(ErrorCode.ORDER_COMBO_NOT_ACTIVE);
+        }
+
+        // 4. Check rule: đơn hàng có đủ SKU + số lượng
+        Map<String, Integer> orderItemMap = new HashMap<>();
+        for (OrderItemCreationRequest item : orderItems) {
+            orderItemMap.merge(item.getProductVariantId(), item.getQuantity(), Integer::sum);
+        }
+
+        for (ComboItem comboItem : combo.getComboItems()) {
+            if (comboItem.getProductVariant() != null) {
+                String skuId = comboItem.getProductVariant().getId();
+                Integer orderQty = orderItemMap.get(skuId);
+                if (orderQty == null || orderQty < comboItem.getRequiredQuantity()) {
+                    throw new AppException(ErrorCode.ORDER_COMBO_RULE_NOT_MATCH);
+                }
+            }
+        }
+
+        // 5. Check tồn kho combo (dùng ComboService)
+        var stockCheck = comboService.checkComboStock(comboId);
+        if (!stockCheck.getIsAvailable()) {
+            throw new AppException(ErrorCode.ORDER_COMBO_STOCK_INSUFFICIENT);
+        }
+
+        // 6. Tính discount amount
+        BigDecimal discountAmount;
+        if (combo.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+            discountAmount = combo.getDiscountValue();
+        } else {
+            // PERCENT: tính trên tổng giá trị các item trong combo
+            BigDecimal comboItemsTotal = BigDecimal.ZERO;
+            for (ComboItem comboItem : combo.getComboItems()) {
+                if (comboItem.getProductVariant() != null && comboItem.getProductVariant().getPrice() != null) {
+                    comboItemsTotal = comboItemsTotal.add(
+                            comboItem.getProductVariant().getPrice()
+                                    .multiply(BigDecimal.valueOf(comboItem.getRequiredQuantity()))
+                    );
+                }
+            }
+            discountAmount = comboItemsTotal.multiply(combo.getDiscountValue())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        }
+
+        // 7. Lưu combo info vào order
+        order.setCombo(combo);
+        order.setComboDiscountAmount(discountAmount);
+
+        // 8. Tạo combo snapshot cho audit
+        try {
+            Map<String, Object> snapshot = new LinkedHashMap<>();
+            snapshot.put("comboId", combo.getId());
+            snapshot.put("comboName", combo.getName());
+            snapshot.put("discountType", combo.getDiscountType().name());
+            snapshot.put("discountValue", combo.getDiscountValue());
+            snapshot.put("discountAmount", discountAmount);
+            snapshot.put("startTime", combo.getStartTime().toString());
+            snapshot.put("endTime", combo.getEndTime().toString());
+            snapshot.put("appliedAt", now.toString());
+            order.setComboSnapshot(objectMapper.writeValueAsString(snapshot));
+        } catch (JsonProcessingException e) {
+            log.warn("Không thể serialize combo snapshot: {}", e.getMessage());
+        }
+
+        log.info("Áp dụng combo vào đơn hàng: comboId={}, discountAmount={}", comboId, discountAmount);
+        return discountAmount;
     }
 
     private void validateInventory(Inventory inventory, int quantity) {
@@ -572,7 +687,187 @@ public class OrderService {
         orderRepository.delete(order);
     }
 
-    /* ===================== 5. PRIVATE LOGIC (Hàm phụ trợ) ===================== */
+    /*
+     * ===================== 5. PRICE CHECK & COMBO QUERY (APIs mới)
+     * =====================
+     */
+
+    /**
+     * POST /api/orders/price-check
+     * Tính toán giá cuối cùng sau khi áp dụng combo và phát hiện xung đột giá:
+     * - Giảm giá vượt ngưỡng (> 50%)
+     * - Giá bán thấp hơn mức cho phép (< 10.000đ)
+     */
+    public PriceCheckResponse priceCheck(PriceCheckRequest request) {
+        // Ngưỡng cảnh báo
+        final BigDecimal MAX_DISCOUNT_PERCENT = BigDecimal.valueOf(50);
+        final BigDecimal MIN_FINAL_PRICE = BigDecimal.valueOf(10000);
+
+        List<PriceCheckResponse.PriceCheckItemDetail> itemDetails = new ArrayList<>();
+        BigDecimal originalTotal = BigDecimal.ZERO;
+
+        // 1. Tính tổng giá gốc và chi tiết từng item
+        for (PriceCheckItemRequest itemReq : request.getItems()) {
+            ProductVariant variant = productVariantRepository.findById(itemReq.getProductVariantId())
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+
+            BigDecimal lineTotal = variant.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            originalTotal = originalTotal.add(lineTotal);
+
+            String productName = variant.getProduct() != null ? variant.getProduct().getName() : null;
+            String skuLabel = buildSkuLabel(variant);
+
+            itemDetails.add(PriceCheckResponse.PriceCheckItemDetail.builder()
+                    .productVariantId(variant.getId())
+                    .productName(productName)
+                    .skuLabel(skuLabel)
+                    .quantity(itemReq.getQuantity())
+                    .unitPrice(variant.getPrice())
+                    .lineTotal(lineTotal)
+                    .build());
+        }
+
+        // 2. Tính combo discount nếu có
+        BigDecimal comboDiscount = BigDecimal.ZERO;
+        List<PriceCheckResponse.PriceConflictWarning> warnings = new ArrayList<>();
+
+        if (request.getComboId() != null && !request.getComboId().isBlank()) {
+            Optional<Combo> optCombo = comboRepository.findById(request.getComboId());
+            if (optCombo.isEmpty()) {
+                warnings.add(PriceCheckResponse.PriceConflictWarning.builder()
+                        .type("COMBO_NOT_FOUND")
+                        .message("Combo không tồn tại: " + request.getComboId())
+                        .build());
+            } else {
+                Combo combo = optCombo.get();
+
+                // Validate combo status & thời gian
+                LocalDateTime now = LocalDateTime.now();
+                if (combo.getStatus() != ComboStatus.ACTIVE) {
+                    warnings.add(PriceCheckResponse.PriceConflictWarning.builder()
+                            .type("COMBO_NOT_ACTIVE")
+                            .message("Combo không ở trạng thái ACTIVE (hiện tại: " + combo.getStatus() + ")")
+                            .build());
+                } else if (now.isBefore(combo.getStartTime()) || now.isAfter(combo.getEndTime())) {
+                    warnings.add(PriceCheckResponse.PriceConflictWarning.builder()
+                            .type("COMBO_EXPIRED")
+                            .message("Combo ngoài thời gian hiệu lực")
+                            .build());
+                } else {
+                    // Validate rule: items có match combo không
+                    Map<String, Integer> itemMap = new HashMap<>();
+                    for (PriceCheckItemRequest pi : request.getItems()) {
+                        itemMap.merge(pi.getProductVariantId(), pi.getQuantity(), Integer::sum);
+                    }
+
+                    boolean ruleMatch = true;
+                    for (ComboItem comboItem : combo.getComboItems()) {
+                        if (comboItem.getProductVariant() != null) {
+                            String skuId = comboItem.getProductVariant().getId();
+                            Integer qty = itemMap.get(skuId);
+                            if (qty == null || qty < comboItem.getRequiredQuantity()) {
+                                ruleMatch = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!ruleMatch) {
+                        warnings.add(PriceCheckResponse.PriceConflictWarning.builder()
+                                .type("COMBO_RULE_NOT_MATCH")
+                                .message("Danh sách sản phẩm không đáp ứng yêu cầu combo")
+                                .build());
+                    } else {
+                        // Tính discount
+                        if (combo.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+                            comboDiscount = combo.getDiscountValue();
+                        } else {
+                            BigDecimal comboItemsTotal = BigDecimal.ZERO;
+                            for (ComboItem ci : combo.getComboItems()) {
+                                if (ci.getProductVariant() != null && ci.getProductVariant().getPrice() != null) {
+                                    comboItemsTotal = comboItemsTotal.add(
+                                            ci.getProductVariant().getPrice()
+                                                    .multiply(BigDecimal.valueOf(ci.getRequiredQuantity()))
+                                    );
+                                }
+                            }
+                            comboDiscount = comboItemsTotal.multiply(combo.getDiscountValue())
+                                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Tính giá cuối cùng
+        BigDecimal finalTotal = originalTotal.subtract(comboDiscount);
+        if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
+            finalTotal = BigDecimal.ZERO;
+        }
+
+        // 4. Kiểm tra xung đột giá
+        boolean isValid = true;
+
+        // 4a. Giảm giá vượt ngưỡng
+        if (originalTotal.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal discountPercent = comboDiscount.multiply(BigDecimal.valueOf(100))
+                    .divide(originalTotal, 2, RoundingMode.HALF_UP);
+            if (discountPercent.compareTo(MAX_DISCOUNT_PERCENT) > 0) {
+                isValid = false;
+                warnings.add(PriceCheckResponse.PriceConflictWarning.builder()
+                        .type("DISCOUNT_EXCEEDS_THRESHOLD")
+                        .message("Giảm giá vượt ngưỡng cho phép (" + MAX_DISCOUNT_PERCENT + "%)")
+                        .threshold(MAX_DISCOUNT_PERCENT)
+                        .actualValue(discountPercent)
+                        .build());
+            }
+        }
+
+        // 4b. Giá bán thấp hơn mức cho phép
+        if (finalTotal.compareTo(MIN_FINAL_PRICE) < 0 && originalTotal.compareTo(BigDecimal.ZERO) > 0) {
+            isValid = false;
+            warnings.add(PriceCheckResponse.PriceConflictWarning.builder()
+                    .type("BELOW_MIN_PRICE")
+                    .message("Giá cuối cùng thấp hơn mức tối thiểu cho phép (" + MIN_FINAL_PRICE + "đ)")
+                    .threshold(MIN_FINAL_PRICE)
+                    .actualValue(finalTotal)
+                    .build());
+        }
+
+        log.info("Price check: original={}, comboDiscount={}, final={}, isValid={}, warnings={}",
+                originalTotal, comboDiscount, finalTotal, isValid, warnings.size());
+
+        return PriceCheckResponse.builder()
+                .originalTotal(originalTotal)
+                .comboDiscount(comboDiscount)
+                .finalTotal(finalTotal)
+                .isValid(isValid)
+                .itemDetails(itemDetails)
+                .warnings(warnings.isEmpty() ? null : warnings)
+                .build();
+    }
+
+    /**
+     * GET /api/orders/{orderId} — Xem chi tiết đơn hàng kèm combo
+     * Dành cho Sales, Manager, Customer
+     */
+    public OrderResponse getOrderDetailWithCombo(String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        return orderMapper.toOrderResponse(order);
+    }
+
+    private String buildSkuLabel(ProductVariant variant) {
+        if (variant == null) return null;
+        String color = variant.getColorName();
+        String size = variant.getSizeLabel();
+        if (color != null && size != null) return color + " - " + size;
+        if (color != null) return color;
+        if (size != null) return size;
+        return variant.getId();
+    }
+
+    /* ===================== 6. PRIVATE LOGIC (Hàm phụ trợ) ===================== */
 
     private void updatePrescriptionLogic(OrderItem orderItem, PrescriptionRequest prescriptionRequest) {
         Prescription prescription = orderItem.getPrescription();

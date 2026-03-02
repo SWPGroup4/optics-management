@@ -80,6 +80,18 @@ public enum ErrorCode {
     COMBO_NOT_ACTIVE(3015, "Combo is not active!", HttpStatus.BAD_REQUEST),
     COMBO_RULE_NOT_MATCH(3016, "Cart does not match combo rules!", HttpStatus.BAD_REQUEST),
     COMBO_OUT_OF_STOCK(3017, "One or more combo items are out of stock!", HttpStatus.BAD_REQUEST),
+
+    // ===== PRICE CHECK ERROR CODES (4xxx) =====
+    PRICE_CHECK_ITEMS_REQUIRED(4001, "At least one item is required for price check!", HttpStatus.BAD_REQUEST),
+    PRICE_CHECK_DISCOUNT_EXCEEDS_THRESHOLD(4002, "Discount exceeds the allowed threshold!", HttpStatus.BAD_REQUEST),
+    PRICE_CHECK_BELOW_MIN_PRICE(4003, "Final price is below the minimum allowed price!", HttpStatus.BAD_REQUEST),
+    PRICE_CHECK_COMBO_INVALID(4004, "Combo is not valid for this order!", HttpStatus.BAD_REQUEST),
+
+    // ===== ORDER-COMBO ERROR CODES (5xxx) =====
+    ORDER_COMBO_NOT_ACTIVE(5001, "Combo is not active or has expired!", HttpStatus.BAD_REQUEST),
+    ORDER_COMBO_STOCK_INSUFFICIENT(5002, "Insufficient stock for combo items!", HttpStatus.BAD_REQUEST),
+    ORDER_COMBO_RULE_NOT_MATCH(5003, "Order items do not match combo rules!", HttpStatus.BAD_REQUEST),
+    ORDER_COMBO_LOCK_FAILED(5004, "Failed to lock inventory for combo!", HttpStatus.BAD_REQUEST),
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {
