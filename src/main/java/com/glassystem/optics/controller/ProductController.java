@@ -9,8 +9,6 @@ import com.glassystem.optics.dto.request.ProductUpsertRequest;
 import com.glassystem.optics.dto.response.*;
 
 
-import com.glassystem.optics.enums.ProductCategory;
-
 import com.glassystem.optics.enums.ProductStatus;
 import com.glassystem.optics.enums.ProductVariantStatus;
 import com.glassystem.optics.service.ProductService;
@@ -37,11 +35,15 @@ public class ProductController {
 	ProductService productService;
     ProductVariantService productVariantService;
 
-	@PostMapping
-    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
-	ApiResponse<ProductResponse> create(@RequestPart @Valid ProductCreateRequest request,
-                                        @RequestParam(value = "ProductCaterogy", required = true)ProductCategory productCategory) {
-		return ApiResponse.<ProductResponse>builder().result(productService.create(request)).build();
+	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("permitAll()")
+	ApiResponse<ProductResponse> create(
+			@RequestPart("product") @Valid ProductCreateRequest request,
+			@RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
+		return ApiResponse.<ProductResponse>builder()
+				.result(productService.create(request, files))
+				.message("Product created successfully")
+				.build();
 	}
 
 	@GetMapping("/{id}")
@@ -55,6 +57,14 @@ public class ProductController {
 		return ApiResponse.<ProductResponse>builder().result(productService.update(id, request)).build();
 	}
 
+	@DeleteMapping("/{id}")
+	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	ApiResponse<Void> delete(@PathVariable String id) {
+		productService.delete(id);
+		return ApiResponse.<Void>builder()
+				.message("Product deleted successfully")
+				.build();
+	}
 
     @PostMapping(value = "/{productId}/images", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")

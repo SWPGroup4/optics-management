@@ -95,8 +95,8 @@ public class ComboService {
 
 		// Tạo các ComboItem
 		List<ComboItem> items = buildComboItems(combo, request.getComboItems());
-		comboItemRepository.saveAll(items);
-		combo.setComboItems(items);
+		combo.getComboItems().addAll(items);
+		comboRepository.save(combo);
 
 		log.info("Tạo combo thành công: id={}, name={}, status={}", combo.getId(), combo.getName(), combo.getStatus());
 		return comboMapper.toComboResponse(combo);
@@ -153,10 +153,10 @@ public class ComboService {
 		combo = comboRepository.save(combo);
 
 		// Replace danh sách comboItems: xóa cũ, tạo mới
-		comboItemRepository.deleteAllByCombo_Id(comboId);
+		combo.getComboItems().clear();
 		List<ComboItem> newItems = buildComboItems(combo, request.getComboItems());
-		comboItemRepository.saveAll(newItems);
-		combo.setComboItems(newItems);
+		combo.getComboItems().addAll(newItems);
+		combo = comboRepository.save(combo);
 
 		log.info("Cập nhật combo thành công: id={}", comboId);
 		return comboMapper.toComboResponse(combo);
@@ -434,6 +434,22 @@ public class ComboService {
 				.isAvailable(failedItems.isEmpty())
 				.failedItems(failedItems.isEmpty() ? null : failedItems)
 				.build();
+	}
+
+	// =====================================================================
+	// DELETE COMBO (Soft Delete)
+	// =====================================================================
+
+	@Transactional
+	public void deleteCombo(String comboId) {
+		Combo combo = comboRepository.findById(comboId)
+				.orElseThrow(() -> new AppException(ErrorCode.COMBO_NOT_FOUND));
+
+		combo.setIsDeleted(true);
+		combo.setStatus(ComboStatus.INACTIVE);
+		comboRepository.save(combo);
+
+		log.info("Soft delete combo: id={}", comboId);
 	}
 
 	// =====================================================================

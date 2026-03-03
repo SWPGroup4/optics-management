@@ -3,6 +3,7 @@ package com.glassystem.optics.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Where;
 
 import com.glassystem.optics.enums.ProductVariantStatus;
 
@@ -17,6 +18,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Where(clause = "is_deleted = false")
 public class ProductVariant {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -49,6 +51,10 @@ public class ProductVariant {
     @Column(nullable = false)
     ProductVariantStatus status;
 
+
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    Boolean isDeleted = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)

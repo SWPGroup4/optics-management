@@ -38,9 +38,28 @@ public class ProductService {
     FileStorageService fileStorageService;
     ProductImageRepository productImageRepository;
 
-    public ProductResponse create(ProductCreateRequest request) {
+    @Transactional
+    public ProductResponse create(ProductCreateRequest request, List<MultipartFile> files) throws IOException {
         Product product = productMapper.toProduct(request);
         product = productRepository.save(product);
+
+        if (files != null && !files.isEmpty()) {
+            if (files.size() > 5) {
+                throw new AppException(ErrorCode.IMAGE_LIMIT_EXCEEDED);
+            }
+            List<ProductImage> images = new ArrayList<>();
+            for (MultipartFile file : files) {
+                String url = fileStorageService.uploadFile(file, S3ImageName.PRODUCT);
+                ProductImage productImage = ProductImage.builder()
+                        .imageUrl(url)
+                        .product(product)
+                        .build();
+                productImage = productImageRepository.save(productImage);
+                images.add(productImage);
+            }
+            product.setImageUrl(images);
+        }
+
         return productMapper.toProductResponse(product);
     }
 
@@ -58,11 +77,20 @@ public class ProductService {
         return productMapper.toProductResponse(product);
     }
 
+    @Transactional
     public void delete(String id) {
-        if (!productRepository.existsById(id)) {
-            throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        product.setIsDeleted(true);
+        product.setStatus(ProductStatus.INACTIVE);
+        // Soft delete all variants of this product
+        if (product.getVariants() != null) {
+            for (var variant : product.getVariants()) {
+                variant.setIsDeleted(true);
+                variant.setStatus(com.glassystem.optics.enums.ProductVariantStatus.INACTIVE);
+            }
         }
-        productRepository.deleteById(id);
+        productRepository.save(product);
     }
 
     @Transactional(readOnly = true)
