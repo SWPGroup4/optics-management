@@ -12,6 +12,7 @@ import com.glassystem.optics.mapper.PaymentMapper;
 import com.glassystem.optics.repository.OrderRepository;
 import com.glassystem.optics.repository.PaymentRepository;
 import com.glassystem.optics.repository.TransactionRepository;
+import com.glassystem.optics.util.VnPayDateUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -76,6 +81,7 @@ public class PaymentService {
         String vnp_TxnRef = request.getParameter("vnp_TxnRef"); // Payment ID
         String vnp_TransactionNo = request.getParameter("vnp_TransactionNo");
         String vnp_Amount = request.getParameter("vnp_Amount");
+        String vnp_PayDate = request.getParameter("vnp_PayDate");
 
         Payment payment = paymentRepository.findById(vnp_TxnRef)
                 .orElseThrow(() -> new RuntimeException("Payment Not Found"));
@@ -88,11 +94,13 @@ public class PaymentService {
                     ? TransactionType.DEPOSIT
                     : TransactionType.CHARGE;
 
+            LocalDateTime payDate = VnPayDateUtil.parse(vnp_PayDate);
             Transaction transaction = Transaction.builder()
                     .payment(payment)
                     .type(txnType)
                     .amount(new BigDecimal(vnp_Amount).divide(new BigDecimal(100)))
                     .gatewayReference(vnp_TransactionNo)
+                    .dateTime(payDate)
                     .build();
             transactionRepository.save(transaction);
 
@@ -114,6 +122,58 @@ public class PaymentService {
         }
         return paymentRepository.save(payment);
     }
+
+    @Transactional
+    public void processRefund(String paymentId, HttpServletRequest request) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        if (!payment.getStatus().equals(PaymentStatus.PAID)) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_STATUS);
+        }
+
+        if (!payment.getPaymentMethod().equals(PaymentMethod.VNPAY)) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_METHOD);
+        }
+        Transaction originalTxn = transactionRepository
+                .findTopByPaymentIdAndTypeInOrderByDateTimeDesc(
+                        paymentId,
+                        EnumSet.of(TransactionType.DEPOSIT, TransactionType.CHARGE)
+                )
+                .orElseThrow(() -> new AppException(ErrorCode.REFUND_FAILED));
+
+
+
+        String requestId = UUID.randomUUID().toString(); // ID duy nhất cho mỗi lần gọi API refund
+        String clientIp = "127.0.0.1";
+        String txnNo = originalTxn.getGatewayReference();
+        LocalDateTime originalDate = originalTxn.getDateTime();
+        if (originalDate == null) {
+            throw new AppException(ErrorCode.INVALID_TRANSACTION_DATE);
+        }
+        String txnDate = VnPayDateUtil.format(originalDate);
+
+        boolean isRefunded = vnPayService.refund(payment, requestId, clientIp, txnNo, txnDate);
+
+        if (isRefunded) {
+            payment.setStatus(PaymentStatus.REFUNDED);
+            paymentRepository.save(payment);
+
+            // Tạo một Transaction ghi nhận việc hoàn tiền (số âm)
+            Transaction refundTxn = Transaction.builder()
+                    .payment(payment)
+                    .type(TransactionType.REFUND)
+                    .amount(payment.getAmount().negate())
+                    .gatewayReference(requestId)
+                    .dateTime(LocalDateTime.now())
+                    .build();
+            transactionRepository.save(refundTxn);
+        } else {
+            throw new AppException(ErrorCode.REFUND_FAILED);
+        }
+    }
+
+
 
     @Transactional
     public List<PaymentResponse> getPaymentHistory(String orderId) {

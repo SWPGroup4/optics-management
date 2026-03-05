@@ -1,12 +1,16 @@
 package com.glassystem.optics.configuration;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-@Component
+@Configuration
 public class VNPayConfig {
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     public static String vnp_Returnurl = "/payment/vnpay-callback";
@@ -34,4 +38,11 @@ public class VNPayConfig {
             return "";
         }
     }
+
+    @Bean(name = "vnPayRestTemplate")
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+
 }

@@ -64,6 +64,11 @@ public enum ErrorCode {
 
     INVALID_PAYMENT_METHOD(1027, "Invalid payment method", HttpStatus.BAD_REQUEST),
     INVALID_PRICE(1028, "Invalid price", HttpStatus.BAD_REQUEST),
+    PAYMENT_NOT_FOUND(1029, "Payment not found", HttpStatus.BAD_REQUEST),
+    INVALID_PAYMENT_STATUS(1030, "Invalid payment status", HttpStatus.BAD_REQUEST),
+    REFUND_FAILED(1031, "Refund failed", HttpStatus.BAD_REQUEST),
+    INVALID_VNPAY_RESPONSE(1032, "Invalid vnpay response", HttpStatus.BAD_REQUEST),
+    INVALID_TRANSACTION_DATE(1033, "Invalid transaction date", HttpStatus.BAD_REQUEST),
 
     // ===== COMBO ERROR CODES (3xxx) =====
     COMBO_NOT_FOUND(3001, "Combo not found!", HttpStatus.NOT_FOUND),
