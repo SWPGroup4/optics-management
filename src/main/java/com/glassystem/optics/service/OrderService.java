@@ -3,10 +3,7 @@ package com.glassystem.optics.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glassystem.optics.dto.request.*;
-import com.glassystem.optics.dto.response.OrderResponse;
-import com.glassystem.optics.dto.response.PaymentRequirementResponse;
-import com.glassystem.optics.dto.response.PrescriptionResponse;
-import com.glassystem.optics.dto.response.PriceCheckResponse;
+import com.glassystem.optics.dto.response.*;
 import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.*;
 import com.glassystem.optics.exception.AppException;
@@ -52,6 +49,7 @@ public class OrderService {
     private final ComboService comboService;
     private final ProductVariantRepository productVariantRepository;
     private final ObjectMapper objectMapper;
+    private final PaymentCalculationService paymentCalculationService;
 
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
@@ -71,10 +69,6 @@ public class OrderService {
         order.setDeliveryAddress(request.getDeliveryAddress());
         order.setPhoneNumber(request.getPhoneNumber());
 
-        boolean hasPrescription = request.getItems().stream()
-                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRESCRIPTION);
-        boolean hasPreOrder = request.getItems().stream()
-                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         boolean fileUploaded = false;
@@ -130,33 +124,26 @@ public class OrderService {
             finalTotal = BigDecimal.ZERO;
         }
 
-        if (hasPrescription) {
-            order.setDepositAmount(finalTotal);
-            order.setRemainingAmount(BigDecimal.ZERO);
-            order.setPaymentMethod(PaymentMethod.VNPAY);
-        } else if (hasPreOrder) {
-            order.setDepositAmount(finalTotal.multiply(BigDecimal.valueOf(0.5)));
-            order.setRemainingAmount(finalTotal.multiply(BigDecimal.valueOf(0.5)));
-            order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PENDING);
-            order.setPaymentMethod(PaymentMethod.VNPAY);
+        PaymentCalculationService.PaymentCalculationResult paymentCalculation =
+                paymentCalculationService.calculatePaymentRequirement(order.getItems());
 
-            for (OrderItem item : order.getItems()) {
-                if (item.getOrderItemType().equals(OrderItemType.PRE_ORDER)) {
-                    item.setDepositPrice(item.getTotalPrice().multiply(BigDecimal.valueOf(0.5)));
-                    item.setRemainingPrice(item.getTotalPrice().multiply(BigDecimal.valueOf(0.5)));
-                }
-            }
-        } else {
-            order.setDepositAmount(BigDecimal.ZERO);
-            PaymentMethod paymentMethod = request.getPaymentMethod() != null
-                    ? request.getPaymentMethod()
-                    : PaymentMethod.COD;
-            order.setPaymentMethod(paymentMethod);
-            if (paymentMethod == PaymentMethod.VNPAY) {
-                order.setDepositAmount(finalTotal);
-            } else {
-                order.setDepositAmount(BigDecimal.ZERO);
-            }
+
+        for (OrderItem item : order.getItems()) {
+            double paymentPercentage = item.getOrderItemType() == OrderItemType.PRE_ORDER ? 0.5 : 1.0;
+            BigDecimal itemDepositPrice = item.getTotalPrice().multiply(BigDecimal.valueOf(paymentPercentage));
+            item.setDepositPrice(itemDepositPrice);
+            item.setRemainingPrice(item.getTotalPrice().subtract(itemDepositPrice));
+        }
+
+        BigDecimal requiredPaymentTotal = paymentCalculation.getRequiredPaymentTotal().min(finalTotal);
+        order.setDepositAmount(requiredPaymentTotal);
+        order.setRemainingAmount(finalTotal.subtract(requiredPaymentTotal));
+        order.setPaymentMethod(PaymentMethod.VNPAY);
+
+        boolean hasPreOrder = request.getItems().stream()
+                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
+        if (hasPreOrder) {
+            order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PENDING);
         }
 
         order.setTotalAmount(finalTotal);
@@ -275,49 +262,44 @@ public class OrderService {
 
         List<OrderItem> items = order.getItems();
 
-        boolean hasPrescription = items.stream()
-                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRESCRIPTION);
-        boolean hasPreOrder = items.stream()
-                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
+        PaymentCalculationService.PaymentCalculationResult paymentCalculation =
+                paymentCalculationService.calculatePaymentRequirement(items);
+
 
         List<Payment> payments = paymentRepository.findByOrderId(orderId);
         boolean hasDepositPaid = payments.stream()
                 .anyMatch(payment -> payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT
                         && payment.getStatus() == PaymentStatus.PAID);
 
-        double percentage = 0;
-        boolean allowCOD = true;
-        String message;
 
-        if (hasPrescription) {
-            percentage = 1.0;
-            allowCOD = false;
-            message = "Đơn hàng có sản phẩm kê đơn, bắt buộc thanh toán trước 100%.";
-        } else if (hasPreOrder) {
-            allowCOD = false;
-            if (!hasDepositPaid) {
-                percentage = 0.5;
-                message = "Bắt buộc cọc 50% (pre-order)";
-            } else {
-                percentage = 0.5;
-                message = "Đã cọc 50%, vui lòng thanh toán 50% còn lại";
-            }
+        boolean allowCOD = paymentCalculation.getRequiredPaymentTotal().compareTo(BigDecimal.ZERO) == 0;
+        String message = hasDepositPaid
+                ? "Đã có thanh toán trước đó. Số tiền yêu cầu được tính theo từng loại sản phẩm trong đơn."
+                : "Số tiền cần thanh toán được tính theo từng sản phẩm: IN_STOCK/PRESCRIPTION 100%, PRE_ORDER 50%.";
 
-        } else {
+        List<PaymentRequirementItemResponse> itemResponses = paymentCalculation.getItemRequirements().stream()
+                .map(item -> PaymentRequirementItemResponse.builder()
+                        .orderItemId(item.getOrderItemId())
+                        .orderItemType(item.getOrderItemType())
+                        .quantity(item.getQuantity())
+                        .unitPrice(item.getUnitPrice())
+                        .itemTotal(item.getItemTotal())
+                        .paymentPercentage(item.getPaymentPercentage())
+                        .requiredPayment(item.getRequiredPayment())
+                        .build())
+                .toList();
 
-            if (order.getPaymentMethod() == PaymentMethod.VNPAY) {
-                percentage = 1.0;
-                allowCOD = false;
-                message = "Thanh toán trước 100% với phương thức VNPAY.";
-            } else {
-                percentage = 0;
-                message = "Đơn hàng có thể thanh toán khi nhận hàng (COD).";
-            }
-        }
+        double depositPercentage = paymentCalculation.getOrderTotal().compareTo(BigDecimal.ZERO) == 0
+                ? 0
+                : paymentCalculation.getRequiredPaymentTotal().divide(
+                paymentCalculation.getOrderTotal(), 4, RoundingMode.HALF_UP).doubleValue();
 
         return PaymentRequirementResponse.builder()
-                .depositPercentage(percentage)
-                .requiredAmount(order.getTotalAmount().multiply(BigDecimal.valueOf(percentage)))
+                .depositPercentage(depositPercentage)
+                .requiredAmount(paymentCalculation.getRequiredPaymentTotal())
+                .orderTotal(paymentCalculation.getOrderTotal())
+                .requiredPaymentTotal(paymentCalculation.getRequiredPaymentTotal())
+                .itemRequirements(itemResponses)
                 .allowCOD(allowCOD)
                 .message(message)
                 .build();
