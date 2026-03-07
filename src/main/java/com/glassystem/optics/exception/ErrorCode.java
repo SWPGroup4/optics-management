@@ -64,6 +64,7 @@ public enum ErrorCode {
 
     INVALID_PAYMENT_METHOD(1027, "Invalid payment method", HttpStatus.BAD_REQUEST),
     INVALID_PRICE(1028, "Invalid price", HttpStatus.BAD_REQUEST),
+    LENS_NOT_FOUND(1029, "Lens not found!", HttpStatus.BAD_REQUEST),
 
     // ===== COMBO ERROR CODES (3xxx) =====
     COMBO_NOT_FOUND(3001, "Combo not found!", HttpStatus.NOT_FOUND),

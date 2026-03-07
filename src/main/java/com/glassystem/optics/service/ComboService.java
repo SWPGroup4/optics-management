@@ -647,7 +647,7 @@ public class ComboService {
 
 		// Lấy tất cả variant ACTIVE của product
 		List<ProductVariant> variants = productVariantRepository
-				.findAllByProduct_IdAndStatus(productId,
+				.findAllByIdAndStatus(productId,
 						com.glassystem.optics.enums.ProductVariantStatus.ACTIVE);
 
 		// Check xem giỏ hàng có chứa bất kỳ variant nào với đủ số lượng

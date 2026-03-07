@@ -44,6 +44,7 @@ public class CustomerOrderController {
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Place a new order", description = "Allows a customer to create a new order with multiple items")
     public ApiResponse<OrderResponse> createOrder(@RequestPart("orderInfo") @Valid OrderCreationRequest request,
+                                                  @RequestParam(value = "PaymentMethod", required = true) PaymentMethod paymentMethod,
                                                   @RequestPart(value = "prescriptionImage", required = false) MultipartFile file) throws IOException {
 
 

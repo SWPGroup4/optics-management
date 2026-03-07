@@ -16,8 +16,10 @@ import java.util.List;
 public class PaymentCalculationService {
 
     public PaymentCalculationResult calculatePaymentRequirement(List<OrderItem> items) {
+
+
         List<ItemPaymentRequirement> itemRequirements = items.stream()
-                .map(this::toItemPaymentRequirement)
+                .map(item -> toItemPaymentRequirement(item))
                 .toList();
 
         BigDecimal orderTotal = itemRequirements.stream()
@@ -36,25 +38,41 @@ public class PaymentCalculationService {
     }
 
     private ItemPaymentRequirement toItemPaymentRequirement(OrderItem item) {
-        BigDecimal itemTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-        double paymentPercentage = getPaymentPercentage(item.getOrderItemType());
-        BigDecimal requiredPayment = itemTotal.multiply(BigDecimal.valueOf(paymentPercentage));
+
+        BigDecimal baseItemTotal = item.getUnitPrice()
+                .multiply(BigDecimal.valueOf(item.getQuantity()));
+        BigDecimal lensPricePerUnit = item.getLensPrice() == null
+                ? BigDecimal.ZERO
+                : item.getLensPrice();
+        BigDecimal lensPriceTotal = lensPricePerUnit
+                .multiply(BigDecimal.valueOf(item.getQuantity()));
+        BigDecimal itemTotal = baseItemTotal.add(lensPriceTotal);
+
+        BigDecimal paymentPercentage = getPaymentPercentage(item);
+
+        BigDecimal requiredPayment = baseItemTotal.multiply(paymentPercentage)
+                .add(lensPriceTotal);
 
         return ItemPaymentRequirement.builder()
                 .orderItemId(item.getId())
                 .orderItemType(item.getOrderItemType())
                 .quantity(item.getQuantity())
                 .unitPrice(item.getUnitPrice())
+                .lensPrice(lensPricePerUnit)
+                .lensPriceTotal(lensPriceTotal)
+                .baseItemTotal(baseItemTotal)
                 .itemTotal(itemTotal)
                 .paymentPercentage(paymentPercentage)
                 .requiredPayment(requiredPayment)
                 .build();
     }
 
-    private double getPaymentPercentage(OrderItemType orderItemType) {
-        return switch (orderItemType) {
-            case IN_STOCK, PRESCRIPTION -> 1.0;
-            case PRE_ORDER -> 0.5;
+    private BigDecimal getPaymentPercentage(OrderItem item) {
+
+        // Rule cho phần giá sản phẩm gốc
+        return switch (item.getOrderItemType()) {
+            case IN_STOCK -> BigDecimal.ONE;
+            case PRE_ORDER -> new BigDecimal("0.5");
         };
     }
 
@@ -63,8 +81,11 @@ public class PaymentCalculationService {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class PaymentCalculationResult {
+
         BigDecimal orderTotal;
+
         BigDecimal requiredPaymentTotal;
+
         List<ItemPaymentRequirement> itemRequirements;
     }
 
@@ -73,12 +94,25 @@ public class PaymentCalculationService {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class ItemPaymentRequirement {
+
         String orderItemId;
+
         OrderItemType orderItemType;
+
         Integer quantity;
+
         BigDecimal unitPrice;
+
+        BigDecimal lensPrice;
+
+        BigDecimal lensPriceTotal;
+
+        BigDecimal baseItemTotal;
+
         BigDecimal itemTotal;
-        double paymentPercentage;
+
+        BigDecimal paymentPercentage;
+
         BigDecimal requiredPayment;
     }
 }

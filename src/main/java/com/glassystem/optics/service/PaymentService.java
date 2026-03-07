@@ -16,7 +16,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -138,22 +137,19 @@ public class PaymentService {
     }
 
     private void updateOrderStatusBasedOnItems(Orders order) {
-        boolean hasSpecialItem = false;
+        boolean hasSpecialItem = order.getItems().stream()
+                .anyMatch(item ->
+                        item.getPrescription() != null ||
+                                item.getOrderItemType() == OrderItemType.PRE_ORDER ||
+                                (item.getLensId() != null && !item.getLensId().isBlank())
+                );
 
-        for (OrderItem orderItem : order.getItems()) {
-            if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) ||
-                    orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER)) {
-                hasSpecialItem = true;
-                break;
-            }
-        }
         if (hasSpecialItem) {
             order.setStatus(OrderStatus.AWAITING_VERIFICATION);
         } else {
             order.setStatus(OrderStatus.PREPARING);
         }
     }
-
     private BigDecimal getAmountToPay(Orders order, PaymentPurpose purpose) {
         return switch (purpose) {
             case DEPOSIT -> order.getDepositAmount();
@@ -163,25 +159,15 @@ public class PaymentService {
     }
 
     private PaymentPurpose determinePaymentPurpose(Orders order) {
-        List<OrderItem> items = order.getItems();
-        boolean hasPrescription = items.stream()
-                .anyMatch(item -> item.getOrderItemType().equals(OrderItemType.PRESCRIPTION));
-        boolean hasPreOrder = items.stream()
-                .anyMatch(item -> item.getOrderItemType().equals(OrderItemType.PRE_ORDER));
-
-        if (hasPrescription) {
+        if (order.getRemainingAmount() == null || order.getRemainingAmount().compareTo(BigDecimal.ZERO) <= 0) {
             return PaymentPurpose.FULL;
         }
 
-        if (hasPreOrder) {
-            List<Payment> payments = paymentRepository.findByOrderId(order.getId());
-            boolean hasDepositPaid = payments.stream()
-                    .anyMatch(p -> p.getPaymentPurpose().equals(PaymentPurpose.DEPOSIT)
-                            && p.getStatus().equals(PaymentStatus.PAID));
-            return hasDepositPaid ? PaymentPurpose.REMAINING : PaymentPurpose.DEPOSIT;
-        }
-
-        return PaymentPurpose.FULL;
+        List<Payment> payments = paymentRepository.findByOrderId(order.getId());
+        boolean hasDepositPaid = payments.stream()
+                .anyMatch(p -> p.getPaymentPurpose().equals(PaymentPurpose.DEPOSIT)
+                        && p.getStatus().equals(PaymentStatus.PAID));
+        return hasDepositPaid ? PaymentPurpose.REMAINING : PaymentPurpose.DEPOSIT;
     }
 
 }

@@ -47,6 +47,7 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final ComboRepository comboRepository;
     private final ComboService comboService;
+    private final LensRepository lensRepository;
     private final ProductVariantRepository productVariantRepository;
     private final ObjectMapper objectMapper;
     private final PaymentCalculationService paymentCalculationService;
@@ -70,11 +71,15 @@ public class OrderService {
 
 
         BigDecimal totalAmount = BigDecimal.ZERO;
-        boolean fileUploaded = false;
+        boolean hasPrescriptionImage = file != null && !file.isEmpty();
+        String prescriptionImageUrl = null;
+        if (hasPrescriptionImage) {
+            prescriptionImageUrl = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
+        }
 
         for (OrderItemCreationRequest orderItemRequest : request.getItems()) {
 
-            ProductVariant productVariant = productVariantRepository.findAllByProduct_IdAndStatus(
+            ProductVariant productVariant = productVariantRepository.findAllByIdAndStatus(
                             orderItemRequest.getProductVariantId(), ProductVariantStatus.ACTIVE)
                     .stream()
                     .findFirst()
@@ -91,26 +96,29 @@ public class OrderService {
             item.setOrderItemType(resolveOrderItemType(productVariant));
             item.setInventory(inventory);
             item.setQuantity(orderItemRequest.getQuantity());
-            item.setUnitPrice(inventory.getProductVariant().getPrice());
-            item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(orderItemRequest.getQuantity())));
+            item.setUnitPrice(productVariant.getPrice());
+            Lens lens = resolveLens(orderItemRequest.getLensId());
+            BigDecimal lensPrice = lens == null ? BigDecimal.ZERO : normalizeAmount(lens.getPrice());
+            item.setLensId(lens == null ? null : lens.getId());
+            item.setLensName(lens == null ? null : lens.getName());
+            item.setLensPrice(lensPrice);
+            item.setTotalPrice(calculateOrderItemTotal(item.getUnitPrice(), lensPrice, orderItemRequest.getQuantity()));
 
-            if (item.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
-                Prescription prescription = new Prescription();
-                if (orderItemRequest.getPrescription() != null) {
-                    prescriptionMapper.updatePrescription(prescription, orderItemRequest.getPrescription());
+            if (orderItemRequest.getPrescription() != null) {
+                Prescription prescription = prescriptionMapper.toPrescription(orderItemRequest.getPrescription());
+                if (hasPrescriptionImage) {
+                    prescription.setImageUrl(prescriptionImageUrl);
                 }
-                if (file != null && !file.isEmpty() && !fileUploaded) {
-                    String url = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
-                    prescription.setImageUrl(url);
-                    fileUploaded = true;
-                }
-                item.setPrescription(prescriptionRepository.save(prescription));
+                prescription = prescriptionRepository.save(prescription);
+                item.setPrescription(prescription);
+            }
+            if (lens != null && orderItemRequest.getPrescription() == null) {
+                throw new AppException(ErrorCode.PRESCRIPTION_REQUIRED);
             }
 
             updateInventoryStock(inventory, orderItemRequest.getQuantity());
             order.getItems().add(item);
-            totalAmount = totalAmount.add(inventory.getProductVariant().getPrice()
-                    .multiply(BigDecimal.valueOf(orderItemRequest.getQuantity())));
+            totalAmount = totalAmount.add(item.getTotalPrice());
         }
 
         // ===== COMBO: Áp dụng combo nếu có =====
@@ -129,8 +137,13 @@ public class OrderService {
 
 
         for (OrderItem item : order.getItems()) {
-            double paymentPercentage = item.getOrderItemType() == OrderItemType.PRE_ORDER ? 0.5 : 1.0;
-            BigDecimal itemDepositPrice = item.getTotalPrice().multiply(BigDecimal.valueOf(paymentPercentage));
+            BigDecimal baseItemTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            BigDecimal lensFeeTotal = normalizeAmount(item.getLensPrice())
+                    .multiply(BigDecimal.valueOf(item.getQuantity()));
+            BigDecimal paymentPercentage = item.getOrderItemType() == OrderItemType.PRE_ORDER
+                    ? new BigDecimal("0.5")
+                    : BigDecimal.ONE;
+            BigDecimal itemDepositPrice = baseItemTotal.multiply(paymentPercentage).add(lensFeeTotal);
             item.setDepositPrice(itemDepositPrice);
             item.setRemainingPrice(item.getTotalPrice().subtract(itemDepositPrice));
         }
@@ -282,8 +295,8 @@ public class OrderService {
 
         boolean allowCOD = paymentCalculation.getRequiredPaymentTotal().compareTo(BigDecimal.ZERO) == 0;
         String message = hasDepositPaid
-                ? "Đã có thanh toán trước đó. Số tiền yêu cầu được tính theo từng loại sản phẩm trong đơn."
-                : "Số tiền cần thanh toán được tính theo từng sản phẩm: IN_STOCK/PRESCRIPTION 100%, PRE_ORDER 50%.";
+                ? "Da co thanh toan truoc do. So tien yeu cau duoc tinh theo tung loai san pham trong don."
+                : "So tien can thanh toan: gia san pham IN_STOCK 100%, PRE_ORDER 50%; phi lam trong thanh toan truoc 100%.";
 
         List<PaymentRequirementItemResponse> itemResponses = paymentCalculation.getItemRequirements().stream()
                 .map(item -> PaymentRequirementItemResponse.builder()
@@ -291,6 +304,9 @@ public class OrderService {
                         .orderItemType(item.getOrderItemType())
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
+                        .lensPrice(item.getLensPrice())
+                        .lensPriceTotal(item.getLensPriceTotal())
+                        .baseItemTotal(item.getBaseItemTotal())
                         .itemTotal(item.getItemTotal())
                         .paymentPercentage(item.getPaymentPercentage())
                         .requiredPayment(item.getRequiredPayment())
@@ -318,10 +334,6 @@ public class OrderService {
     public PrescriptionResponse uploadPrescriptionImage(String orderItemId, MultipartFile file) throws IOException {
         OrderItem orderItem = orderItemRepository.findById(orderItemId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
-
-        if (!orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
-            throw new AppException(ErrorCode.INVALID_ORDER_ITEM_TYPE);
-        }
 
         String url = fileStorageService.uploadFile(file, S3ImageName.PRESCRIPTION);
 
@@ -376,8 +388,7 @@ public class OrderService {
                     updateQuantityAndInventory(orderItem, requestItem.getQuantity());
                 }
 
-                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
-                        && requestItem.getPrescription() != null) {
+                if (requestItem.getPrescription() != null) {
                     updatePrescriptionLogic(orderItem, requestItem.getPrescription());
                 }
             }
@@ -395,9 +406,6 @@ public class OrderService {
 
         if (!orders.getCustomer().getId().equals(currentUserId)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
-        }
-        if (!orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
-            throw new AppException(ErrorCode.INVALID_ORDER_ITEM_TYPE);
         }
         if (!orders.getStatus().equals(OrderStatus.PENDING) && !orders.getStatus().equals(OrderStatus.ON_HOLD)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
@@ -486,8 +494,7 @@ public class OrderService {
 
 
         boolean requiresProcessing = order.getItems().stream()
-                .anyMatch(orderItem -> orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
-                        || orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER));
+                .anyMatch(this::requiresProcessing);
 
         if (isApproved) {
             order.setStatus(requiresProcessing ? OrderStatus.PROCESSING : OrderStatus.CONFIRMED);
@@ -577,9 +584,12 @@ public class OrderService {
         }
 
         for (OrderItem orderItem : order.getItems()) {
-            if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+            if (requiresProcessing(orderItem)) {
+
                 orderItem.setStatus(OrderItemStatus.IN_PRODUCTION);
+
             } else {
+
                 orderItem.setStatus(OrderItemStatus.PRODUCED);
             }
         }
@@ -600,8 +610,9 @@ public class OrderService {
         }
         if (order.getItems() != null) {
             for (OrderItem orderItem : order.getItems()) {
-                if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)
-                        || orderItem.getStatus().equals(OrderItemStatus.IN_PRODUCTION) ) {
+                if (requiresProcessing(orderItem)
+                        || orderItem.getStatus() == OrderItemStatus.IN_PRODUCTION) {
+
                     orderItem.setStatus(OrderItemStatus.PRODUCED);
                 }
             }
@@ -615,7 +626,8 @@ public class OrderService {
         OrderItem orderItem = orderItemRepository.findById(orderItemId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
 
-        if (!orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+        if (!requiresProcessing(orderItem)) {
+
             throw new AppException(ErrorCode.INVALID_ORDER_ITEM_TYPE);
         }
 
@@ -649,8 +661,9 @@ public class OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         for (OrderItem orderItem : order.getItems()) {
-            if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
-                if (!order.getStatus().equals(OrderStatus.PRODUCED)) {
+            if (requiresProcessing(orderItem)) {
+
+                if (order.getStatus() != OrderStatus.PRODUCED) {
                     throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                 }
             } else if (orderItem.getOrderItemType().equals(OrderItemType.IN_STOCK)) {
@@ -896,6 +909,31 @@ public class OrderService {
         inventoryRepository.save(inventory);
 
         item.setQuantity(newQty);
-        item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(newQty)));
+        item.setTotalPrice(calculateOrderItemTotal(item.getUnitPrice(), item.getLensPrice(), newQty));
+    }
+
+    private BigDecimal calculateOrderItemTotal(BigDecimal unitPrice, BigDecimal lensPrice, Integer quantity) {
+        BigDecimal normalizedUnitPrice = normalizeAmount(unitPrice);
+        BigDecimal normalizedLensFee = normalizeAmount(lensPrice);
+        BigDecimal qty = BigDecimal.valueOf(quantity == null ? 0 : quantity);
+        return normalizedUnitPrice.add(normalizedLensFee).multiply(qty);
+    }
+
+    private boolean requiresProcessing(OrderItem orderItem) {
+        return orderItem.getOrderItemType() == OrderItemType.PRE_ORDER
+                || orderItem.getPrescription() != null
+                || (orderItem.getLensId() != null && !orderItem.getLensId().isBlank());
+    }
+
+    private Lens resolveLens(String lensId) {
+        if (lensId == null || lensId.isBlank()) {
+            return null;
+        }
+        return lensRepository.findById(lensId)
+                .orElseThrow(() -> new AppException(ErrorCode.LENS_NOT_FOUND));
+    }
+
+    private BigDecimal normalizeAmount(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

@@ -16,7 +16,10 @@ public class PaymentRequirementItemResponse {
     OrderItemType orderItemType;
     Integer quantity;
     BigDecimal unitPrice;
+    BigDecimal lensPrice;
+    BigDecimal lensPriceTotal;
+    BigDecimal baseItemTotal;
     BigDecimal itemTotal;
-    double paymentPercentage;
+    BigDecimal paymentPercentage;
     BigDecimal requiredPayment;
 }
