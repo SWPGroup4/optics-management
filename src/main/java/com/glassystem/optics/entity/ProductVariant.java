@@ -1,5 +1,6 @@
 package com.glassystem.optics.entity;
 
+import com.glassystem.optics.enums.OrderItemType;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -50,6 +51,11 @@ public class ProductVariant {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     ProductVariantStatus status;
+
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_item_type", nullable = false)
+    OrderItemType orderItemType;
 
 
     @Column(name = "is_deleted", nullable = false)

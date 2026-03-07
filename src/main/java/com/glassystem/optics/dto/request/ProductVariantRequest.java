@@ -2,6 +2,7 @@ package com.glassystem.optics.dto.request;
 
 import java.math.BigDecimal;
 
+import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.ProductVariantStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -43,4 +44,8 @@ public class ProductVariantRequest {
 
 	@NotNull(message = "PRODUCT_VARIANT_STATUS_REQUIRED")
 	ProductVariantStatus status;
+
+    @NotNull(message = "PRODUCT_PRESCRIPTION_REQUIRED")
+    OrderItemType orderItemType;
+
 }

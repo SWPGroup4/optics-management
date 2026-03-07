@@ -50,7 +50,6 @@ public class OrderService {
     private final ProductVariantRepository productVariantRepository;
     private final ObjectMapper objectMapper;
     private final PaymentCalculationService paymentCalculationService;
-
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
      * =====================
@@ -74,27 +73,28 @@ public class OrderService {
         boolean fileUploaded = false;
 
         for (OrderItemCreationRequest orderItemRequest : request.getItems()) {
-            Inventory inventory = inventoryRepository.findByProductVariantId(orderItemRequest.getProductVariantId())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
 
-            ProductVariant variant = productVariantRepository.findById(orderItemRequest.getProductVariantId())
+            ProductVariant productVariant = productVariantRepository.findAllByProduct_IdAndStatus(
+                            orderItemRequest.getProductVariantId(), ProductVariantStatus.ACTIVE)
+                    .stream()
+                    .findFirst()
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
 
-            if (variant.getPrice() == null) {
-                throw new AppException(ErrorCode.INVALID_PRICE);
-            }
+            Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
+
 
             validateInventory(inventory, orderItemRequest.getQuantity());
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
-            item.setOrderItemType(orderItemRequest.getOrderItemType());
+            item.setOrderItemType(resolveOrderItemType(productVariant));
             item.setInventory(inventory);
             item.setQuantity(orderItemRequest.getQuantity());
             item.setUnitPrice(inventory.getProductVariant().getPrice());
             item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(orderItemRequest.getQuantity())));
 
-            if (orderItemRequest.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
+            if (item.getOrderItemType().equals(OrderItemType.PRESCRIPTION)) {
                 Prescription prescription = new Prescription();
                 if (orderItemRequest.getPrescription() != null) {
                     prescriptionMapper.updatePrescription(prescription, orderItemRequest.getPrescription());
@@ -140,7 +140,7 @@ public class OrderService {
         order.setRemainingAmount(finalTotal.subtract(requiredPaymentTotal));
         order.setPaymentMethod(PaymentMethod.VNPAY);
 
-        boolean hasPreOrder = request.getItems().stream()
+        boolean hasPreOrder = order.getItems().stream()
                 .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER);
         if (hasPreOrder) {
             order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PENDING);
@@ -254,6 +254,14 @@ public class OrderService {
         inventory.setQuantity(inventory.getQuantity() - quantity);
         inventoryRepository.save(inventory);
     }
+
+    private OrderItemType resolveOrderItemType(ProductVariant productVariant) {
+        if (productVariant.getOrderItemType() == null) {
+            throw new AppException(ErrorCode.PRODUCT_PRESCRIPTION_REQUIRED);
+        }
+        return productVariant.getOrderItemType();
+    }
+
 
     @Transactional
     public PaymentRequirementResponse getPaymentRequirement(String orderId) {
