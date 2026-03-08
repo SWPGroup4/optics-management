@@ -1,31 +1,25 @@
 package com.glassystem.optics.dto.response;
 
-import com.glassystem.optics.enums.OrderItemStatus;
 import com.glassystem.optics.enums.OrderItemType;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class OrderItemResponse {
+public class PaymentRequirementItemResponse {
     String orderItemId;
-    String productVariantId;
     OrderItemType orderItemType;
     Integer quantity;
     BigDecimal unitPrice;
-    String lensId;
-    String lensName;
     BigDecimal lensPrice;
     BigDecimal lensPriceTotal;
-    BigDecimal totalPrice;
-    OrderItemStatus status;
-    PrescriptionResponse prescription;
-
+    BigDecimal baseItemTotal;
+    BigDecimal itemTotal;
+    BigDecimal paymentPercentage;
+    BigDecimal requiredPayment;
 }

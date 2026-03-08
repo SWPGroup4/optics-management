@@ -28,7 +28,7 @@ public class SecurityConfig {
     public final String[] PUBLIC_ENDPOINTS = {
             "/users/registration", "/auth/login", "/auth/check-token", "/auth/logout", "/auth/refresh-token",
             "/payment/checkout", "/payment/vnpay-callback", "/products", "/products/filter", "product-variants/{id}",
-            "/products/{id}","/products/{productId}/variants"
+            "/products/{id}","/products/{productId}/variants", "/lenses", "/lenses/{id}"
     };
 
     private final String[] SWAGGER_ENDPOINTS = {
