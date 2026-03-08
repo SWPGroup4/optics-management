@@ -29,13 +29,6 @@ public class ProductionOrderController {
 
     OrderService orderService;
 
-    @GetMapping("/processing")
-    @Operation(summary = "Get orders in production", description = "Retrieves a list of all orders currently being processed in the lab")
-    public ApiResponse<List<OrderResponse>> getOrdersProcessing() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getOrdersProcessing())
-                .build();
-    }
 
     @PutMapping("/{orderId}/start")
     @Operation(summary = "Start order production", description = "Initializes the production phase for an order, changing status to PROCESSING")

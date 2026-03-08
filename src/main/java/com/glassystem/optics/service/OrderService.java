@@ -630,10 +630,6 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
-    public List<OrderResponse> getOrdersProcessing() {
-        return orderRepository.findByStatus(OrderStatus.PROCESSING).stream().map(orderMapper::toOrderResponse).toList();
-    }
-
     @Transactional
     public OrderResponse finishProduction(String orderId) {
         Orders order = orderRepository.findById(orderId)
