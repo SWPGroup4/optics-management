@@ -64,6 +64,15 @@ public class ProductionOrderController {
                 .build();
     }
 
+    @PutMapping("/orders/{orderId}/prepared")
+    public ApiResponse<OrderResponse>  markOrderAsPrepared(
+            @PathVariable("orderId")
+            String orderId) {
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.markAsPrepared(orderId))
+                .build();
+    }
+
     @PutMapping("/ship")
     @Operation(summary = "Mark order as shipped", description = "Confirm that the order has been handed over to the courier service")
     public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
@@ -72,4 +81,6 @@ public class ProductionOrderController {
                 .message("Order status updated to SHIPPED")
                 .build();
     }
+
+
 }

@@ -684,6 +684,23 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
+    @Transactional
+    public OrderResponse markAsPrepared(String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        for (OrderItem orderItem : order.getItems()) {
+            if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
+                if (order.getStatus() != OrderStatus.PREPARING) {
+                    throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+                }
+            } else {
+                throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+            }
+        }
+        order.setStatus(OrderStatus.PREPARED);
+        return orderMapper.toOrderResponse(order);
+    }
+
     /*
      * ===================== 4. LOGISTICS FLOW (Vận chuyển & Kết thúc)
      * =====================
@@ -701,7 +718,7 @@ public class OrderService {
                         throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                     }
                 } else if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
-                    if (order.getStatus() != OrderStatus.PREPARING
+                    if (order.getStatus() != OrderStatus.PREPARED
                             && order.getStatus() != OrderStatus.PRODUCED) {
                         throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                     }
