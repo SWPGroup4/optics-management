@@ -126,13 +126,5 @@ public class CustomerOrderController {
     }
 
 
-    @PostMapping("/payment-requirement")
-    @Operation(summary = "Kiểm tra yêu cầu đặt cọc",
-            description = "Nhận danh sách productId/lensId và quantity để tính số tiền thanh toán trước và sau")
-    public ApiResponse<PaymentRequirementResponse> validatePayment(@RequestBody @Valid PaymentRequirementRequest request) {
-        return ApiResponse.<PaymentRequirementResponse>builder()
-                .result(orderService.getPaymentRequirement(request))
-                .build();
-    }
 }
 
