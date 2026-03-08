@@ -2,7 +2,6 @@ package com.glassystem.optics.entity;
 
 import com.glassystem.optics.enums.OrderItemStatus;
 import com.glassystem.optics.enums.OrderItemType;
-import com.glassystem.optics.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -24,6 +23,9 @@ public class OrderItem {
     Integer quantity;
     BigDecimal unitPrice;
     BigDecimal totalPrice;
+    String lensId;
+    String lensName;
+    BigDecimal lensPrice;
 
     @Enumerated(EnumType.STRING)
     OrderItemType orderItemType;

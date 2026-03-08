@@ -1,17 +1,18 @@
 package com.glassystem.optics.controller.payment;
 
+import com.glassystem.optics.dto.request.PaymentRequirementRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.PaymentRequirementResponse;
 import com.glassystem.optics.dto.response.PaymentResponse;
 import com.glassystem.optics.entity.Payment;
 import com.glassystem.optics.enums.PaymentMethod;
 import com.glassystem.optics.enums.PaymentStatus;
-import com.glassystem.optics.repository.PaymentRepository;
 import com.glassystem.optics.service.OrderService;
 import com.glassystem.optics.service.PaymentService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -33,11 +34,11 @@ public class PaymentController {
     String frontendUrl;
 
 
-    @GetMapping("/orders/{orderId}/requirement")
+    @PostMapping("/orders/requirement")
     public ApiResponse<PaymentRequirementResponse> getPaymentRequirement(
-            @PathVariable String orderId) {
+            @RequestBody @Valid PaymentRequirementRequest request) {
         return ApiResponse.<PaymentRequirementResponse>builder()
-                .result(orderService.getPaymentRequirement(orderId))
+                .result(orderService.getPaymentRequirement(request))
                 .build();
     }
 

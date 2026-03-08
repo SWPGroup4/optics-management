@@ -3,10 +3,7 @@ package com.glassystem.optics.controller.order;
 import java.io.IOException;
 import java.util.List;
 
-import com.glassystem.optics.dto.request.OrderItemCreationRequest;
 import com.glassystem.optics.dto.response.PaymentRequirementResponse;
-import com.glassystem.optics.enums.OrderItemStatus;
-import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.PaymentMethod;
 import jakarta.validation.Valid;
 
@@ -15,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.glassystem.optics.dto.request.OrderCreationRequest;
+import com.glassystem.optics.dto.request.PaymentRequirementRequest;
 import com.glassystem.optics.dto.request.OrderUpdateRequest;
 import com.glassystem.optics.dto.request.PrescriptionRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
@@ -44,17 +42,8 @@ public class CustomerOrderController {
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Place a new order", description = "Allows a customer to create a new order with multiple items")
     public ApiResponse<OrderResponse> createOrder(@RequestPart("orderInfo") @Valid OrderCreationRequest request,
-                                                  @RequestParam(value = "OrderItemType", required = true) OrderItemType type,
                                                   @RequestParam(value = "PaymentMethod", required = true) PaymentMethod paymentMethod,
                                                   @RequestPart(value = "prescriptionImage", required = false) MultipartFile file) throws IOException {
-
-
-        if (paymentMethod != null) {
-            request.setPaymentMethod(paymentMethod);
-        }
-        for(OrderItemCreationRequest item : request.getItems()) {
-            item.setOrderItemType(type);
-        }
 
 
         return ApiResponse.<OrderResponse>builder()
@@ -137,12 +126,5 @@ public class CustomerOrderController {
     }
 
 
-    @GetMapping("/{orderId}/payment-requirement")
-    @Operation(summary = "Kiểm tra yêu cầu đặt cọc",
-            description = "Dùng để xác định số tiền khách cần trả trước dựa trên các loại sản phẩm trong giỏ hàng")
-    public ApiResponse<PaymentRequirementResponse> validatePayment(@PathVariable String orderId) {
-        return ApiResponse.<PaymentRequirementResponse>builder()
-                .result(orderService.getPaymentRequirement(orderId))
-                .build();
-    }
 }
+

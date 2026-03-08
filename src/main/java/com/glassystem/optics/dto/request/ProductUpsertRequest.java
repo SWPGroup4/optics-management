@@ -3,6 +3,7 @@ package com.glassystem.optics.dto.request;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.ProductStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
