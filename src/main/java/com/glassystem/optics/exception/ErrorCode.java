@@ -39,6 +39,9 @@ public enum ErrorCode {
     IMAGE_NOT_FOUND(2019, "Image not found!", HttpStatus.NOT_FOUND),
     PRODUCT_ALREADY_DELETED(2020, "Product has already been deleted!", HttpStatus.BAD_REQUEST),
     PRODUCT_VARIANT_ALREADY_DELETED(2021, "Product variant has already been deleted!", HttpStatus.BAD_REQUEST),
+    LENS_NOT_FOUND(2022, "Lens not found!", HttpStatus.NOT_FOUND),
+
+
 
     INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
     INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
