@@ -44,7 +44,6 @@ public class OrderService {
     private final PrescriptionRepository prescriptionRepository;
     private final OrderItemRepository orderItemRepository;
     private final FileStorageService fileStorageService;
-    private final PaymentRepository paymentRepository;
     private final ComboRepository comboRepository;
     private final ComboService comboService;
     private final LensRepository lensRepository;
@@ -276,27 +275,23 @@ public class OrderService {
     }
 
 
-    @Transactional
-    public PaymentRequirementResponse getPaymentRequirement(String orderId) {
-        Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+    public PaymentRequirementResponse getPaymentRequirement(PaymentRequirementRequest request) {
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new AppException(ErrorCode.LIST_EMPTY);
+        }
 
-        List<OrderItem> items = order.getItems();
+        List<PaymentCalculationService.PaymentItemInput> paymentItems = request.getItems().stream()
+                .map(this::toPaymentItemInput)
+                .toList();
 
         PaymentCalculationService.PaymentCalculationResult paymentCalculation =
-                paymentCalculationService.calculatePaymentRequirement(items);
+                paymentCalculationService.calculatePaymentRequirementForPreview(paymentItems);
 
-
-        List<Payment> payments = paymentRepository.findByOrderId(orderId);
-        boolean hasDepositPaid = payments.stream()
-                .anyMatch(payment -> payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT
-                        && payment.getStatus() == PaymentStatus.PAID);
-
+        BigDecimal remainingPaymentTotal = paymentCalculation.getOrderTotal()
+                .subtract(paymentCalculation.getRequiredPaymentTotal());
 
         boolean allowCOD = paymentCalculation.getRequiredPaymentTotal().compareTo(BigDecimal.ZERO) == 0;
-        String message = hasDepositPaid
-                ? "Da co thanh toan truoc do. So tien yeu cau duoc tinh theo tung loai san pham trong don."
-                : "So tien can thanh toan: gia san pham IN_STOCK 100%, PRE_ORDER 50%; phi lam trong thanh toan truoc 100%.";
+        String message = "So tien can thanh toan: gia san pham IN_STOCK 100%, PRE_ORDER 50%; phi lam trong thanh toan truoc 100%.";
 
         List<PaymentRequirementItemResponse> itemResponses = paymentCalculation.getItemRequirements().stream()
                 .map(item -> PaymentRequirementItemResponse.builder()
@@ -323,11 +318,50 @@ public class OrderService {
                 .requiredAmount(paymentCalculation.getRequiredPaymentTotal())
                 .orderTotal(paymentCalculation.getOrderTotal())
                 .requiredPaymentTotal(paymentCalculation.getRequiredPaymentTotal())
+                .remainingPaymentTotal(remainingPaymentTotal)
                 .itemRequirements(itemResponses)
                 .allowCOD(allowCOD)
                 .message(message)
                 .build();
 
+    }
+
+    private PaymentCalculationService.PaymentItemInput toPaymentItemInput(PaymentRequirementItemRequest item) {
+        if ((item.getProductVariantId() == null || item.getProductVariantId().isBlank())
+                && (item.getLensId() == null || item.getLensId().isBlank())) {
+            throw new AppException(ErrorCode.FIELD_MISSING);
+        }
+
+        ProductVariant productVariant = null;
+        if (item.getProductVariantId() != null && !item.getProductVariantId().isBlank()) {
+            productVariant = productVariantRepository.findAllByIdAndStatus(
+                            item.getProductVariantId(), ProductVariantStatus.ACTIVE)
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+        }
+
+        Lens lens = null;
+        if (item.getLensId() != null && !item.getLensId().isBlank()) {
+            lens = lensRepository.findById(item.getLensId())
+                    .orElseThrow(() -> new AppException(ErrorCode.LENS_NOT_FOUND));
+        }
+
+        OrderItemType orderItemType = productVariant != null
+                ? productVariant.getOrderItemType()
+                : OrderItemType.IN_STOCK;
+
+        BigDecimal unitPrice = productVariant != null ? normalizeAmount(productVariant.getPrice()) : BigDecimal.ZERO;
+        BigDecimal lensPrice = lens != null ? normalizeAmount(lens.getPrice()) : BigDecimal.ZERO;
+        String itemId = productVariant != null ? productVariant.getId() : lens.getId();
+
+        return PaymentCalculationService.PaymentItemInput.builder()
+                .orderItemId(itemId)
+                .orderItemType(orderItemType)
+                .quantity(item.getQuantity())
+                .unitPrice(unitPrice)
+                .lensPrice(lensPrice)
+                .build();
     }
 
     @Transactional

@@ -1,7 +1,5 @@
 package com.glassystem.optics.dto.response;
 
-
-import com.glassystem.optics.enums.OrderItemType;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -14,12 +12,12 @@ import java.util.List;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PaymentRequirementResponse {
-    double depositPercentage;    // 0, 0.5 hoặc 1.0
-    BigDecimal requiredAmount;   // Số tiền cụ thể cần cọc
+    double depositPercentage;
+    BigDecimal requiredAmount;
     BigDecimal orderTotal;
     BigDecimal requiredPaymentTotal;
-     List<PaymentRequirementItemResponse> itemRequirements;
-    boolean allowCOD;            // Có cho phép chọn COD không
-    String message;              // Thông báo giải thích quy tắc
-
+    BigDecimal remainingPaymentTotal;
+    List<PaymentRequirementItemResponse> itemRequirements;
+    boolean allowCOD;
+    String message;
 }

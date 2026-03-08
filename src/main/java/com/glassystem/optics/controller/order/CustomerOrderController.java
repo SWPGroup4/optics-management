@@ -3,10 +3,7 @@ package com.glassystem.optics.controller.order;
 import java.io.IOException;
 import java.util.List;
 
-import com.glassystem.optics.dto.request.OrderItemCreationRequest;
 import com.glassystem.optics.dto.response.PaymentRequirementResponse;
-import com.glassystem.optics.enums.OrderItemStatus;
-import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.PaymentMethod;
 import jakarta.validation.Valid;
 
@@ -15,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.glassystem.optics.dto.request.OrderCreationRequest;
+import com.glassystem.optics.dto.request.PaymentRequirementRequest;
 import com.glassystem.optics.dto.request.OrderUpdateRequest;
 import com.glassystem.optics.dto.request.PrescriptionRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
@@ -128,12 +126,13 @@ public class CustomerOrderController {
     }
 
 
-    @GetMapping("/{orderId}/payment-requirement")
+    @PostMapping("/payment-requirement")
     @Operation(summary = "Kiểm tra yêu cầu đặt cọc",
-            description = "Dùng để xác định số tiền khách cần trả trước dựa trên các loại sản phẩm trong giỏ hàng")
-    public ApiResponse<PaymentRequirementResponse> validatePayment(@PathVariable String orderId) {
+            description = "Nhận danh sách productId/lensId và quantity để tính số tiền thanh toán trước và sau")
+    public ApiResponse<PaymentRequirementResponse> validatePayment(@RequestBody @Valid PaymentRequirementRequest request) {
         return ApiResponse.<PaymentRequirementResponse>builder()
-                .result(orderService.getPaymentRequirement(orderId))
+                .result(orderService.getPaymentRequirement(request))
                 .build();
     }
 }
+
