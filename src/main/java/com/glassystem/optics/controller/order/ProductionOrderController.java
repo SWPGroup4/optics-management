@@ -2,6 +2,7 @@ package com.glassystem.optics.controller.order;
 
 import java.util.List;
 
+import com.glassystem.optics.dto.request.ShipOrdersRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -60,6 +61,15 @@ public class ProductionOrderController {
             @RequestParam("status") OrderItemStatus status) {
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.updateOrderItemProductionStatus(orderItemId, status))
+                .build();
+    }
+
+    @PutMapping("/ship")
+    @Operation(summary = "Mark order as shipped", description = "Confirm that the order has been handed over to the courier service")
+    public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.markAsShipped(request.getOrderIds()))
+                .message("Order status updated to SHIPPED")
                 .build();
     }
 }

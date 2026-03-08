@@ -690,31 +690,30 @@ public class OrderService {
      */
 
     @Transactional
-    public OrderResponse markAsShipped(String orderId) {
-        Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-
-        for (OrderItem orderItem : order.getItems()) {
-            if (requiresProcessing(orderItem)) {
-
-                if (order.getStatus() != OrderStatus.PRODUCED) {
-                    throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                }
-            } else if (orderItem.getOrderItemType().equals(OrderItemType.IN_STOCK)) {
-                if (!order.getStatus().equals(OrderStatus.CONFIRMED)
-                        && !order.getStatus().equals(OrderStatus.PRODUCED)) {
-                    throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+    public List<OrderResponse> markAsShipped(List<String> orderIds) {
+        List<OrderResponse> responses = new ArrayList<>();
+        for (String orderId : orderIds) {
+            Orders order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+            for (OrderItem orderItem : order.getItems()) {
+                if (requiresProcessing(orderItem)) {
+                    if (order.getStatus() != OrderStatus.PRODUCED) {
+                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+                    }
+                } else if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
+                    if (order.getStatus() != OrderStatus.PREPARING
+                            && order.getStatus() != OrderStatus.PRODUCED) {
+                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+                    }
                 }
             }
+            order.setStatus(OrderStatus.SHIPPED);
+            responses.add(orderMapper.toOrderResponse(order));
         }
-
-        order.setStatus(OrderStatus.SHIPPED);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
+        return responses;
     }
 
-    public List<OrderResponse> getOrdersShipped() {
-        return orderRepository.findByStatus(OrderStatus.SHIPPED).stream().map(orderMapper::toOrderResponse).toList();
-    }
+
 
     @Transactional
     public void deleteOrder(String orderId) {

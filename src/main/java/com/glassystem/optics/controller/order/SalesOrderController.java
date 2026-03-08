@@ -55,12 +55,5 @@ public class SalesOrderController {
                 .build();
     }
 
-    @PutMapping("/{orderId}/ship")
-    @Operation(summary = "Mark order as shipped", description = "Confirm that the order has been handed over to the courier service")
-    public ApiResponse<OrderResponse> markAsShipped(@PathVariable("orderId") String orderId) {
-        return ApiResponse.<OrderResponse>builder()
-                .result(orderService.markAsShipped(orderId))
-                .message("Order status updated to SHIPPED")
-                .build();
-    }
+
 }
