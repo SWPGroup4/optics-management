@@ -17,7 +17,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +49,12 @@ public class PaymentService {
         }
 
         PaymentPurpose purpose = determinePaymentPurpose(order);
+
+        if (purpose == PaymentPurpose.REMAINING &&
+                order.getStatus() != OrderStatus.AWAITING_FINAL_PAYMENT) {
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+
         BigDecimal amount = getAmountToPay(order, purpose);
 
         if (amount.compareTo(BigDecimal.ZERO) > 0 && !paymentMethod.equals(PaymentMethod.VNPAY)) {
@@ -112,7 +117,7 @@ public class PaymentService {
                 order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
             }
 
-            updateOrderStatusBasedOnItems(order);
+            updateOrderStatusAfterPayment(order, payment);
             orderRepository.save(order);
 
         } else {
@@ -197,22 +202,24 @@ public class PaymentService {
                 .toList();
     }
 
-    private void updateOrderStatusBasedOnItems(Orders order) {
-        boolean hasSpecialItem = false;
-
-        for (OrderItem orderItem : order.getItems()) {
-            if (orderItem.getOrderItemType().equals(OrderItemType.PRESCRIPTION) ||
-                    orderItem.getOrderItemType().equals(OrderItemType.PRE_ORDER)) {
-                hasSpecialItem = true;
-                break;
+    private void updateOrderStatusAfterPayment(Orders order, Payment payment) {
+        if (payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT) {
+            order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
+            order.setStatus(OrderStatus.AWAITING_VERIFICATION);
+        }
+        if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
+            order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
+            if (order.getStatus() == OrderStatus.AWAITING_FINAL_PAYMENT) {
+                order.setStatus(OrderStatus.PREPARING);
             }
         }
-        if (hasSpecialItem) {
-            order.setStatus(OrderStatus.AWAITING_VERIFICATION);
-        } else {
+        if (payment.getPaymentPurpose() == PaymentPurpose.FULL) {
             order.setStatus(OrderStatus.PREPARING);
         }
     }
+
+
+
 
     private BigDecimal getAmountToPay(Orders order, PaymentPurpose purpose) {
         return switch (purpose) {
@@ -223,25 +230,15 @@ public class PaymentService {
     }
 
     private PaymentPurpose determinePaymentPurpose(Orders order) {
-        List<OrderItem> items = order.getItems();
-        boolean hasPrescription = items.stream()
-                .anyMatch(item -> item.getOrderItemType().equals(OrderItemType.PRESCRIPTION));
-        boolean hasPreOrder = items.stream()
-                .anyMatch(item -> item.getOrderItemType().equals(OrderItemType.PRE_ORDER));
-
-        if (hasPrescription) {
+        if (order.getRemainingAmount() == null || order.getRemainingAmount().compareTo(BigDecimal.ZERO) <= 0) {
             return PaymentPurpose.FULL;
         }
 
-        if (hasPreOrder) {
-            List<Payment> payments = paymentRepository.findByOrderId(order.getId());
-            boolean hasDepositPaid = payments.stream()
-                    .anyMatch(p -> p.getPaymentPurpose().equals(PaymentPurpose.DEPOSIT)
-                            && p.getStatus().equals(PaymentStatus.PAID));
-            return hasDepositPaid ? PaymentPurpose.REMAINING : PaymentPurpose.DEPOSIT;
-        }
-
-        return PaymentPurpose.FULL;
+        List<Payment> payments = paymentRepository.findByOrderId(order.getId());
+        boolean hasDepositPaid = payments.stream()
+                .anyMatch(p -> p.getPaymentPurpose().equals(PaymentPurpose.DEPOSIT)
+                        && p.getStatus().equals(PaymentStatus.PAID));
+        return hasDepositPaid ? PaymentPurpose.REMAINING : PaymentPurpose.DEPOSIT;
     }
 
 }

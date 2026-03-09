@@ -1,5 +1,6 @@
 package com.glassystem.optics.dto.response;
 
+import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.ProductVariantStatus;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -22,4 +23,8 @@ public class ProductVariantResponse {
 	String sizeLabel;
 	BigDecimal price;
 	ProductVariantStatus status;
+    OrderItemType type;
+
+    OrderItemType orderItemType;
+
 }

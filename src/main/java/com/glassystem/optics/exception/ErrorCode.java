@@ -39,6 +39,9 @@ public enum ErrorCode {
     IMAGE_NOT_FOUND(2019, "Image not found!", HttpStatus.NOT_FOUND),
     PRODUCT_ALREADY_DELETED(2020, "Product has already been deleted!", HttpStatus.BAD_REQUEST),
     PRODUCT_VARIANT_ALREADY_DELETED(2021, "Product variant has already been deleted!", HttpStatus.BAD_REQUEST),
+    LENS_NOT_FOUND(2022, "Lens not found!", HttpStatus.NOT_FOUND),
+
+
 
     INVALID_GMAIL(1009, "Invalid gmail!", HttpStatus.BAD_REQUEST),
     INVALID_VNPHONE(1010, "Invalid Vietnam phone!", HttpStatus.BAD_REQUEST),
@@ -64,11 +67,6 @@ public enum ErrorCode {
 
     INVALID_PAYMENT_METHOD(1027, "Invalid payment method", HttpStatus.BAD_REQUEST),
     INVALID_PRICE(1028, "Invalid price", HttpStatus.BAD_REQUEST),
-    PAYMENT_NOT_FOUND(1029, "Payment not found", HttpStatus.BAD_REQUEST),
-    INVALID_PAYMENT_STATUS(1030, "Invalid payment status", HttpStatus.BAD_REQUEST),
-    REFUND_FAILED(1031, "Refund failed", HttpStatus.BAD_REQUEST),
-    INVALID_VNPAY_RESPONSE(1032, "Invalid vnpay response", HttpStatus.BAD_REQUEST),
-    INVALID_TRANSACTION_DATE(1033, "Invalid transaction date", HttpStatus.BAD_REQUEST),
 
     // ===== COMBO ERROR CODES (3xxx) =====
     COMBO_NOT_FOUND(3001, "Combo not found!", HttpStatus.NOT_FOUND),

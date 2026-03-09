@@ -73,4 +73,3 @@ public class Product {
     List<ProductImage> imageUrl = new ArrayList<>();
 
 }
-// product status acctive
