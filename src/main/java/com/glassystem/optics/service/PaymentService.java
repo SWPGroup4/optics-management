@@ -44,6 +44,12 @@ public class PaymentService {
         }
 
         PaymentPurpose purpose = determinePaymentPurpose(order);
+
+        if (purpose == PaymentPurpose.REMAINING &&
+                order.getStatus() != OrderStatus.AWAITING_FINAL_PAYMENT) {
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+
         BigDecimal amount = getAmountToPay(order, purpose);
 
         if (amount.compareTo(BigDecimal.ZERO) > 0 && !paymentMethod.equals(PaymentMethod.VNPAY)) {
