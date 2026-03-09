@@ -16,7 +16,7 @@ public class GhnConfig {
     @Value("${ghn.shop-id}") String shopId;
 
 
-    @Bean
+    @Bean(name = "ghnRestTemplate")
     public RestTemplate restTemplate() {
         return new RestTemplate();
     }
