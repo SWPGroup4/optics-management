@@ -109,7 +109,7 @@ public class PaymentService {
                 order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
             }
 
-            updateOrderStatusBasedOnItems(order);
+            updateOrderStatusAfterPayment(order, payment);
             orderRepository.save(order);
 
         } else {
@@ -142,20 +142,25 @@ public class PaymentService {
                 .toList();
     }
 
-    private void updateOrderStatusBasedOnItems(Orders order) {
-        boolean hasSpecialItem = order.getItems().stream()
-                .anyMatch(item ->
-                        item.getPrescription() != null ||
-                                item.getOrderItemType() == OrderItemType.PRE_ORDER ||
-                                (item.getLensId() != null && !item.getLensId().isBlank())
-                );
-
-        if (hasSpecialItem) {
+    private void updateOrderStatusAfterPayment(Orders order, Payment payment) {
+        if (payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT) {
+            order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
             order.setStatus(OrderStatus.AWAITING_VERIFICATION);
-        } else {
+        }
+        if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
+            order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
+            if (order.getStatus() == OrderStatus.AWAITING_FINAL_PAYMENT) {
+                order.setStatus(OrderStatus.PREPARING);
+            }
+        }
+        if (payment.getPaymentPurpose() == PaymentPurpose.FULL) {
             order.setStatus(OrderStatus.PREPARING);
         }
     }
+
+
+
+
     private BigDecimal getAmountToPay(Orders order, PaymentPurpose purpose) {
         return switch (purpose) {
             case DEPOSIT -> order.getDepositAmount();

@@ -84,15 +84,20 @@ public class OrderService {
                     .findFirst()
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
 
-            Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
+            OrderItemType itemType = resolveOrderItemType(productVariant);
 
+            Inventory inventory = null;
 
-            validateInventory(inventory, orderItemRequest.getQuantity());
+            if (itemType == OrderItemType.IN_STOCK) {
+                inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
+
+                validateInventory(inventory, orderItemRequest.getQuantity());
+            }
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
-            item.setOrderItemType(resolveOrderItemType(productVariant));
+            item.setOrderItemType(itemType);
             item.setInventory(inventory);
             item.setQuantity(orderItemRequest.getQuantity());
             item.setUnitPrice(productVariant.getPrice());
@@ -115,7 +120,9 @@ public class OrderService {
                 throw new AppException(ErrorCode.PRESCRIPTION_REQUIRED);
             }
 
-            updateInventoryStock(inventory, orderItemRequest.getQuantity());
+            if (inventory != null) {
+                updateInventoryStock(inventory, orderItemRequest.getQuantity());
+            }
             order.getItems().add(item);
             totalAmount = totalAmount.add(item.getTotalPrice());
         }
@@ -308,13 +315,8 @@ public class OrderService {
                         .build())
                 .toList();
 
-        double depositPercentage = paymentCalculation.getOrderTotal().compareTo(BigDecimal.ZERO) == 0
-                ? 0
-                : paymentCalculation.getRequiredPaymentTotal().divide(
-                paymentCalculation.getOrderTotal(), 4, RoundingMode.HALF_UP).doubleValue();
 
         return PaymentRequirementResponse.builder()
-                .depositPercentage(depositPercentage)
                 .requiredAmount(paymentCalculation.getRequiredPaymentTotal())
                 .orderTotal(paymentCalculation.getOrderTotal())
                 .requiredPaymentTotal(paymentCalculation.getRequiredPaymentTotal())

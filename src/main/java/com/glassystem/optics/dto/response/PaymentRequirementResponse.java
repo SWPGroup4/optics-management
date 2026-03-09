@@ -12,7 +12,6 @@ import java.util.List;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PaymentRequirementResponse {
-    double depositPercentage;
     BigDecimal requiredAmount;
     BigDecimal orderTotal;
     BigDecimal requiredPaymentTotal;
