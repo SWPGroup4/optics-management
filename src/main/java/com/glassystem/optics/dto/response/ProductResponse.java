@@ -1,5 +1,6 @@
 package com.glassystem.optics.dto.response;
 
+import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.ProductStatus;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -27,5 +28,6 @@ public class ProductResponse {
 	BigDecimal minPrice;
 	BigDecimal maxPrice;
 	ProductStatus status;
+    OrderItemType orderItemType;
     List<ProductImageResponse> imageUrl;
 }

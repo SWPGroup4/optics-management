@@ -12,6 +12,6 @@ import java.util.List;
 public interface ProductVariantRepository extends JpaRepository<ProductVariant, String>, JpaSpecificationExecutor<ProductVariant> {
 
     java.util.Optional<ProductVariant> findByProductIdAndColorNameAndSizeLabel(String productId, String colorName, String sizeLabel);
-    List<ProductVariant> findAllByProduct_IdAndStatus(String productId, ProductVariantStatus status);
+    List<ProductVariant> findAllByIdAndStatus(String id, ProductVariantStatus status);
 
 }

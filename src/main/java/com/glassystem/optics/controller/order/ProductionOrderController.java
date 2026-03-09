@@ -2,6 +2,7 @@ package com.glassystem.optics.controller.order;
 
 import java.util.List;
 
+import com.glassystem.optics.dto.request.ShipOrdersRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,13 +29,6 @@ public class ProductionOrderController {
 
     OrderService orderService;
 
-    @GetMapping("/processing")
-    @Operation(summary = "Get orders in production", description = "Retrieves a list of all orders currently being processed in the lab")
-    public ApiResponse<List<OrderResponse>> getOrdersProcessing() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getOrdersProcessing())
-                .build();
-    }
 
     @PutMapping("/{orderId}/start")
     @Operation(summary = "Start order production", description = "Initializes the production phase for an order, changing status to PROCESSING")
@@ -62,4 +56,15 @@ public class ProductionOrderController {
                 .result(orderService.updateOrderItemProductionStatus(orderItemId, status))
                 .build();
     }
+
+
+
+    @PutMapping("/ready-to-ship")
+    public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.markAsReadyToShip(request.getOrderIds()))
+                .build();
+    }
+
+
 }
