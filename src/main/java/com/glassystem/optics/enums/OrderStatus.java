@@ -6,7 +6,6 @@ public enum OrderStatus {
     ON_HOLD, // Bị tạm dừng (do đơn thuốc chưa valid)
     CONFIRMED, // Đã xác nhận đơn
     PREPARING, // Đang chuẩn bị hàng (IN_STOCK sau thanh toán)
-    PREPARED,
     PROCESSING, // Có ít nhất 1 item đang sản xuất
     PRODUCED, // Tất cả item đã xong
     READY_TO_SHIP,
