@@ -491,7 +491,7 @@ public class OrderService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        if (!order.getStatus().equals(OrderStatus.SHIPPED)) {
+        if (!order.getStatus().equals(OrderStatus.DELIVERED)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
@@ -697,10 +697,7 @@ public class OrderService {
         return orderMapper.toOrderResponse(order);
     }
 
-    /*
-     * ===================== 4. LOGISTICS FLOW (Vận chuyển & Kết thúc)
-     * =====================
-     */
+
 
     @Transactional
     public List<OrderResponse> markAsReadyToShip(List<String> orderIds) {
@@ -745,6 +742,37 @@ public class OrderService {
         }
         orderRepository.delete(order);
     }
+
+
+    /*
+     * ===================== 4. LOGISTICS FLOW (Vận chuyển & Kết thúc)
+     * =====================
+     */
+
+    @Transactional
+    public OrderResponse acceptOrder(String orderId, String shipperId) {
+
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        if(order.getStatus() != OrderStatus.READY_TO_SHIP){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+
+        order.setStatus(OrderStatus.SHIPPED);
+        order.setShipperId(shipperId);
+        order.setShippedAt(LocalDateTime.now());
+
+        orderRepository.save(order);
+
+        return orderMapper.toOrderResponse(order);
+    }
+
+
+
+
+
+
 
     /*
      * ===================== 5. PRICE CHECK & COMBO QUERY (APIs mới)
