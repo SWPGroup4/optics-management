@@ -66,11 +66,10 @@ public class ProductionOrderController {
                 .build();
     }
 
-    @PutMapping("/ReadyToShip")
+    @PutMapping("/ready-to-ship")
     public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
         return ApiResponse.<List<OrderResponse>>builder()
                 .result(orderService.markAsReadyToShip(request.getOrderIds()))
-                .message("Order status updated to SHIPPED")
                 .build();
     }
 
