@@ -42,42 +42,30 @@ public class ShipOrderController {
                 .build();
     }
 
-//    @PutMapping("/{orderId}/finish")
-//    @Operation(summary = "Complete order production", description = "Marks an entire order as PRODUCED once all items are ready")
-//    public ApiResponse<OrderResponse> finishProduction(@PathVariable("orderId") String orderId) {
-//        return ApiResponse.<OrderResponse>builder()
-//                .result(orderService.finishProduction(orderId))
-//                .message("Order production finalized successfully")
-//                .build();
-//    }
-//
-//    @PutMapping("/items/{orderItemId}/status")
-//    @Operation(summary = "Update item-level status", description = "Updates status for individual items (e.g., lens grinding finished)")
-//    public ApiResponse<OrderResponse> updateItemProductionStatus(
-//            @PathVariable("orderItemId") String orderItemId,
-//            @RequestParam("status") OrderItemStatus status) {
-//        return ApiResponse.<OrderResponse>builder()
-//                .result(orderService.updateOrderItemProductionStatus(orderItemId, status))
-//                .build();
-//    }
-//
-//    @PutMapping("/orders/{orderId}/prepared")
-//    public ApiResponse<OrderResponse>  markOrderAsPrepared(
-//            @PathVariable("orderId")
-//            String orderId) {
-//        return ApiResponse.<OrderResponse>builder()
-//                .result(orderService.markAsPrepared(orderId))
-//                .build();
-//    }
-//
-//    @PutMapping("/ship")
-//    @Operation(summary = "Mark order as shipped", description = "Confirm that the order has been handed over to the courier service")
-//    public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
-//        return ApiResponse.<List<OrderResponse>>builder()
-//                .result(orderService.markAsReadyToShip(request.getOrderIds()))
-//                .message("Order status updated to SHIPPED")
-//                .build();
-//    }
+    @PostMapping("/{orderId}/start-delivery")
+    public ApiResponse<OrderResponse> startDelivery(
+            @PathVariable("orderId") String orderId,
+            String shipperId) {
+
+        shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.startDelivery(orderId,  shipperId))
+                .build();
+    }
+
+    @PostMapping("{orderId}/confirm-delivered")
+    public ApiResponse<OrderResponse> updateItemProductionStatus(
+            @PathVariable("orderId") String orderId,
+            String shipperId) {
+
+        shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.confirmDelivered(orderId, shipperId))
+                .build();
+    }
+
 
 
 }

@@ -768,8 +768,40 @@ public class OrderService {
         return orderMapper.toOrderResponse(order);
     }
 
+    @Transactional
+    public OrderResponse startDelivery(String orderId, String shipperId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        if(!shipperId.equals(order.getShipperId())){
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        if(order.getStatus() != OrderStatus.SHIPPED){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        order.setStatus(OrderStatus.DELIVERING);
+        orderRepository.save(order);
+        return orderMapper.toOrderResponse(order);
+    }
 
+    @Transactional
+    public OrderResponse confirmDelivered(String orderId, String shipperId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        if(!shipperId.equals(order.getShipperId())){
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        if(order.getStatus() != OrderStatus.DELIVERING){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        order.setStatus(OrderStatus.DELIVERED);
+        order.setDeliveredAt(LocalDateTime.now());
 
+        order.setStatus(OrderStatus.COMPLETED);
+
+        orderRepository.save(order);
+
+        return orderMapper.toOrderResponse(order);
+    }
 
 
 

@@ -28,6 +28,7 @@ public class Orders {
 
     String ShipperId;
     LocalDateTime ShippedAt;
+    LocalDateTime DeliveredAt;
 
     @Enumerated(EnumType.STRING)
     OrderStatus status;
