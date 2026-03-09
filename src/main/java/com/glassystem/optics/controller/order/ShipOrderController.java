@@ -23,7 +23,6 @@ import java.util.List;
 @RequestMapping("/ship/orders")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@Tag(name = "Production Management", description = "Endpoints for technical staff to manage lens grinding and assembly workflows")
 @PreAuthorize("hasRole('SHIPPER') or hasRole('ADMIN')")
 public class ShipOrderController {
 

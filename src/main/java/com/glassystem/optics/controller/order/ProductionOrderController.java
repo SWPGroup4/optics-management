@@ -66,7 +66,7 @@ public class ProductionOrderController {
                 .build();
     }
 
-    @PutMapping("/markAsReadyToShip")
+    @PutMapping("/ReadyToShip")
     public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
         return ApiResponse.<List<OrderResponse>>builder()
                 .result(orderService.markAsReadyToShip(request.getOrderIds()))
