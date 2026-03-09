@@ -9,6 +9,7 @@ public enum OrderStatus {
     PREPARED,
     PROCESSING, // Có ít nhất 1 item đang sản xuất
     PRODUCED, // Tất cả item đã xong
+    READY_TO_SHIP,
     SHIPPED, // Đã giao cho vận chuyển
     COMPLETED, // Thành công
     CANCELLED // Hủy đơn

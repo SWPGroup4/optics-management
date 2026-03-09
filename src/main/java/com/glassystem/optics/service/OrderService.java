@@ -703,7 +703,7 @@ public class OrderService {
      */
 
     @Transactional
-    public List<OrderResponse> markAsShipped(List<String> orderIds) {
+    public List<OrderResponse> markAsReadyToShip(List<String> orderIds) {
         List<OrderResponse> responses = new ArrayList<>();
         for (String orderId : orderIds) {
             Orders order = orderRepository.findById(orderId)
@@ -720,7 +720,7 @@ public class OrderService {
                     }
                 }
             }
-            order.setStatus(OrderStatus.SHIPPED);
+            order.setStatus(OrderStatus.READY_TO_SHIP);
             responses.add(orderMapper.toOrderResponse(order));
         }
         return responses;
