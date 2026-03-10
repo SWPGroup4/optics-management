@@ -56,6 +56,14 @@ public class PaymentController {
                 .build();
     }
 
+    @PostMapping("/{paymentId}/refund")
+    public ApiResponse<String> refundPayment(@PathVariable String paymentId, HttpServletRequest request) {
+        paymentService.processRefund(paymentId, request);
+        return ApiResponse.<String>builder()
+                .result("Refund processed successfully")
+                .build();
+    }
+
     @GetMapping("/vnpay-callback")
     public void vnpayCallback(HttpServletRequest request, HttpServletResponse response) throws IOException {
         Payment payment = paymentService.processVnPayCallback(request);

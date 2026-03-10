@@ -1,17 +1,22 @@
 package com.glassystem.optics.configuration;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-@Component
+@Configuration
 public class VNPayConfig {
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     public static String vnp_Returnurl = "/payment/vnpay-callback";
     public static String vnp_TmnCode = "5UHY3ACA";
     public static String vnp_HashSecret = "RVSG2B54PAF7GFE00588J1W2MCVPYVMS";
+    public static String vnp_ApiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
 
     public static String hmacSHA512(final String key, final String data) {
         try {
@@ -33,4 +38,11 @@ public class VNPayConfig {
             return "";
         }
     }
+
+    @Bean(name = "vnPayRestTemplate")
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+
 }

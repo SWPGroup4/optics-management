@@ -51,7 +51,7 @@ public class UserController {
     @Operation(summary = "Get all users", description = "Restricted to ADMIN. Retrieves a complete list of users in the system")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<List<UserResponse>> getUsers(
-            @Schema(allowableValues = {"ADMIN", "MANAGER", "SALE", "OPERATION", "CUSTOMER"})
+            @Schema(allowableValues = {"ADMIN", "MANAGER", "SALE", "OPERATION", "CUSTOMER", "SHIPPER"})
             @RequestParam(value = "role", required = true) String role) {
 
         var authentication = SecurityContextHolder.getContext().getAuthentication();

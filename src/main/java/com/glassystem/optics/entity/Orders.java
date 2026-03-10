@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +25,10 @@ public class Orders {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
+
+    String ShipperId;
+    LocalDateTime ShippedAt;
+    LocalDateTime DeliveredAt;
 
     @Enumerated(EnumType.STRING)
     OrderStatus status;
