@@ -1,4 +1,4 @@
-package com.glassystem.optics.controller;
+package com.glassystem.optics.controller.combo;
 
 import com.glassystem.optics.dto.request.ComboCreateRequest;
 import com.glassystem.optics.dto.request.ComboStatusRequest;

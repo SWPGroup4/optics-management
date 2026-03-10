@@ -128,55 +128,6 @@ public class PaymentService {
         return paymentRepository.save(payment);
     }
 
-    @Transactional
-    public void processRefund(String paymentId, HttpServletRequest request) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
-
-        if (!payment.getStatus().equals(PaymentStatus.PAID)) {
-            throw new AppException(ErrorCode.INVALID_PAYMENT_STATUS);
-        }
-
-        if (!payment.getPaymentMethod().equals(PaymentMethod.VNPAY)) {
-            throw new AppException(ErrorCode.INVALID_PAYMENT_METHOD);
-        }
-        Transaction originalTxn = transactionRepository
-                .findTopByPaymentIdAndTypeInOrderByDateTimeDesc(
-                        paymentId,
-                        EnumSet.of(TransactionType.DEPOSIT, TransactionType.CHARGE)
-                )
-                .orElseThrow(() -> new AppException(ErrorCode.REFUND_FAILED));
-
-
-
-        String requestId = UUID.randomUUID().toString(); // ID duy nhất cho mỗi lần gọi API refund
-        String clientIp = "127.0.0.1";
-        String txnNo = originalTxn.getGatewayReference();
-        LocalDateTime originalDate = originalTxn.getDateTime();
-        if (originalDate == null) {
-            throw new AppException(ErrorCode.INVALID_TRANSACTION_DATE);
-        }
-        String txnDate = VnPayDateUtil.format(originalDate);
-
-        boolean isRefunded = vnPayService.refund(payment, requestId, clientIp, txnNo, txnDate);
-
-        if (isRefunded) {
-            payment.setStatus(PaymentStatus.REFUNDED);
-            paymentRepository.save(payment);
-
-            // Tạo một Transaction ghi nhận việc hoàn tiền (số âm)
-            Transaction refundTxn = Transaction.builder()
-                    .payment(payment)
-                    .type(TransactionType.REFUND)
-                    .amount(payment.getAmount().negate())
-                    .gatewayReference(requestId)
-                    .dateTime(LocalDateTime.now())
-                    .build();
-            transactionRepository.save(refundTxn);
-        } else {
-            throw new AppException(ErrorCode.REFUND_FAILED);
-        }
-    }
 
 
 
