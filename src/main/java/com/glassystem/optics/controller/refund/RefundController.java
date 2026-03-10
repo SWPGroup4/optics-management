@@ -6,6 +6,7 @@ import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
 import com.glassystem.optics.service.RefundService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/refund")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 public class RefundController {
 
     private final RefundService refundService;
