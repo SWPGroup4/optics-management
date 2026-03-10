@@ -28,21 +28,69 @@ public class RefundService {
     final PaymentRepository paymentRepository;
     final RefundMapper  refundMapper;
 
+
+
+
+    public List<Orders> getAffectedOrdersByVariant(String variantId) {
+        List<Orders> orders = orderRepository.findByStatus(OrderStatus.PROCESSING);
+        return orders.stream()
+                .filter(order -> order.getItems()
+                        .stream()
+                        .anyMatch(item ->
+                                item.getOrderItemType() == OrderItemType.PRE_ORDER
+                                        && item.getProductVariant().getId().equals(variantId)
+                        )
+                )
+                .toList();
+    }
+
+    public List<RefundResponse> getAffectedOrders(String variantId) {
+        List<Orders> orders = getAffectedOrdersByVariant(variantId);
+        return orders.stream()
+                .map(refundMapper::toRefundResponseFromOrder)
+                .toList();
+    }
+
+
     @Transactional
     public void createRefundRequest(String orderId){
+        createRefundRequests(List.of(orderId));
+    }
 
-        Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        Refund refund = Refund.builder()
-                .order(order)
-                .customerId(order.getCustomer().getId())
-                .refundAmount(order.getDepositAmount())
-                .status(RefundStatus.WAITING_CUSTOMER_INFO)
-                .createdAt(LocalDateTime.now())
-                .build();
+    @Transactional
+    public void createRefundRequests(List<String> orderIds){
 
-        refundRepository.save(refund);
+        for(String orderId : orderIds){
+
+            Orders order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+            if(refundRepository.existsByOrderId(orderId)){
+                continue;
+            }
+
+            Refund refund = Refund.builder()
+                    .order(order)
+                    .customerId(order.getCustomer().getId())
+                    .orderTotalAmount(order.getTotalAmount())
+                    .refundAmount(order.getDepositAmount())
+                    .status(RefundStatus.WAITING_CUSTOMER_INFO)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            refundRepository.save(refund);
+        }
+    }
+
+    @Transactional
+    public void createRefundByVariant(String variantId) {
+        List<Orders> orders = getAffectedOrdersByVariant(variantId);
+        createRefundRequests(
+                orders.stream()
+                        .map(Orders::getId)
+                        .toList()
+        );
     }
 
     @Transactional
@@ -50,6 +98,10 @@ public class RefundService {
 
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+
+        if(refund.getStatus() != RefundStatus.WAITING_CUSTOMER_INFO){
+            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
+        }
 
         refund.setBankName(request.getBankName());
         refund.setBankAccountNumber(request.getBankAccountNumber());
@@ -73,6 +125,10 @@ public class RefundService {
 
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+
+        if (refund.getStatus() != RefundStatus.READY_FOR_REFUND) {
+            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
+        }
 
         Orders order = refund.getOrder();
 

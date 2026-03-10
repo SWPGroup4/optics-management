@@ -2,6 +2,7 @@ package com.glassystem.optics.controller.refund;
 
 
 import com.glassystem.optics.dto.request.BankInfoRequest;
+import com.glassystem.optics.dto.request.RefundBatchRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
 import com.glassystem.optics.service.RefundService;
@@ -19,9 +20,35 @@ public class RefundController {
 
     private final RefundService refundService;
 
+
+    @GetMapping("/affected-orders/{variantId}")
+    public ApiResponse<List<RefundResponse>> getAffectedOrders(
+            @PathVariable String variantId) {
+        return ApiResponse.<List<RefundResponse>>builder()
+                .result(refundService.getAffectedOrders(variantId))
+                .build();
+    }
+
+
     @PostMapping("/create/{orderId}")
     public ApiResponse<Void> createRefund(@PathVariable String orderId){
         refundService.createRefundRequest(orderId);
+        return ApiResponse.<Void>builder().build();
+    }
+
+    @PostMapping("/create-batch")
+    public ApiResponse<Void> createRefundBatch(
+            @RequestBody RefundBatchRequest request){
+
+        refundService.createRefundRequests(request.getOrderIds());
+
+        return ApiResponse.<Void>builder().build();
+    }
+
+    @PostMapping("/create-by-variant/{variantId}")
+    public ApiResponse<Void> createRefundByVariant(
+            @PathVariable String variantId) {
+        refundService.createRefundByVariant(variantId);
         return ApiResponse.<Void>builder().build();
     }
 

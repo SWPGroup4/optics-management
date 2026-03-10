@@ -14,11 +14,15 @@ public class RefundResponse {
 
     String orderId;
 
+    String variantId;
+
     String customerName;
 
     String bankName;
 
     String bankAccount;
+
+    BigDecimal orderTotalAmount;
 
     BigDecimal refundAmount;
 
