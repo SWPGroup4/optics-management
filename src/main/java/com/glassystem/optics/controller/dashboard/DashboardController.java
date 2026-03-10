@@ -1,4 +1,4 @@
-package com.glassystem.optics.controller;
+package com.glassystem.optics.controller.dashboard;
 
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.RevenueDashboardResponse;

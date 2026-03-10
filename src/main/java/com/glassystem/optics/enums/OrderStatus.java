@@ -14,5 +14,7 @@ public enum OrderStatus {
     DELIVERING,
     DELIVERED,
     COMPLETED, // Thành công
-    CANCELLED // Hủy đơn
+    CANCELLED, // Hủy đơn
+
+    REFUNDED
 }
