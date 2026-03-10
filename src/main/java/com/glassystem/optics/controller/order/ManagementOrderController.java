@@ -28,16 +28,6 @@ public class ManagementOrderController {
 
     OrderService orderService;
 
-
-    @PostMapping("/{orderId}/stock-arrived")
-    public ApiResponse<OrderResponse> stockArrived(
-            @PathVariable String orderId) {
-
-        return ApiResponse.<OrderResponse>builder()
-                .result(orderService.markStockArrived(orderId))
-                .build();
-    }
-
     @GetMapping("/{orderId}")
     @Operation(summary = "Get order details with combo info", description = "Provides full details of a specific order including items, prescriptions, and applied combo discount info")
     public ApiResponse<OrderResponse> getOrderById(@PathVariable("orderId") String orderId) {

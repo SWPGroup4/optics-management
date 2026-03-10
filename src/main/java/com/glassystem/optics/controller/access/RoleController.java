@@ -3,11 +3,8 @@ package com.glassystem.optics.controller.access;
 import java.util.List;
 
 import com.glassystem.optics.dto.request.RoleRequest;
-import com.glassystem.optics.dto.request.UserRoleUpdateRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.RoleResponse;
-import com.glassystem.optics.dto.response.UserResponse;
-import com.glassystem.optics.enums.UserRole;
 import com.glassystem.optics.service.RoleService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,18 +50,6 @@ public class RoleController {
         roleService.delete(roleName);
         return ApiResponse.<Void>builder()
                 .message("Role deleted successfully")
-                .build();
-    }
-
-
-    @PatchMapping("/{userId}/roles")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Upgrade or change roles for a specific user")
-    ApiResponse<UserResponse> changeRole(
-            @PathVariable String userId,
-            @RequestParam("newRole") UserRole newRole) {
-        return ApiResponse.<UserResponse>builder()
-                .result(roleService.changeUserRole(userId, newRole))
                 .build();
     }
 }
