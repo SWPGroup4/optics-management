@@ -3,6 +3,7 @@ package com.glassystem.optics.service;
 
 import com.glassystem.optics.dto.request.BankInfoRequest;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
+import com.glassystem.optics.dto.response.RefundBankAccountResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
 import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.*;
@@ -47,6 +48,7 @@ public class RefundService {
         return orderRepository.findAll().stream()
                 .filter(order -> order.getStatus() != OrderStatus.CANCELLED
                         && order.getStatus() != OrderStatus.REFUNDED)
+                .filter(order -> order.getPreOrderStatus() == PreOrderStatus.DEPOSIT_PAID)
                 .filter(order ->
                         order.getItems().stream()
                                 .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER
@@ -111,10 +113,15 @@ public class RefundService {
                     .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
             if(refundRepository.existsByOrderId(orderId)){
+                String errorMessage = String.valueOf(ErrorCode.REFUND_ALREADY_EXISTS);
+                System.out.println(errorMessage);
                 continue;
             }
             Refund refund = new Refund();
             refund.setOrder(order);
+            refund.setCustomerId(order.getCustomer() != null ? order.getCustomer().getId() : null);
+            refund.setOrderTotalAmount(order.getTotalAmount());
+            refund.setRefundAmount(order.getDepositAmount());
             refund.setStatus(RefundStatus.WAITING_CUSTOMER_INFO);
             refund.setCreatedAt(LocalDateTime.now());
 
@@ -125,7 +132,7 @@ public class RefundService {
 
 
     @Transactional
-    public void submitBankInfo(String refundId, BankInfoRequest request){
+    public RefundBankAccountResponse submitBankInfo(String refundId, BankInfoRequest request){
 
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
@@ -140,7 +147,7 @@ public class RefundService {
 
         refund.setStatus(RefundStatus.READY_FOR_REFUND);
 
-        refundRepository.save(refund);
+        return refundMapper.toRefundBankAccountResponse(refundRepository.save(refund));
     }
 
     public List<RefundResponse> getReadyRefunds(){

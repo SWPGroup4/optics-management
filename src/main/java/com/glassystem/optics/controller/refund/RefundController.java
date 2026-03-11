@@ -3,10 +3,7 @@ package com.glassystem.optics.controller.refund;
 
 import com.glassystem.optics.dto.request.BankInfoRequest;
 import com.glassystem.optics.dto.request.RefundBatchRequest;
-import com.glassystem.optics.dto.response.ApiResponse;
-import com.glassystem.optics.dto.response.ProductResponse;
-import com.glassystem.optics.dto.response.ProductVariantResponse;
-import com.glassystem.optics.dto.response.RefundResponse;
+import com.glassystem.optics.dto.response.*;
 import com.glassystem.optics.service.ProductService;
 import com.glassystem.optics.service.ProductVariantService;
 import com.glassystem.optics.service.RefundService;
@@ -55,13 +52,13 @@ public class RefundController {
 
 
     @PostMapping("/bank-info/{refundId}")
-    public ApiResponse<Void> submitBankInfo(
+    public ApiResponse<RefundBankAccountResponse> submitBankInfo(
             @PathVariable String refundId,
             @RequestBody BankInfoRequest request){
 
         refundService.submitBankInfo(refundId,request);
 
-        return ApiResponse.<Void>builder().build();
+        return ApiResponse.<RefundBankAccountResponse>builder().build();
     }
 
     @GetMapping("/ready")

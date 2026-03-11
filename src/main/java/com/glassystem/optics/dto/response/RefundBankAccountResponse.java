@@ -8,25 +8,8 @@ import java.math.BigDecimal;
 
 @Data
 @Builder
-public class RefundResponse {
-
-    String refundId;
-
-    String orderId;
-
-    String variantId;
-
+public class RefundBankAccountResponse {
     String customerName;
-
     String bankName;
-
     String bankAccount;
-
-    BigDecimal orderTotalAmount;
-
-    BigDecimal refundAmount;
-
-    RefundStatus refundStatus;
-
-
 }
