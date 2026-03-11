@@ -159,7 +159,7 @@ public class RefundService {
     }
 
     @Transactional
-    public void completeRefund(String refundId, String managerId){
+    public RefundResponse completeRefund(String refundId, String managerId){
 
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
@@ -181,8 +181,10 @@ public class RefundService {
 
         payment.setStatus(PaymentStatus.REFUNDED);
 
-        refundRepository.save(refund);
+        Refund savedRefund = refundRepository.save(refund);
         orderRepository.save(order);
         paymentRepository.save(payment);
+
+        return refundMapper.toRefundResponse(savedRefund);
     }
 }

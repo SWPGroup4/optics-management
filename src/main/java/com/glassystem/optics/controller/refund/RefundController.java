@@ -9,6 +9,7 @@ import com.glassystem.optics.service.ProductVariantService;
 import com.glassystem.optics.service.RefundService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -70,12 +71,11 @@ public class RefundController {
     }
 
     @PostMapping("/complete/{refundId}")
-    public ApiResponse<Void> completeRefund(
-            @PathVariable String refundId,
-            @RequestParam String managerId){
-
-        refundService.completeRefund(refundId,managerId);
-
-        return ApiResponse.<Void>builder().build();
+    public ApiResponse<RefundResponse> completeRefund(
+            @PathVariable String refundId){
+        String managerId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ApiResponse.<RefundResponse>builder()
+                .result(refundService.completeRefund(refundId,managerId))
+                .build();
     }
 }
