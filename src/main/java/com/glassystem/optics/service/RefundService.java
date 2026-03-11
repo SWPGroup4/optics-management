@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -32,14 +33,15 @@ public class RefundService {
 
 
     public List<Orders> getAffectedOrdersByVariant(String variantId) {
-        List<Orders> orders = orderRepository.findByStatus(OrderStatus.PROCESSING);
-        return orders.stream()
-                .filter(order -> order.getItems()
-                        .stream()
-                        .anyMatch(item ->
-                                item.getOrderItemType() == OrderItemType.PRE_ORDER
-                                        && item.getProductVariant().getId().equals(variantId)
-                        )
+
+        return orderRepository.findByStatus(OrderStatus.PROCESSING)
+                .stream()
+                .filter(order ->
+                        order.getItems().stream()
+                                .filter(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER)
+                                .map(OrderItem::getProductVariant)
+                                .filter(Objects::nonNull)
+                                .anyMatch(variant -> variantId.equals(variant.getId()))
                 )
                 .toList();
     }
@@ -59,28 +61,24 @@ public class RefundService {
 
 
     @Transactional
-    public void createRefundRequests(List<String> orderIds){
+    public RefundResponse createRefundRequests(List<String> orderIds){
 
+        RefundResponse response = null;
         for(String orderId : orderIds){
-
             Orders order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
             if(refundRepository.existsByOrderId(orderId)){
                 continue;
             }
+            Refund refund = new Refund();
+            refund.setOrder(order);
+            refund.setStatus(RefundStatus.WAITING_CUSTOMER_INFO);
+            refund.setCreatedAt(LocalDateTime.now());
 
-            Refund refund = Refund.builder()
-                    .order(order)
-                    .customerId(order.getCustomer().getId())
-                    .orderTotalAmount(order.getTotalAmount())
-                    .refundAmount(order.getDepositAmount())
-                    .status(RefundStatus.WAITING_CUSTOMER_INFO)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-
-            refundRepository.save(refund);
+            response = refundMapper.toRefundResponse(refundRepository.save(refund));
         }
+        return response;
     }
 
     @Transactional
