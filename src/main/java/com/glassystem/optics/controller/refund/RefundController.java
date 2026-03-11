@@ -43,13 +43,6 @@ public class RefundController {
                 .build();
     }
 
-
-    @PostMapping("/create/{orderId}")
-    public ApiResponse<Void> createRefund(@PathVariable String orderId){
-        refundService.createRefundRequest(orderId);
-        return ApiResponse.<Void>builder().build();
-    }
-
     @PostMapping("/create-batch")
     public ApiResponse<RefundResponse> createRefundBatch(
             @RequestBody RefundBatchRequest request){
@@ -59,12 +52,7 @@ public class RefundController {
                 .build();
     }
 
-    @PostMapping("/create-by-variant/{variantId}")
-    public ApiResponse<Void> createRefundByVariant(
-            @PathVariable String variantId) {
-        refundService.createRefundByVariant(variantId);
-        return ApiResponse.<Void>builder().build();
-    }
+
 
     @PostMapping("/bank-info/{refundId}")
     public ApiResponse<Void> submitBankInfo(

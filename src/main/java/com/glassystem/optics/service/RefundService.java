@@ -103,12 +103,6 @@ public class RefundService {
 
 
     @Transactional
-    public void createRefundRequest(String orderId){
-        createRefundRequests(List.of(orderId));
-    }
-
-
-    @Transactional
     public RefundResponse createRefundRequests(List<String> orderIds){
 
         RefundResponse response = null;
@@ -129,15 +123,6 @@ public class RefundService {
         return response;
     }
 
-    @Transactional
-    public void createRefundByVariant(String variantId) {
-        List<Orders> orders = getAffectedOrdersByVariant(variantId);
-        createRefundRequests(
-                orders.stream()
-                        .map(Orders::getId)
-                        .toList()
-        );
-    }
 
     @Transactional
     public void submitBankInfo(String refundId, BankInfoRequest request){
