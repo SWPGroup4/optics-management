@@ -2,11 +2,14 @@ package com.glassystem.optics.service;
 
 
 import com.glassystem.optics.dto.request.BankInfoRequest;
+import com.glassystem.optics.dto.response.ProductVariantResponse;
+import com.glassystem.optics.dto.response.RefundBankAccountResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
 import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.*;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
+import com.glassystem.optics.mapper.ProductVariantMapper;
 import com.glassystem.optics.mapper.RefundMapper;
 import com.glassystem.optics.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +18,7 @@ import lombok.AccessLevel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -27,74 +31,108 @@ public class RefundService {
     final OrderRepository orderRepository;
     final PaymentRepository paymentRepository;
     final RefundMapper  refundMapper;
+    final ProductVariantRepository productVariantRepository;
+    final ProductVariantMapper productVariantMapper;
 
 
+    @Transactional
+    public ProductVariantResponse inactivateVariant(String variantId){
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+        variant.setStatus(ProductVariantStatus.INACTIVE);
+        return productVariantMapper.toResponse(productVariantRepository.save(variant));
+    }
 
 
     public List<Orders> getAffectedOrdersByVariant(String variantId) {
-        List<Orders> orders = orderRepository.findByStatus(OrderStatus.PROCESSING);
-        return orders.stream()
-                .filter(order -> order.getItems()
-                        .stream()
-                        .anyMatch(item ->
-                                item.getOrderItemType() == OrderItemType.PRE_ORDER
-                                        && item.getProductVariant().getId().equals(variantId)
-                        )
+        return orderRepository.findAll().stream()
+                .filter(order -> order.getStatus() != OrderStatus.CANCELLED
+                        && order.getStatus() != OrderStatus.REFUNDED)
+                .filter(order -> order.getPreOrderStatus() == PreOrderStatus.DEPOSIT_PAID)
+                .filter(order ->
+                        order.getItems().stream()
+                                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER
+                                        && item.getProductVariant() != null
+                                        && variantId.equals(item.getProductVariant().getId()))
                 )
                 .toList();
     }
 
-    public List<RefundResponse> getAffectedOrders(String variantId) {
-        List<Orders> orders = getAffectedOrdersByVariant(variantId);
-        return orders.stream()
-                .map(refundMapper::toRefundResponseFromOrder)
+    public List<RefundResponse> getAffectedOrders(String variantId){
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+        if(variant.getStatus() != ProductVariantStatus.INACTIVE){
+            throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_INACTIVE);
+        }
+        return getAffectedOrdersByVariant(variantId).stream()
+                .map(order -> toRefundResponse(order, variantId))
+                .filter(response -> response.getRefundAmount() != null
+                        && response.getRefundAmount().compareTo(BigDecimal.ZERO) > 0)
                 .toList();
     }
 
 
-    @Transactional
-    public void createRefundRequest(String orderId){
-        createRefundRequests(List.of(orderId));
+    private RefundResponse toRefundResponse(Orders order, String variantId) {
+        BigDecimal refundAmount = order.getItems().stream()
+                .filter(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER)
+                .filter(item -> item.getProductVariant() != null)
+                .filter(item -> variantId.equals(item.getProductVariant().getId()))
+                .map(this::calculateRefundAmountForItem)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        String customerName = null;
+        if (order.getCustomer() != null) {
+            customerName = (order.getCustomer().getFirstName() + " " + order.getCustomer().getLastName()).trim();
+        }
+
+        return RefundResponse.builder()
+                .orderId(order.getId())
+                .variantId(variantId)
+                .customerName(customerName)
+                .orderTotalAmount(order.getTotalAmount())
+                .refundAmount(refundAmount)
+                .build();
     }
 
 
+    private BigDecimal calculateRefundAmountForItem(OrderItem item) {
+        if (item.getDepositPrice() == null) {
+            return BigDecimal.ZERO;
+        }
+        return item.getDepositPrice();
+    }
+
+
+
     @Transactional
-    public void createRefundRequests(List<String> orderIds){
+    public RefundResponse createRefundRequests(List<String> orderIds){
 
+        RefundResponse response = null;
         for(String orderId : orderIds){
-
             Orders order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
             if(refundRepository.existsByOrderId(orderId)){
+                String errorMessage = String.valueOf(ErrorCode.REFUND_ALREADY_EXISTS);
+                System.out.println(errorMessage);
                 continue;
             }
+            Refund refund = new Refund();
+            refund.setOrder(order);
+            refund.setCustomerId(order.getCustomer() != null ? order.getCustomer().getId() : null);
+            refund.setOrderTotalAmount(order.getTotalAmount());
+            refund.setRefundAmount(order.getDepositAmount());
+            refund.setStatus(RefundStatus.WAITING_CUSTOMER_INFO);
+            refund.setCreatedAt(LocalDateTime.now());
 
-            Refund refund = Refund.builder()
-                    .order(order)
-                    .customerId(order.getCustomer().getId())
-                    .orderTotalAmount(order.getTotalAmount())
-                    .refundAmount(order.getDepositAmount())
-                    .status(RefundStatus.WAITING_CUSTOMER_INFO)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-
-            refundRepository.save(refund);
+            response = refundMapper.toRefundResponse(refundRepository.save(refund));
         }
+        return response;
     }
 
-    @Transactional
-    public void createRefundByVariant(String variantId) {
-        List<Orders> orders = getAffectedOrdersByVariant(variantId);
-        createRefundRequests(
-                orders.stream()
-                        .map(Orders::getId)
-                        .toList()
-        );
-    }
 
     @Transactional
-    public void submitBankInfo(String refundId, BankInfoRequest request){
+    public RefundBankAccountResponse submitBankInfo(String refundId, BankInfoRequest request){
 
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
@@ -109,7 +147,7 @@ public class RefundService {
 
         refund.setStatus(RefundStatus.READY_FOR_REFUND);
 
-        refundRepository.save(refund);
+        return refundMapper.toRefundBankAccountResponse(refundRepository.save(refund));
     }
 
     public List<RefundResponse> getReadyRefunds(){
@@ -121,7 +159,7 @@ public class RefundService {
     }
 
     @Transactional
-    public void completeRefund(String refundId, String managerId){
+    public RefundResponse completeRefund(String refundId, String managerId){
 
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
@@ -135,6 +173,16 @@ public class RefundService {
         Payment payment = paymentRepository.findFirstByOrderId(order.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
+        if (refund.getOrderTotalAmount() == null) {
+            refund.setOrderTotalAmount(order.getTotalAmount());
+        }
+        if (refund.getCustomerId() == null && order.getCustomer() != null) {
+            refund.setCustomerId(order.getCustomer().getId());
+        }
+        if (refund.getRefundAmount() == null) {
+            refund.setRefundAmount(order.getDepositAmount());
+        }
+
         refund.setStatus(RefundStatus.COMPLETED);
         refund.setCompletedAt(LocalDateTime.now());
         refund.setProcessedBy(managerId);
@@ -143,8 +191,10 @@ public class RefundService {
 
         payment.setStatus(PaymentStatus.REFUNDED);
 
-        refundRepository.save(refund);
+        Refund savedRefund = refundRepository.save(refund);
         orderRepository.save(order);
         paymentRepository.save(payment);
+
+        return refundMapper.toRefundResponse(savedRefund);
     }
 }

@@ -18,7 +18,7 @@ public interface OrderItemMapper {
     @Mapping(target = "status", ignore = true)
     OrderItem toOrderItem(OrderItemCreationRequest orderItemCreationRequest);
 
-    @Mapping(target = "productVariantId", source = "inventory.productVariant.id")
+    @Mapping(source = "productVariant.id", target = "productVariantId")
     @Mapping(target = "orderItemId", source = "id")
     @Mapping(target = "lensPriceTotal", expression = "java(calculateLensPriceTotal(orderItem))")
     OrderItemResponse toOrderItemResponse(OrderItem orderItem);
