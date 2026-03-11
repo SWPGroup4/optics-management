@@ -769,6 +769,21 @@ public class OrderService {
         return responses;
     }
 
+
+    public List<OrderResponse> getMyAcceptedOrders() {
+        String shipperId = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+        OrderStatus status = OrderStatus.SHIPPED;
+        return orderRepository
+                .findByShipperIdAndStatus(shipperId, status)
+                .stream()
+                .map(orderMapper::toOrderResponse)
+                .toList();
+    }
+
+
     @Transactional
     public OrderResponse startDelivery(String orderId, String shipperId){
         Orders order = orderRepository.findById(orderId)

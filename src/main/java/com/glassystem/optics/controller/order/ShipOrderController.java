@@ -43,6 +43,13 @@ public class ShipOrderController {
                 .build();
     }
 
+    @GetMapping("/my-orders-accepted")
+    public ApiResponse<List<OrderResponse>> getMyOrders() {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getMyAcceptedOrders())
+                .build();
+    }
+
     @PatchMapping("/{orderId}/start-delivery")
     public ApiResponse<OrderResponse> startDelivery(
             @PathVariable("orderId") String orderId) {
