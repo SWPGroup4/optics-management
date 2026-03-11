@@ -97,6 +97,7 @@ public class OrderService {
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
+            item.setProductVariant(productVariant);
             item.setOrderItemType(itemType);
             item.setInventory(inventory);
             item.setQuantity(orderItemRequest.getQuantity());

@@ -2,14 +2,12 @@ package com.glassystem.optics.service;
 
 
 import com.glassystem.optics.dto.request.BankInfoRequest;
-import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
 import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.*;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
-import com.glassystem.optics.mapper.ProductMapper;
 import com.glassystem.optics.mapper.ProductVariantMapper;
 import com.glassystem.optics.mapper.RefundMapper;
 import com.glassystem.optics.repository.*;
@@ -21,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -46,26 +43,29 @@ public class RefundService {
 
 
     public List<Orders> getAffectedOrdersByVariant(String variantId) {
-
-        return orderRepository.findByStatus(OrderStatus.PROCESSING)
-                .stream()
+        return orderRepository.findAll().stream()
+                .filter(order -> order.getStatus() != OrderStatus.CANCELLED
+                        && order.getStatus() != OrderStatus.REFUNDED)
                 .filter(order ->
                         order.getItems().stream()
-                                .filter(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER)
-                                .map(OrderItem::getProductVariant)
-                                .filter(Objects::nonNull)
-                                .anyMatch(variant -> variantId.equals(variant.getId()))
+                                .anyMatch(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER
+                                        && item.getProductVariant() != null
+                                        && variantId.equals(item.getProductVariant().getId()))
                 )
                 .toList();
     }
 
-    public List<RefundResponse> getAffectedOrders(String variantId) {
+    public List<RefundResponse> getAffectedOrders(String variantId){
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+        if(variant.getStatus() != ProductVariantStatus.INACTIVE){
+            throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_INACTIVE);
+        }
         List<Orders> orders = getAffectedOrdersByVariant(variantId);
         return orders.stream()
                 .map(refundMapper::toRefundResponseFromOrder)
                 .toList();
     }
-
 
     @Transactional
     public void createRefundRequest(String orderId){
