@@ -45,10 +45,9 @@ public class ShipOrderController {
 
     @PatchMapping("/{orderId}/start-delivery")
     public ApiResponse<OrderResponse> startDelivery(
-            @PathVariable("orderId") String orderId,
-            String shipperId) {
+            @PathVariable("orderId") String orderId) {
 
-        shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
+        String shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
 
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.startDelivery(orderId,  shipperId))
@@ -57,10 +56,9 @@ public class ShipOrderController {
 
     @PatchMapping("{orderId}/confirm-delivered")
     public ApiResponse<OrderResponse> updateItemProductionStatus(
-            @PathVariable("orderId") String orderId,
-            String shipperId) {
+            @PathVariable("orderId") String orderId) {
 
-        shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
+        String shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
 
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.confirmDelivered(orderId, shipperId))
