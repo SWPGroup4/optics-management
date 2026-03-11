@@ -29,36 +29,43 @@ public class ShipOrderController {
     OrderService orderService;
 
 
-    @PostMapping("/{orderId}/accept")
-    public ApiResponse<OrderResponse> acceptOrder(
-            @PathVariable("orderId") String orderId,
-            String shipperId) {
+    @PatchMapping("/accept")
+    public ApiResponse<List<OrderResponse>> acceptOrders(
+            @RequestBody ShipOrdersRequest request) {
 
-         shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
+        String shipperId = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
-        return ApiResponse.<OrderResponse>builder()
-                .result(orderService.acceptOrder(orderId, shipperId))
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.acceptOrders(request.getOrderIds(), shipperId))
                 .build();
     }
 
-    @PostMapping("/{orderId}/start-delivery")
-    public ApiResponse<OrderResponse> startDelivery(
-            @PathVariable("orderId") String orderId,
-            String shipperId) {
+    @GetMapping("/my-orders-accepted")
+    public ApiResponse<List<OrderResponse>> getMyOrders() {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getMyAcceptedOrders())
+                .build();
+    }
 
-        shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
+    @PatchMapping("/{orderId}/start-delivery")
+    public ApiResponse<OrderResponse> startDelivery(
+            @PathVariable("orderId") String orderId) {
+
+        String shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
 
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.startDelivery(orderId,  shipperId))
                 .build();
     }
 
-    @PostMapping("{orderId}/confirm-delivered")
+    @PatchMapping("{orderId}/confirm-delivered")
     public ApiResponse<OrderResponse> updateItemProductionStatus(
-            @PathVariable("orderId") String orderId,
-            String shipperId) {
+            @PathVariable("orderId") String orderId) {
 
-        shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
+        String shipperId  = SecurityContextHolder.getContext().getAuthentication().getName();
 
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.confirmDelivered(orderId, shipperId))
