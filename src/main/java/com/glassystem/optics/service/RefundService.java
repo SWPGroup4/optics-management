@@ -2,11 +2,15 @@ package com.glassystem.optics.service;
 
 
 import com.glassystem.optics.dto.request.BankInfoRequest;
+import com.glassystem.optics.dto.response.ProductResponse;
+import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
 import com.glassystem.optics.entity.*;
 import com.glassystem.optics.enums.*;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
+import com.glassystem.optics.mapper.ProductMapper;
+import com.glassystem.optics.mapper.ProductVariantMapper;
 import com.glassystem.optics.mapper.RefundMapper;
 import com.glassystem.optics.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +32,17 @@ public class RefundService {
     final OrderRepository orderRepository;
     final PaymentRepository paymentRepository;
     final RefundMapper  refundMapper;
+    final ProductVariantRepository productVariantRepository;
+    final ProductVariantMapper productVariantMapper;
 
 
+    @Transactional
+    public ProductVariantResponse inactivateVariant(String variantId){
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+        variant.setStatus(ProductVariantStatus.INACTIVE);
+        return productVariantMapper.toResponse(productVariantRepository.save(variant));
+    }
 
 
     public List<Orders> getAffectedOrdersByVariant(String variantId) {

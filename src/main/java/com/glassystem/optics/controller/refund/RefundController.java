@@ -4,7 +4,11 @@ package com.glassystem.optics.controller.refund;
 import com.glassystem.optics.dto.request.BankInfoRequest;
 import com.glassystem.optics.dto.request.RefundBatchRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.dto.response.ProductResponse;
+import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
+import com.glassystem.optics.service.ProductService;
+import com.glassystem.optics.service.ProductVariantService;
 import com.glassystem.optics.service.RefundService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +23,16 @@ import java.util.List;
 public class RefundController {
 
     private final RefundService refundService;
+
+
+
+    @PatchMapping("/variant/{variantId}/in-activate")
+    public ApiResponse<ProductVariantResponse> inactivateVariant(@PathVariable String variantId){
+
+        return ApiResponse.<ProductVariantResponse>builder()
+                .result(refundService.inactivateVariant(variantId))
+                .build();
+    }
 
 
     @GetMapping("/affected-orders/{variantId}")
