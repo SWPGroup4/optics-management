@@ -15,6 +15,8 @@ public interface RefundRepository extends JpaRepository<Refund,String> {
 
     List<Refund> findByStatus(RefundStatus status);
     Boolean existsByOrderId(String orderId);
+    Optional<Refund> findFirstByOrderIdAndStatus(String orderId, RefundStatus status);
+    List<Refund> findByOrder_IdAndStatus(String orderId, RefundStatus status);
 
 
 

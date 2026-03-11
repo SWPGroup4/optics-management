@@ -173,6 +173,16 @@ public class RefundService {
         Payment payment = paymentRepository.findFirstByOrderId(order.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
+        if (refund.getOrderTotalAmount() == null) {
+            refund.setOrderTotalAmount(order.getTotalAmount());
+        }
+        if (refund.getCustomerId() == null && order.getCustomer() != null) {
+            refund.setCustomerId(order.getCustomer().getId());
+        }
+        if (refund.getRefundAmount() == null) {
+            refund.setRefundAmount(order.getDepositAmount());
+        }
+
         refund.setStatus(RefundStatus.COMPLETED);
         refund.setCompletedAt(LocalDateTime.now());
         refund.setProcessedBy(managerId);
