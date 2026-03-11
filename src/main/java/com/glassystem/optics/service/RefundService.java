@@ -17,6 +17,7 @@ import lombok.AccessLevel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -61,11 +62,45 @@ public class RefundService {
         if(variant.getStatus() != ProductVariantStatus.INACTIVE){
             throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_INACTIVE);
         }
-        List<Orders> orders = getAffectedOrdersByVariant(variantId);
-        return orders.stream()
-                .map(refundMapper::toRefundResponseFromOrder)
+        return getAffectedOrdersByVariant(variantId).stream()
+                .map(order -> toRefundResponse(order, variantId))
+                .filter(response -> response.getRefundAmount() != null
+                        && response.getRefundAmount().compareTo(BigDecimal.ZERO) > 0)
                 .toList();
     }
+
+
+    private RefundResponse toRefundResponse(Orders order, String variantId) {
+        BigDecimal refundAmount = order.getItems().stream()
+                .filter(item -> item.getOrderItemType() == OrderItemType.PRE_ORDER)
+                .filter(item -> item.getProductVariant() != null)
+                .filter(item -> variantId.equals(item.getProductVariant().getId()))
+                .map(this::calculateRefundAmountForItem)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        String customerName = null;
+        if (order.getCustomer() != null) {
+            customerName = (order.getCustomer().getFirstName() + " " + order.getCustomer().getLastName()).trim();
+        }
+
+        return RefundResponse.builder()
+                .orderId(order.getId())
+                .variantId(variantId)
+                .customerName(customerName)
+                .orderTotalAmount(order.getTotalAmount())
+                .refundAmount(refundAmount)
+                .build();
+    }
+
+
+    private BigDecimal calculateRefundAmountForItem(OrderItem item) {
+        if (item.getDepositPrice() == null) {
+            return BigDecimal.ZERO;
+        }
+        return item.getDepositPrice();
+    }
+
+
 
     @Transactional
     public void createRefundRequest(String orderId){
