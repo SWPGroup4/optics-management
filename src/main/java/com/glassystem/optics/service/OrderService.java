@@ -751,22 +751,22 @@ public class OrderService {
      */
 
     @Transactional
-    public OrderResponse acceptOrder(String orderId, String shipperId) {
-
-        Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-
-        if(order.getStatus() != OrderStatus.READY_TO_SHIP){
-            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+    public List<OrderResponse> acceptOrders(List<String> orderIds, String shipperId) {
+        List<OrderResponse> responses = new ArrayList<>();
+        for (String orderId : orderIds) {
+            Orders order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+            if (order.getStatus() != OrderStatus.READY_TO_SHIP) {
+                throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+            }
+            order.setStatus(OrderStatus.SHIPPED);
+            order.setShipperId(shipperId);
+            order.setShippedAt(LocalDateTime.now());
+            orderRepository.save(order);
+            responses.add(orderMapper.toOrderResponse(order));
         }
 
-        order.setStatus(OrderStatus.SHIPPED);
-        order.setShipperId(shipperId);
-        order.setShippedAt(LocalDateTime.now());
-
-        orderRepository.save(order);
-
-        return orderMapper.toOrderResponse(order);
+        return responses;
     }
 
     @Transactional
