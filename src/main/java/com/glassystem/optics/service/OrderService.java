@@ -396,7 +396,11 @@ public class OrderService {
 
     public List<OrderResponse> getMyOrders() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        return orderRepository.findByCustomerId(userId).stream().map(orderMapper::toOrderResponse).toList();
+        return orderRepository.findByCustomerId(userId)
+                .stream()
+                .map(orderMapper::toOrderResponse)
+                .map(this::enrichRefundInfo)
+                .toList();
     }
 
     @Transactional
