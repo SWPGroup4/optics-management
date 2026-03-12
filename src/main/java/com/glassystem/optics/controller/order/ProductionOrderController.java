@@ -57,21 +57,12 @@ public class ProductionOrderController {
                 .build();
     }
 
-    @PutMapping("/orders/{orderId}/prepared")
-    public ApiResponse<OrderResponse>  markOrderAsPrepared(
-            @PathVariable("orderId")
-            String orderId) {
-        return ApiResponse.<OrderResponse>builder()
-                .result(orderService.markAsPrepared(orderId))
-                .build();
-    }
 
-    @PutMapping("/ship")
-    @Operation(summary = "Mark order as shipped", description = "Confirm that the order has been handed over to the courier service")
+
+    @PutMapping("/ready-to-ship")
     public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
         return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.markAsShipped(request.getOrderIds()))
-                .message("Order status updated to SHIPPED")
+                .result(orderService.markAsReadyToShip(request.getOrderIds()))
                 .build();
     }
 
