@@ -67,6 +67,16 @@ public enum ErrorCode {
 
     INVALID_PAYMENT_METHOD(1027, "Invalid payment method", HttpStatus.BAD_REQUEST),
     INVALID_PRICE(1028, "Invalid price", HttpStatus.BAD_REQUEST),
+
+
+
+    REFUND_NOT_FOUND(1029, "Refund not found", HttpStatus.BAD_REQUEST),
+    PAYMENT_NOT_FOUND(1030, "Payment not found", HttpStatus.BAD_REQUEST),
+    INVALID_REFUND_STATUS(1031, "Invalid refund status", HttpStatus.BAD_REQUEST),
+    PRODUCT_VARIANT_NOT_INACTIVE(1032, "Product variant not inactive", HttpStatus.BAD_REQUEST),
+    ORDER_NOT_PREORDER(1033, "Order item is not PRE_ORDER", HttpStatus.BAD_REQUEST),
+    REFUND_ALREADY_EXISTS(1034, "A refund request for Order ID %s already exists.", HttpStatus.BAD_REQUEST),
+
     // ===== COMBO ERROR CODES (3xxx) =====
     COMBO_NOT_FOUND(3001, "Combo not found!", HttpStatus.NOT_FOUND),
     COMBO_NAME_REQUIRED(3002, "Combo name is required!", HttpStatus.BAD_REQUEST),

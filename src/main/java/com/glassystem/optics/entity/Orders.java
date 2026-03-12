@@ -25,6 +25,12 @@ public class Orders {
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
 
+
+    String shipperId;
+    LocalDateTime shippedAt;
+    LocalDateTime deliveredAt;
+
+
     @Enumerated(EnumType.STRING)
     OrderStatus status;
 

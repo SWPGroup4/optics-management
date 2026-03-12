@@ -1,4 +1,4 @@
-package com.glassystem.optics.controller;
+package com.glassystem.optics.controller.product;
 
 import java.io.IOException;
 import java.math.BigDecimal;

@@ -1,21 +1,13 @@
-package com.glassystem.optics.controller;
+package com.glassystem.optics.controller.product;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-import com.glassystem.optics.dto.request.InventoryUpdateRequest;
 import com.glassystem.optics.dto.request.ProductVariantRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
-import com.glassystem.optics.dto.response.ProductVariantPageResponse;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
-import com.glassystem.optics.enums.ProductVariantStatus;
 import com.glassystem.optics.service.ProductVariantService;
 import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 

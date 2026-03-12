@@ -12,4 +12,16 @@ public interface OrderRepository extends JpaRepository<Orders, String> {
     List<Orders> findByCustomerId(String customerId);
     List<Orders> findByStatus(OrderStatus status);
     List<Orders> findByCustomerIdAndStatus(String customerId, OrderStatus status);
+    List<Orders> findByShipperIdAndStatus(String shipperId, OrderStatus status);
+
+
+
+    @Query("SELECT COUNT(o) FROM Orders o WHERE o.status IN :statuses")
+    long countByStatusIn(@Param("statuses") List<OrderStatus> statuses);
+
+    @Query("SELECT COUNT(o) FROM Orders o WHERE o.createdAt = :date")
+    long countByCreatedAt(@Param("date") LocalDate date);
+
+    @Query("SELECT COUNT(o) FROM Orders o WHERE o.status = :status")
+    long countByStatus(@Param("status") OrderStatus status);
 }

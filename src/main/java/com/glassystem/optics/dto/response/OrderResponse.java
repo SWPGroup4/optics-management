@@ -31,4 +31,8 @@ public class OrderResponse {
     String comboName;
     BigDecimal comboDiscountAmount;
     String comboSnapshot;
+
+    BigDecimal refundedAmount;
+    BigDecimal finalTotalAfterRefund;
+
 }

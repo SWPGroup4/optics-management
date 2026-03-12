@@ -1,9 +1,8 @@
-package com.glassystem.optics.controller;
+package com.glassystem.optics.controller.product;
 
 import com.glassystem.optics.dto.request.LensCreateRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.LensResponse;
-import com.glassystem.optics.dto.response.ProductResponse;
 import com.glassystem.optics.service.LensService;
 import jakarta.validation.Valid;
 import lombok.AccessLevel;

@@ -36,20 +36,22 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Slf4j
 public class OrderService {
-    private final OrderMapper orderMapper;
-    private final PrescriptionMapper prescriptionMapper;
-    private final UserRepository userRepository;
-    private final OrderRepository orderRepository;
-    private final InventoryRepository inventoryRepository;
-    private final PrescriptionRepository prescriptionRepository;
-    private final OrderItemRepository orderItemRepository;
-    private final FileStorageService fileStorageService;
-    private final ComboRepository comboRepository;
-    private final ComboService comboService;
-    private final LensRepository lensRepository;
-    private final ProductVariantRepository productVariantRepository;
-    private final ObjectMapper objectMapper;
-    private final PaymentCalculationService paymentCalculationService;
+     final OrderMapper orderMapper;
+     final PrescriptionMapper prescriptionMapper;
+     final UserRepository userRepository;
+     final OrderRepository orderRepository;
+     final InventoryRepository inventoryRepository;
+     final PrescriptionRepository prescriptionRepository;
+     final OrderItemRepository orderItemRepository;
+     final FileStorageService fileStorageService;
+     final ComboRepository comboRepository;
+     final ComboService comboService;
+     final LensRepository lensRepository;
+     final ProductVariantRepository productVariantRepository;
+     final ObjectMapper objectMapper;
+     final PaymentCalculationService paymentCalculationService;
+     final RefundRepository refundRepository;
+
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
      * =====================
@@ -92,7 +94,9 @@ public class OrderService {
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
-            item.setOrderItemType(resolveOrderItemType(productVariant));
+            item.setProductVariant(productVariant);
+            item.setOrderItemType(itemType);
+
             item.setInventory(inventory);
             item.setQuantity(orderItemRequest.getQuantity());
             item.setUnitPrice(productVariant.getPrice());
@@ -587,12 +591,16 @@ public class OrderService {
         Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
 
         if (status == null) {
-            return orderRepository.findAll(sort).stream().map(orderMapper::toOrderResponse).toList();
+            return orderRepository.findAll(sort).stream()
+                    .map(orderMapper::toOrderResponse)
+                    .map(this::enrichRefundInfo)
+                    .toList();
         }
 
         return orderRepository.findByStatus(status)
                 .stream()
                 .map(orderMapper::toOrderResponse)
+                .map(this::enrichRefundInfo)
                 .toList();
     }
 
@@ -602,6 +610,33 @@ public class OrderService {
         return orderRepository.findByCustomerId(customerId)
                 .stream().map(orderMapper::toOrderResponse).toList();
     }
+
+
+    private OrderResponse enrichRefundInfo(OrderResponse response) {
+        if (response == null || response.getOrderId() == null) {
+            return response;
+        }
+        BigDecimal refundedAmount = refundRepository
+                .findByOrder_IdAndStatus(response.getOrderId(), RefundStatus.COMPLETED)
+                .stream()
+                .map(refund -> refund.getRefundAmount() != null
+                        ? refund.getRefundAmount()
+                        : response.getDepositAmount())
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAmount = response.getTotalAmount() == null
+                ? BigDecimal.ZERO
+                : response.getTotalAmount();
+        BigDecimal finalTotalAfterRefund = totalAmount.subtract(refundedAmount);
+        if (finalTotalAfterRefund.compareTo(BigDecimal.ZERO) < 0) {
+            finalTotalAfterRefund = BigDecimal.ZERO;
+        }
+        response.setRefundedAmount(refundedAmount);
+        response.setFinalTotalAfterRefund(finalTotalAfterRefund);
+        return response;
+    }
+
+
 
     /*
      * ===================== 3. PRODUCTION FLOW
@@ -745,6 +780,97 @@ public class OrderService {
         }
         orderRepository.delete(order);
     }
+
+
+    @Transactional
+    public OrderResponse markStockArrived(String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        if(order.getStatus() != OrderStatus.CONFIRMED){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        order.setStatus(OrderStatus.AWAITING_FINAL_PAYMENT);
+        orderRepository.save(order);
+        return orderMapper.toOrderResponse(order);
+    }
+
+
+    /*
+     * ===================== 4. LOGISTICS FLOW (Vận chuyển & Kết thúc)
+     * =====================
+     */
+
+    @Transactional
+    public List<OrderResponse> acceptOrders(List<String> orderIds, String shipperId) {
+        List<OrderResponse> responses = new ArrayList<>();
+        for (String orderId : orderIds) {
+            Orders order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+            if (order.getStatus() != OrderStatus.READY_TO_SHIP) {
+                throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+            }
+            order.setStatus(OrderStatus.SHIPPED);
+            order.setShipperId(shipperId);
+            order.setShippedAt(LocalDateTime.now());
+            orderRepository.save(order);
+            responses.add(orderMapper.toOrderResponse(order));
+        }
+
+        return responses;
+    }
+
+
+    public List<OrderResponse> getMyAcceptedOrders() {
+        String shipperId = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+        OrderStatus status = OrderStatus.SHIPPED;
+        return orderRepository
+                .findByShipperIdAndStatus(shipperId, status)
+                .stream()
+                .map(orderMapper::toOrderResponse)
+                .toList();
+    }
+
+
+    @Transactional
+    public OrderResponse startDelivery(String orderId, String shipperId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        if(!shipperId.equals(order.getShipperId())){
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        if(order.getStatus() != OrderStatus.SHIPPED){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        order.setStatus(OrderStatus.DELIVERING);
+        orderRepository.save(order);
+        return orderMapper.toOrderResponse(order);
+    }
+
+    @Transactional
+    public OrderResponse confirmDelivered(String orderId, String shipperId){
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        if(!shipperId.equals(order.getShipperId())){
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        if(order.getStatus() != OrderStatus.DELIVERING){
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        order.setStatus(OrderStatus.DELIVERED);
+        order.setDeliveredAt(LocalDateTime.now());
+
+        order.setStatus(OrderStatus.COMPLETED);
+
+        orderRepository.save(order);
+
+        return orderMapper.toOrderResponse(order);
+    }
+
+
+
 
     /*
      * ===================== 5. PRICE CHECK & COMBO QUERY (APIs mới)
