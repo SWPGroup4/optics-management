@@ -12,7 +12,6 @@ import com.glassystem.optics.mapper.PaymentMapper;
 import com.glassystem.optics.repository.OrderRepository;
 import com.glassystem.optics.repository.PaymentRepository;
 import com.glassystem.optics.repository.TransactionRepository;
-import com.glassystem.optics.util.VnPayDateUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,12 +44,6 @@ public class PaymentService {
         }
 
         PaymentPurpose purpose = determinePaymentPurpose(order);
-
-        if (purpose == PaymentPurpose.REMAINING &&
-                order.getStatus() != OrderStatus.AWAITING_FINAL_PAYMENT) {
-            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-        }
-
         BigDecimal amount = getAmountToPay(order, purpose);
 
         if (amount.compareTo(BigDecimal.ZERO) > 0 && !paymentMethod.equals(PaymentMethod.VNPAY)) {
@@ -86,7 +75,6 @@ public class PaymentService {
         String vnp_TxnRef = request.getParameter("vnp_TxnRef"); // Payment ID
         String vnp_TransactionNo = request.getParameter("vnp_TransactionNo");
         String vnp_Amount = request.getParameter("vnp_Amount");
-        String vnp_PayDate = request.getParameter("vnp_PayDate");
 
         Payment payment = paymentRepository.findById(vnp_TxnRef)
                 .orElseThrow(() -> new RuntimeException("Payment Not Found"));
@@ -99,13 +87,11 @@ public class PaymentService {
                     ? TransactionType.DEPOSIT
                     : TransactionType.CHARGE;
 
-            LocalDateTime payDate = VnPayDateUtil.parse(vnp_PayDate);
             Transaction transaction = Transaction.builder()
                     .payment(payment)
                     .type(txnType)
                     .amount(new BigDecimal(vnp_Amount).divide(new BigDecimal(100)))
                     .gatewayReference(vnp_TransactionNo)
-                    .dateTime(payDate)
                     .build();
             transactionRepository.save(transaction);
 
@@ -117,7 +103,7 @@ public class PaymentService {
                 order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
             }
 
-            updateOrderStatusAfterPayment(order, payment);
+            updateOrderStatusBasedOnItems(order);
             orderRepository.save(order);
 
         } else {
@@ -127,10 +113,7 @@ public class PaymentService {
         }
         return paymentRepository.save(payment);
     }
-
-
-
-
+    
     @Transactional
     public List<PaymentResponse> getPaymentHistory(String orderId) {
         Orders order = orderRepository.findById(orderId)
@@ -153,25 +136,20 @@ public class PaymentService {
                 .toList();
     }
 
-    private void updateOrderStatusAfterPayment(Orders order, Payment payment) {
-        if (payment.getPaymentPurpose() == PaymentPurpose.DEPOSIT) {
-            order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
+    private void updateOrderStatusBasedOnItems(Orders order) {
+        boolean hasSpecialItem = order.getItems().stream()
+                .anyMatch(item ->
+                        item.getPrescription() != null ||
+                                item.getOrderItemType() == OrderItemType.PRE_ORDER ||
+                                (item.getLensId() != null && !item.getLensId().isBlank())
+                );
+
+        if (hasSpecialItem) {
             order.setStatus(OrderStatus.AWAITING_VERIFICATION);
-        }
-        if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
-            order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
-            if (order.getStatus() == OrderStatus.AWAITING_FINAL_PAYMENT) {
-                order.setStatus(OrderStatus.PREPARING);
-            }
-        }
-        if (payment.getPaymentPurpose() == PaymentPurpose.FULL) {
+        } else {
             order.setStatus(OrderStatus.PREPARING);
         }
     }
-
-
-
-
     private BigDecimal getAmountToPay(Orders order, PaymentPurpose purpose) {
         return switch (purpose) {
             case DEPOSIT -> order.getDepositAmount();

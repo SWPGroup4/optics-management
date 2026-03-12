@@ -55,9 +55,7 @@ public class PaymentController {
                 .result(paymentUrl)
                 .build();
     }
-
-
-
+    
     @GetMapping("/vnpay-callback")
     public void vnpayCallback(HttpServletRequest request, HttpServletResponse response) throws IOException {
         Payment payment = paymentService.processVnPayCallback(request);

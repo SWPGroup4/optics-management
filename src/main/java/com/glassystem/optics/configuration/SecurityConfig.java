@@ -31,7 +31,7 @@ public class SecurityConfig {
             "/actuator/health",
             "/products/{id}","/products/{productId}/variants", "/lenses", "/lenses/{id}"
 
-
+            
     };
 
     private final String[] SWAGGER_ENDPOINTS = {
