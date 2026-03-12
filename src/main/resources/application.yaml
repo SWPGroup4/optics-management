@@ -34,3 +34,12 @@ ghn:
   base-url: https://dev-online-gateway.ghn.vn/shiip/public-api/v2/
   token: 641ea953-123c-11f1-a3d6-dac90fb956b5
   shop-id: "199410"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
