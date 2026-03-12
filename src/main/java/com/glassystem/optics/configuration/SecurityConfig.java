@@ -28,8 +28,9 @@ public class SecurityConfig {
     public final String[] PUBLIC_ENDPOINTS = {
             "/users/registration", "/auth/login", "/auth/check-token", "/auth/logout", "/auth/refresh-token",
             "/payment/checkout", "/payment/vnpay-callback", "/products", "/products/filter", "product-variants/{id}",
-
+            "/actuator/health",
             "/products/{id}","/products/{productId}/variants", "/lenses", "/lenses/{id}"
+
 
     };
 
@@ -41,7 +42,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity.authorizeHttpRequests(requests -> requests.requestMatchers(SWAGGER_ENDPOINTS).permitAll()
+        httpSecurity.authorizeHttpRequests(requests -> requests
+                .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.GET, "/payment/vnpay-callback").permitAll()
