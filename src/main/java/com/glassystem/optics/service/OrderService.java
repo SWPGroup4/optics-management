@@ -36,21 +36,21 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Slf4j
 public class OrderService {
-     final OrderMapper orderMapper;
-     final PrescriptionMapper prescriptionMapper;
-     final UserRepository userRepository;
-     final OrderRepository orderRepository;
-     final InventoryRepository inventoryRepository;
-     final PrescriptionRepository prescriptionRepository;
-     final OrderItemRepository orderItemRepository;
-     final FileStorageService fileStorageService;
-     final ComboRepository comboRepository;
-     final ComboService comboService;
-     final LensRepository lensRepository;
-     final ProductVariantRepository productVariantRepository;
-     final ObjectMapper objectMapper;
-     final PaymentCalculationService paymentCalculationService;
-     final RefundRepository refundRepository;
+    final OrderMapper orderMapper;
+    final PrescriptionMapper prescriptionMapper;
+    final UserRepository userRepository;
+    final OrderRepository orderRepository;
+    final InventoryRepository inventoryRepository;
+    final PrescriptionRepository prescriptionRepository;
+    final OrderItemRepository orderItemRepository;
+    final FileStorageService fileStorageService;
+    final ComboRepository comboRepository;
+    final ComboService comboService;
+    final LensRepository lensRepository;
+    final ProductVariantRepository productVariantRepository;
+    final ObjectMapper objectMapper;
+    final PaymentCalculationService paymentCalculationService;
+    final RefundRepository refundRepository;
 
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
@@ -86,17 +86,21 @@ public class OrderService {
                     .findFirst()
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
 
-            Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
+            OrderItemType itemType = resolveOrderItemType(productVariant);
 
+            Inventory inventory = null;
 
-            validateInventory(inventory, orderItemRequest.getQuantity());
+            if (itemType == OrderItemType.IN_STOCK) {
+                inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_NOT_FOUND));
+
+                validateInventory(inventory, orderItemRequest.getQuantity());
+            }
 
             OrderItem item = new OrderItem();
             item.setOrder(order);
             item.setProductVariant(productVariant);
             item.setOrderItemType(itemType);
-
             item.setInventory(inventory);
             item.setQuantity(orderItemRequest.getQuantity());
             item.setUnitPrice(productVariant.getPrice());
@@ -119,7 +123,9 @@ public class OrderService {
                 throw new AppException(ErrorCode.PRESCRIPTION_REQUIRED);
             }
 
-            updateInventoryStock(inventory, orderItemRequest.getQuantity());
+            if (inventory != null) {
+                updateInventoryStock(inventory, orderItemRequest.getQuantity());
+            }
             order.getItems().add(item);
             totalAmount = totalAmount.add(item.getTotalPrice());
         }
@@ -312,13 +318,8 @@ public class OrderService {
                         .build())
                 .toList();
 
-        double depositPercentage = paymentCalculation.getOrderTotal().compareTo(BigDecimal.ZERO) == 0
-                ? 0
-                : paymentCalculation.getRequiredPaymentTotal().divide(
-                paymentCalculation.getOrderTotal(), 4, RoundingMode.HALF_UP).doubleValue();
 
         return PaymentRequirementResponse.builder()
-                .depositPercentage(depositPercentage)
                 .requiredAmount(paymentCalculation.getRequiredPaymentTotal())
                 .orderTotal(paymentCalculation.getOrderTotal())
                 .requiredPaymentTotal(paymentCalculation.getRequiredPaymentTotal())
@@ -499,7 +500,7 @@ public class OrderService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        if (!order.getStatus().equals(OrderStatus.SHIPPED)) {
+        if (!order.getStatus().equals(OrderStatus.DELIVERED)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
@@ -573,7 +574,7 @@ public class OrderService {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStatus().equals(OrderStatus.PENDING) && !order.getStatus().equals(OrderStatus.ON_HOLD)) {
+        if (!order.getStatus().equals(OrderStatus.PENDING) && !order.getStatus().equals(OrderStatus.AWAITING_VERIFICATION)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
 
@@ -719,30 +720,10 @@ public class OrderService {
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
-    @Transactional
-    public OrderResponse markAsPrepared(String orderId) {
-        Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        for (OrderItem orderItem : order.getItems()) {
-            if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
-                if (order.getStatus() != OrderStatus.PREPARING) {
-                    throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                }
-            } else {
-                throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-            }
-        }
-        order.setStatus(OrderStatus.PREPARED);
-        return orderMapper.toOrderResponse(order);
-    }
 
-    /*
-     * ===================== 4. LOGISTICS FLOW (Vận chuyển & Kết thúc)
-     * =====================
-     */
 
     @Transactional
-    public List<OrderResponse> markAsShipped(List<String> orderIds) {
+    public List<OrderResponse> markAsReadyToShip(List<String> orderIds) {
         List<OrderResponse> responses = new ArrayList<>();
         for (String orderId : orderIds) {
             Orders order = orderRepository.findById(orderId)
@@ -752,14 +733,17 @@ public class OrderService {
                     if (order.getStatus() != OrderStatus.PRODUCED) {
                         throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                     }
+                    if (order.getStatus() != OrderStatus.PREPARING) {
+                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+                    }
                 } else if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
-                    if (order.getStatus() != OrderStatus.PREPARED
+                    if (order.getStatus() != OrderStatus.PREPARING
                             && order.getStatus() != OrderStatus.PRODUCED) {
                         throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                     }
                 }
             }
-            order.setStatus(OrderStatus.SHIPPED);
+            order.setStatus(OrderStatus.READY_TO_SHIP);
             responses.add(orderMapper.toOrderResponse(order));
         }
         return responses;
