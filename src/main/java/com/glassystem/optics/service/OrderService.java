@@ -671,21 +671,16 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse finishProduction(String orderId) {
+    public OrderResponse finishProductionOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-
-        if (!order.getStatus().equals(OrderStatus.PROCESSING)) {
+        if (order.getStatus() != OrderStatus.PROCESSING) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
-        if (order.getItems() != null) {
-            for (OrderItem orderItem : order.getItems()) {
-                if (requiresProcessing(orderItem)
-                        || orderItem.getStatus() == OrderItemStatus.IN_PRODUCTION) {
-
-                    orderItem.setStatus(OrderItemStatus.PRODUCED);
-                }
-            }
+        boolean allProduced = order.getItems().stream()
+                .allMatch(item -> item.getStatus() == OrderItemStatus.PRODUCED);
+        if (!allProduced) {
+            throw new AppException(ErrorCode.ORDER_ITEMS_NOT_FINISHED);
         }
         order.setStatus(OrderStatus.PRODUCED);
         return orderMapper.toOrderResponse(orderRepository.save(order));
@@ -709,7 +704,7 @@ public class OrderService {
                 .allMatch(item -> item.getStatus().equals(OrderItemStatus.PRODUCED));
 
         boolean anyInProduction = order.getItems().stream()
-                .allMatch(item -> item.getStatus().equals(OrderItemStatus.IN_PRODUCTION));
+                .anyMatch(item -> item.getStatus().equals(OrderItemStatus.IN_PRODUCTION));
 
         if (allFinished) {
             order.setStatus(OrderStatus.PRODUCED);
