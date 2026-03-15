@@ -26,6 +26,10 @@ public class RefundResponse {
 
     BigDecimal refundAmount;
 
+    BigDecimal refundPercentage;
+
+    BigDecimal deductionAmount;
+
     RefundStatus refundStatus;
 
 

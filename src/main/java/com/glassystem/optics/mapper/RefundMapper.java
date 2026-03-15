@@ -13,19 +13,21 @@ public interface RefundMapper {
 
     @Mapping(source = "id", target = "refundId")
     @Mapping(source = "order.id", target = "orderId")
-    @Mapping(source = "variantId", target = "variantId")
-    @Mapping(source = "orderTotalAmount", target = "orderTotalAmount")
-    @Mapping(source = "refundAmount", target = "refundAmount")
+//    @Mapping(source = "variantId", target = "variantId")
+//    @Mapping(source = "orderTotalAmount", target = "orderTotalAmount")
+//    @Mapping(source = "refundAmount", target = "refundAmount")
+//    @Mapping(target = "refundPercentage", expression = "refundPercentage")
     @Mapping(source = "status", target = "refundStatus")
     @Mapping(target = "customerName", expression = "java(resolveDisplayCustomerName(refund))")
     @Mapping(source = "bankAccountNumber", target = "bankAccount")
     RefundResponse toRefundResponse(Refund refund);
 
 
-    @Mapping(target = "orderId", source = "id")
-    @Mapping(target = "orderTotalAmount", source = "totalAmount")
-    @Mapping(target = "refundAmount", source = "depositAmount")
-    RefundResponse toRefundResponseFromOrder(Orders order);
+//    @Mapping(target = "orderId", source = "id")
+//    @Mapping(target = "orderTotalAmount", source = "totalAmount")
+//    @Mapping(target = "refundAmount", source = "depositAmount")
+//    @Mapping(target = "refundPercentage", expression = "java(java.math.BigDecimal.ZERO)")
+//    RefundResponse toRefundResponseFromOrder(Orders order);
 
     RefundBankAccountResponse toRefundBankAccountResponse (Refund refund);
 

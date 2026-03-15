@@ -466,6 +466,7 @@ public class OrderService {
 
         List<OrderStatus> cancellableStatuses = List.of(
                 OrderStatus.PENDING,
+                OrderStatus.PREPARING,
                 OrderStatus.AWAITING_VERIFICATION,
                 OrderStatus.ON_HOLD);
 
@@ -647,7 +648,7 @@ public class OrderService {
                 .stream()
                 .filter(this::hasPaidTransaction)
                 .map(orderMapper::toOrderResponse)
-               // .map(this::enrichRefundInfo)
+                //.map(this::enrichRefundInfo) luc nay chua refunded nen khong sao cai nay
                 .toList();
     }
 
