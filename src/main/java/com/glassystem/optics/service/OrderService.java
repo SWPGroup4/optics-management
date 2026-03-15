@@ -643,6 +643,9 @@ public class OrderService {
 
 
 
+
+
+
     /*
      * ===================== 3. PRODUCTION FLOW
      * =====================
@@ -674,7 +677,7 @@ public class OrderService {
     public OrderResponse finishProductionOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        if (order.getStatus() != OrderStatus.PROCESSING) {
+        if (!order.getStatus().equals(OrderStatus.PRODUCED)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
         boolean allProduced = order.getItems().stream()
@@ -726,9 +729,6 @@ public class OrderService {
             for (OrderItem orderItem : order.getItems()) {
                 if (requiresProcessing(orderItem)) {
                     if (order.getStatus() != OrderStatus.PRODUCED) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                    if (order.getStatus() != OrderStatus.PREPARING) {
                         throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                     }
                 } else if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
