@@ -1,7 +1,8 @@
 package com.glassystem.optics.dto.response;
 
-import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.OrderStatus;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,7 +22,9 @@ public class OrderResponse {
     String deliveryAddress;
     String phoneNumber;
 
+
     OrderStatus orderStatus;
+
     BigDecimal totalAmount;
     BigDecimal depositAmount;
     List<OrderItemResponse> items;
