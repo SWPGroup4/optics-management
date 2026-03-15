@@ -29,6 +29,8 @@ public interface RefundMapper {
 //    @Mapping(target = "refundPercentage", expression = "java(java.math.BigDecimal.ZERO)")
 //    RefundResponse toRefundResponseFromOrder(Orders order);
 
+    @Mapping(target = "customerName", expression = "java(resolveDisplayCustomerName(refund))")
+    @Mapping(source = "bankAccountNumber", target = "bankAccount")
     RefundBankAccountResponse toRefundBankAccountResponse (Refund refund);
 
     default String resolveDisplayCustomerName(Refund refund) {
