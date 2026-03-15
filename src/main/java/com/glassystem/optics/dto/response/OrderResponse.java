@@ -26,7 +26,10 @@ public class OrderResponse {
     OrderStatus orderStatus;
 
     BigDecimal totalAmount;
+    // PRE ORDER
     BigDecimal depositAmount;
+    // IN STOCK
+    BigDecimal paidAmount;
     List<OrderItemResponse> items;
 
     // ===== COMBO INFO =====

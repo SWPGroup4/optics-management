@@ -159,7 +159,15 @@ public class OrderService {
         }
 
         BigDecimal requiredPaymentTotal = paymentCalculation.getRequiredPaymentTotal().min(finalTotal);
-        order.setDepositAmount(requiredPaymentTotal);
+        boolean hasPreOrderItem = order.getItems().stream()
+                .anyMatch(i -> i.getOrderItemType() == OrderItemType.PRE_ORDER);
+
+        if (hasPreOrderItem) {
+            order.setDepositAmount(requiredPaymentTotal);
+        } else {
+            order.setDepositAmount(BigDecimal.ZERO);
+        }
+
         order.setRemainingAmount(finalTotal.subtract(requiredPaymentTotal));
         order.setPaymentMethod(PaymentMethod.VNPAY);
 
@@ -600,6 +608,7 @@ public class OrderService {
         if (status == null) {
             return orderRepository.findAll(sort).stream()
                     .map(orderMapper::toOrderResponse)
+                    .map(this::enrichPaidAmount)
                     .map(this::enrichRefundInfo)
                     .toList();
         }
@@ -607,6 +616,7 @@ public class OrderService {
         return orderRepository.findByStatus(status)
                 .stream()
                 .map(orderMapper::toOrderResponse)
+                .map(this::enrichPaidAmount)
                 .map(this::enrichRefundInfo)
                 .toList();
     }
@@ -618,26 +628,42 @@ public class OrderService {
                 .stream().map(orderMapper::toOrderResponse).toList();
     }
 
+    private OrderResponse enrichPaidAmount(OrderResponse response) {
+        if (response == null || response.getOrderId() == null) {
+            return response;
+        }
+        BigDecimal paidAmount = paymentRepository.findByOrderId(response.getOrderId())
+                .stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PAID)
+                .map(Payment::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        response.setPaidAmount(paidAmount);
+        return response;
+    }
+
 
     private OrderResponse enrichRefundInfo(OrderResponse response) {
         if (response == null || response.getOrderId() == null) {
             return response;
         }
+        BigDecimal depositAmount = Optional.ofNullable(response.getDepositAmount())
+                .orElse(BigDecimal.ZERO);
         BigDecimal refundedAmount = refundRepository
                 .findByOrder_IdAndStatus(response.getOrderId(), RefundStatus.COMPLETED)
                 .stream()
                 .map(refund -> refund.getRefundAmount() != null
                         ? refund.getRefundAmount()
-                        : response.getDepositAmount())
+                        : depositAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalAmount = response.getTotalAmount() == null
-                ? BigDecimal.ZERO
-                : response.getTotalAmount();
+        BigDecimal totalAmount = Optional.ofNullable(response.getTotalAmount())
+                .orElse(BigDecimal.ZERO);
         BigDecimal finalTotalAfterRefund = totalAmount.subtract(refundedAmount);
         if (finalTotalAfterRefund.compareTo(BigDecimal.ZERO) < 0) {
             finalTotalAfterRefund = BigDecimal.ZERO;
         }
+        response.setDepositAmount(depositAmount);
         response.setRefundedAmount(refundedAmount);
         response.setFinalTotalAfterRefund(finalTotalAfterRefund);
         return response;
@@ -648,7 +674,7 @@ public class OrderService {
                 .stream()
                 .filter(this::hasPaidTransaction)
                 .map(orderMapper::toOrderResponse)
-                //.map(this::enrichRefundInfo) luc nay chua refunded nen khong sao cai nay
+                .map(this::enrichPaidAmount)
                 .toList();
     }
 
@@ -1082,6 +1108,10 @@ public class OrderService {
 
         inventory.setReservedQuantity(inventory.getReservedQuantity() + diff);
         inventory.setQuantity(inventory.getQuantity() - diff);
+
+        if (inventory.getReservedQuantity() < 0) {
+            inventory.setReservedQuantity(0);
+        }
         inventoryRepository.save(inventory);
 
         item.setQuantity(newQty);
