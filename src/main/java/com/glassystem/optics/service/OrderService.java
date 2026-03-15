@@ -51,6 +51,7 @@ public class OrderService {
      final ObjectMapper objectMapper;
      final PaymentCalculationService paymentCalculationService;
      final RefundRepository refundRepository;
+     final PaymentRepository paymentRepository;
 
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
@@ -641,6 +642,20 @@ public class OrderService {
         return response;
     }
 
+    public List<OrderResponse> getCancelledPaidOrders() {
+        return orderRepository.findByStatus(OrderStatus.CANCELLED)
+                .stream()
+                .filter(this::hasPaidTransaction)
+                .map(orderMapper::toOrderResponse)
+               // .map(this::enrichRefundInfo)
+                .toList();
+    }
+
+    private boolean hasPaidTransaction(Orders order) {
+        return paymentRepository.findByOrderId(order.getId())
+                .stream()
+                .anyMatch(payment -> payment.getStatus() == PaymentStatus.PAID);
+    }
 
 
     /*

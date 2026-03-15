@@ -29,6 +29,15 @@ public class ManagementOrderController {
     OrderService orderService;
 
 
+    @GetMapping("/cancelled/paid")
+    @Operation(summary = "Get cancelled orders that already have successful payment")
+    public ApiResponse<List<OrderResponse>> getCancelledPaidOrders() {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getCancelledPaidOrders())
+                .build();
+    }
+
+
     @PostMapping("/{orderId}/stock-arrived")
     public ApiResponse<OrderResponse> stockArrived(
             @PathVariable String orderId) {
