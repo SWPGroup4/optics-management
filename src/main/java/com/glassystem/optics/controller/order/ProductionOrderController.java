@@ -42,7 +42,7 @@ public class ProductionOrderController {
     @Operation(summary = "Complete order production", description = "Marks an entire order as PRODUCED once all items are ready")
     public ApiResponse<OrderResponse> finishProduction(@PathVariable("orderId") String orderId) {
         return ApiResponse.<OrderResponse>builder()
-                .result(orderService.finishProduction(orderId))
+                .result(orderService.finishProductionOrder(orderId))
                 .message("Order production finalized successfully")
                 .build();
     }
