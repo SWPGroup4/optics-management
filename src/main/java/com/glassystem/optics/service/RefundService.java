@@ -39,6 +39,33 @@ public class RefundService {
     final RefundMapper  refundMapper;
     final ProductVariantRepository productVariantRepository;
     final ProductVariantMapper productVariantMapper;
+    final VNPayService vnPayService;
+
+
+
+
+    @Transactional
+    public String initiateRefundPayment(String refundId, String baseUrl){
+        Refund refund = refundRepository.findById(refundId)
+                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+        if(refund.getStatus() != RefundStatus.READY_FOR_REFUND){
+            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
+        }
+        BigDecimal amount = refund.getRefundAmount();
+
+        Payment payment = Payment.builder()
+                .order(refund.getOrder())
+                .paymentMethod(PaymentMethod.VNPAY)
+                .paymentPurpose(PaymentPurpose.REFUND)
+                .amount(amount)
+                .status(PaymentStatus.UNPAID)
+                .description("Refund payment" + refund.getOrder().getId())
+                .build();
+
+        payment = paymentRepository.save(payment);
+
+        return vnPayService.createPaymentUrl(payment, baseUrl);
+    }
 
 
     @Transactional
@@ -235,18 +262,30 @@ public class RefundService {
                 .toList();
     }
 
+//    @Transactional
+//    public RefundResponse completeRefund(String refundId, String managerId){
+//        Refund refund = refundRepository.findById(refundId)
+//                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+//        if (refund.getStatus() != RefundStatus.READY_FOR_REFUND) {
+//            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
+//        }
+//        return processRefundCompletion(refund, managerId);
+//    }
+
+
+
     @Transactional
-    public RefundResponse completeRefund(String refundId, String managerId){
-
-        Refund refund = refundRepository.findById(refundId)
+    public void completeRefundByPayment(Payment payment){
+        Refund refund = refundRepository.findByOrderId(payment.getOrder().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
-
         if (refund.getStatus() != RefundStatus.READY_FOR_REFUND) {
             throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
         }
+        processRefundCompletion(refund, "SYSTEM_VNPAY");
+    }
 
+    private RefundResponse processRefundCompletion(Refund refund, String processedBy){
         Orders order = refund.getOrder();
-
         List<Payment> paidPayments = paymentRepository.findByOrderId(order.getId())
                 .stream()
                 .filter(payment -> payment.getStatus() == PaymentStatus.PAID)
@@ -254,8 +293,6 @@ public class RefundService {
         if (paidPayments.isEmpty()) {
             throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
         }
-
-
         if (refund.getOrderTotalAmount() == null) {
             refund.setOrderTotalAmount(order.getTotalAmount());
         }
@@ -266,16 +303,18 @@ public class RefundService {
             BigDecimal basePaidAmount = order.getStatus() == OrderStatus.CANCELLED
                     ? getPaidAmount(order.getId())
                     : (order.getDepositAmount() == null ? BigDecimal.ZERO : order.getDepositAmount());
+
             refund.setRefundAmount(basePaidAmount);
         }
 
         refund.setStatus(RefundStatus.COMPLETED);
         refund.setCompletedAt(LocalDateTime.now());
-        refund.setProcessedBy(managerId);
+        refund.setProcessedBy(processedBy);
 
         order.setStatus(OrderStatus.REFUNDED);
 
         paidPayments.forEach(payment -> payment.setStatus(PaymentStatus.REFUNDED));
+
         Refund savedRefund = refundRepository.save(refund);
         orderRepository.save(order);
         paymentRepository.saveAll(paidPayments);

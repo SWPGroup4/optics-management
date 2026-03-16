@@ -38,6 +38,7 @@ public class PaymentService {
     final TransactionRepository transactionRepository;
     final VNPayService vnPayService;
     final PaymentMapper paymentMapper;
+    final RefundService refundService;
 
     @Transactional
     public String initiatePayment(String orderId, PaymentMethod paymentMethod, String baseUrl) {
@@ -115,6 +116,8 @@ public class PaymentService {
                 order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
             } else if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
                 order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
+            } else if (payment.getPaymentPurpose() == PaymentPurpose.REFUND){
+                refundService.completeRefundByPayment(payment);
             }
 
             updateOrderStatusAfterPayment(order, payment);

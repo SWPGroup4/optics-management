@@ -4,20 +4,33 @@ package com.glassystem.optics.controller.refund;
 import com.glassystem.optics.dto.request.BankInfoRequest;
 import com.glassystem.optics.dto.request.RefundBatchRequest;
 import com.glassystem.optics.dto.response.*;
+import com.glassystem.optics.entity.Payment;
+import com.glassystem.optics.entity.Refund;
+import com.glassystem.optics.enums.PaymentMethod;
+import com.glassystem.optics.enums.PaymentPurpose;
+import com.glassystem.optics.enums.PaymentStatus;
+import com.glassystem.optics.enums.RefundStatus;
+import com.glassystem.optics.exception.AppException;
+import com.glassystem.optics.exception.ErrorCode;
+import com.glassystem.optics.repository.PaymentRepository;
+import com.glassystem.optics.repository.RefundRepository;
 import com.glassystem.optics.service.ProductService;
 import com.glassystem.optics.service.ProductVariantService;
 import com.glassystem.optics.service.RefundService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
 @RequestMapping("/refund")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN') or hasRole('CUSTOMER')")
 public class RefundController {
 
     private final RefundService refundService;
@@ -60,6 +73,8 @@ public class RefundController {
                 .build();
     }
 
+
+
     @GetMapping("/ready")
     public ApiResponse<List<RefundResponse>> getReadyRefunds(){
 
@@ -68,12 +83,26 @@ public class RefundController {
                 .build();
     }
 
-    @PostMapping("/complete/{refundId}")
-    public ApiResponse<RefundResponse> completeRefund(
-            @PathVariable String refundId){
-        String managerId = SecurityContextHolder.getContext().getAuthentication().getName();
-        return ApiResponse.<RefundResponse>builder()
-                .result(refundService.completeRefund(refundId,managerId))
+
+
+
+    @PostMapping("/{refundId}/refund-checkout")
+    public ApiResponse<String> refundCheckout(
+            @PathVariable String refundId,
+            HttpServletRequest request){
+        String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort()
+                + "/optics";
+        return ApiResponse.<String>builder()
+                .result(refundService.initiateRefundPayment(refundId, baseUrl))
                 .build();
     }
+
+//    @PostMapping("/complete/{refundId}")
+//    public ApiResponse<RefundResponse> completeRefund(
+//            @PathVariable String refundId){
+//        String managerId = SecurityContextHolder.getContext().getAuthentication().getName();
+//        return ApiResponse.<RefundResponse>builder()
+//                .result(refundService.completeRefund(refundId,managerId))
+//                .build();
+//    }
 }
