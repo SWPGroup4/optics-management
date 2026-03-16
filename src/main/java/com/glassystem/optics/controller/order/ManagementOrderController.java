@@ -29,6 +29,7 @@ public class ManagementOrderController {
     OrderService orderService;
 
 
+
     @GetMapping("/cancelled/paid")
     @Operation(summary = "Get cancelled orders that already have successful payment")
     public ApiResponse<List<OrderResponse>> getCancelledPaidOrders() {
@@ -46,6 +47,7 @@ public class ManagementOrderController {
                 .result(orderService.markStockArrived(orderId))
                 .build();
     }
+
 
     @GetMapping("/{orderId}")
     @Operation(summary = "Get order details with combo info", description = "Provides full details of a specific order including items, prescriptions, and applied combo discount info")

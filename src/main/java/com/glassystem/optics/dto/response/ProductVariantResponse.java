@@ -23,7 +23,6 @@ public class ProductVariantResponse {
 	String sizeLabel;
 	BigDecimal price;
 	ProductVariantStatus status;
-    OrderItemType type;
 
     OrderItemType orderItemType;
 
