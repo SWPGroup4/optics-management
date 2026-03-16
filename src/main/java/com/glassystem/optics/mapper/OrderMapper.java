@@ -25,5 +25,8 @@ public interface OrderMapper {
     @Mapping(target = "comboName", source = "combo.name")
     @Mapping(target = "comboDiscountAmount", source = "comboDiscountAmount")
     @Mapping(target = "comboSnapshot", source = "comboSnapshot")
+    @Mapping(target = "bankInfo.bankName", source = "bankName")
+    @Mapping(target = "bankInfo.bankAccountNumber", source = "bankAccountNumber")
+    @Mapping(target = "bankInfo.accountHolderName", source = "accountHolderName")
     OrderResponse toOrderResponse(Orders order);
 }

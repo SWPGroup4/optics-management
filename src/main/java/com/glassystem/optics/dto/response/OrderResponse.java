@@ -41,4 +41,6 @@ public class OrderResponse {
     BigDecimal refundedAmount;
     BigDecimal finalTotalAfterRefund;
 
+    BankInfoResponse  bankInfo;
+
 }

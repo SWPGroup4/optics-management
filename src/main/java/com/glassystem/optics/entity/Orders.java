@@ -54,6 +54,11 @@ public class Orders {
     @Enumerated(EnumType.STRING)
     PreOrderStatus preOrderStatus;
 
+    // ===== BANK INFO =====
+    String bankName;
+    String bankAccountNumber;
+    String accountHolderName;
+
     // ===== COMBO FIELDS =====
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "combo_id")

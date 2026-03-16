@@ -71,6 +71,9 @@ public class OrderService {
         order.setCreatedAt(LocalDate.now());
         order.setDeliveryAddress(request.getDeliveryAddress());
         order.setPhoneNumber(request.getPhoneNumber());
+        order.setBankName(request.getBankInfo().getBankName());
+        order.setBankAccountNumber(request.getBankInfo().getBankAccountNumber());
+        order.setAccountHolderName(request.getBankInfo().getAccountHolderName());
 
 
         BigDecimal totalAmount = BigDecimal.ZERO;
