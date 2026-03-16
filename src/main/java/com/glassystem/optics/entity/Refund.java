@@ -40,6 +40,10 @@ public class Refund {
 
     String accountHolderName;
 
+    BigDecimal refundPercentage;
+
+    BigDecimal deductionAmount;
+
     @Enumerated(EnumType.STRING)
     RefundStatus status;
 
@@ -48,4 +52,7 @@ public class Refund {
     LocalDateTime completedAt;
 
     String processedBy;
+
+    @ManyToOne
+    private Payment payment;
 }

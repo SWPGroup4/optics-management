@@ -36,21 +36,23 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Slf4j
 public class OrderService {
-    final OrderMapper orderMapper;
-    final PrescriptionMapper prescriptionMapper;
-    final UserRepository userRepository;
-    final OrderRepository orderRepository;
-    final InventoryRepository inventoryRepository;
-    final PrescriptionRepository prescriptionRepository;
-    final OrderItemRepository orderItemRepository;
-    final FileStorageService fileStorageService;
-    final ComboRepository comboRepository;
-    final ComboService comboService;
-    final LensRepository lensRepository;
-    final ProductVariantRepository productVariantRepository;
-    final ObjectMapper objectMapper;
-    final PaymentCalculationService paymentCalculationService;
-    final RefundRepository refundRepository;
+     final OrderMapper orderMapper;
+     final PrescriptionMapper prescriptionMapper;
+     final UserRepository userRepository;
+     final OrderRepository orderRepository;
+     final InventoryRepository inventoryRepository;
+     final PrescriptionRepository prescriptionRepository;
+     final OrderItemRepository orderItemRepository;
+     final FileStorageService fileStorageService;
+     final ComboRepository comboRepository;
+     final ComboService comboService;
+     final LensRepository lensRepository;
+     final ProductVariantRepository productVariantRepository;
+     final ObjectMapper objectMapper;
+     final PaymentCalculationService paymentCalculationService;
+     final RefundRepository refundRepository;
+     final PaymentRepository paymentRepository;
+
 
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
@@ -69,6 +71,9 @@ public class OrderService {
         order.setCreatedAt(LocalDate.now());
         order.setDeliveryAddress(request.getDeliveryAddress());
         order.setPhoneNumber(request.getPhoneNumber());
+        order.setBankName(request.getBankInfo().getBankName());
+        order.setBankAccountNumber(request.getBankInfo().getBankAccountNumber());
+        order.setAccountHolderName(request.getBankInfo().getAccountHolderName());
 
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -158,7 +163,15 @@ public class OrderService {
         }
 
         BigDecimal requiredPaymentTotal = paymentCalculation.getRequiredPaymentTotal().min(finalTotal);
-        order.setDepositAmount(requiredPaymentTotal);
+        boolean hasPreOrderItem = order.getItems().stream()
+                .anyMatch(i -> i.getOrderItemType() == OrderItemType.PRE_ORDER);
+
+        if (hasPreOrderItem) {
+            order.setDepositAmount(requiredPaymentTotal);
+        } else {
+            order.setDepositAmount(BigDecimal.ZERO);
+        }
+
         order.setRemainingAmount(finalTotal.subtract(requiredPaymentTotal));
         order.setPaymentMethod(PaymentMethod.VNPAY);
 
@@ -465,6 +478,7 @@ public class OrderService {
 
         List<OrderStatus> cancellableStatuses = List.of(
                 OrderStatus.PENDING,
+                OrderStatus.PREPARING,
                 OrderStatus.AWAITING_VERIFICATION,
                 OrderStatus.ON_HOLD);
 
@@ -598,6 +612,7 @@ public class OrderService {
         if (status == null) {
             return orderRepository.findAll(sort).stream()
                     .map(orderMapper::toOrderResponse)
+                    .map(this::enrichPaidAmount)
                     .map(this::enrichRefundInfo)
                     .toList();
         }
@@ -605,6 +620,7 @@ public class OrderService {
         return orderRepository.findByStatus(status)
                 .stream()
                 .map(orderMapper::toOrderResponse)
+                .map(this::enrichPaidAmount)
                 .map(this::enrichRefundInfo)
                 .toList();
     }
@@ -616,31 +632,61 @@ public class OrderService {
                 .stream().map(orderMapper::toOrderResponse).toList();
     }
 
+    private OrderResponse enrichPaidAmount(OrderResponse response) {
+        if (response == null || response.getOrderId() == null) {
+            return response;
+        }
+        BigDecimal paidAmount = paymentRepository.findByOrderId(response.getOrderId())
+                .stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PAID)
+                .map(Payment::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        response.setPaidAmount(paidAmount);
+        return response;
+    }
+
 
     private OrderResponse enrichRefundInfo(OrderResponse response) {
         if (response == null || response.getOrderId() == null) {
             return response;
         }
+        BigDecimal depositAmount = Optional.ofNullable(response.getDepositAmount())
+                .orElse(BigDecimal.ZERO);
         BigDecimal refundedAmount = refundRepository
                 .findByOrder_IdAndStatus(response.getOrderId(), RefundStatus.COMPLETED)
                 .stream()
                 .map(refund -> refund.getRefundAmount() != null
                         ? refund.getRefundAmount()
-                        : response.getDepositAmount())
+                        : depositAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalAmount = response.getTotalAmount() == null
-                ? BigDecimal.ZERO
-                : response.getTotalAmount();
+        BigDecimal totalAmount = Optional.ofNullable(response.getTotalAmount())
+                .orElse(BigDecimal.ZERO);
         BigDecimal finalTotalAfterRefund = totalAmount.subtract(refundedAmount);
         if (finalTotalAfterRefund.compareTo(BigDecimal.ZERO) < 0) {
             finalTotalAfterRefund = BigDecimal.ZERO;
         }
+        response.setDepositAmount(depositAmount);
         response.setRefundedAmount(refundedAmount);
         response.setFinalTotalAfterRefund(finalTotalAfterRefund);
         return response;
     }
 
+    public List<OrderResponse> getCancelledPaidOrders() {
+        return orderRepository.findByStatus(OrderStatus.CANCELLED)
+                .stream()
+                .filter(this::hasPaidTransaction)
+                .map(orderMapper::toOrderResponse)
+                .map(this::enrichPaidAmount)
+                .toList();
+    }
+
+    private boolean hasPaidTransaction(Orders order) {
+        return paymentRepository.findByOrderId(order.getId())
+                .stream()
+                .anyMatch(payment -> payment.getStatus() == PaymentStatus.PAID);
+    }
 
 
 
@@ -677,15 +723,30 @@ public class OrderService {
     public OrderResponse finishProductionOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        if (!order.getStatus().equals(OrderStatus.PRODUCED)) {
+
+
+        OrderStatus currentStatus = order.getStatus();
+        if (currentStatus != OrderStatus.PROCESSING && currentStatus != OrderStatus.PREPARING) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
-        boolean allProduced = order.getItems().stream()
-                .allMatch(item -> item.getStatus() == OrderItemStatus.PRODUCED);
-        if (!allProduced) {
-            throw new AppException(ErrorCode.ORDER_ITEMS_NOT_FINISHED);
+
+        List<OrderItem> items = order.getItems();
+        if (items == null || items.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
+        if (currentStatus == OrderStatus.PREPARING) {
+            items.forEach(item -> item.setStatus(OrderItemStatus.PRODUCED));
+        } else {
+            for (OrderItem item : items) {
+                if (requiresProcessing(item) && item.getStatus() != OrderItemStatus.IN_PRODUCTION) {
+                    throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+                }
+                item.setStatus(OrderItemStatus.PRODUCED);
+            }
+        }
+
         order.setStatus(OrderStatus.PRODUCED);
+
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
@@ -717,34 +778,6 @@ public class OrderService {
 
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
-
-
-
-    @Transactional
-    public List<OrderResponse> markAsReadyToShip(List<String> orderIds) {
-        List<OrderResponse> responses = new ArrayList<>();
-        for (String orderId : orderIds) {
-            Orders order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-            for (OrderItem orderItem : order.getItems()) {
-                if (requiresProcessing(orderItem)) {
-                    if (order.getStatus() != OrderStatus.PRODUCED) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                } else if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
-                    if (order.getStatus() != OrderStatus.PREPARING
-                            && order.getStatus() != OrderStatus.PRODUCED) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                }
-            }
-            order.setStatus(OrderStatus.READY_TO_SHIP);
-            responses.add(orderMapper.toOrderResponse(order));
-        }
-        return responses;
-    }
-
-
 
     @Transactional
     public void deleteOrder(String orderId) {
@@ -789,7 +822,8 @@ public class OrderService {
         for (String orderId : orderIds) {
             Orders order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-            if (order.getStatus() != OrderStatus.READY_TO_SHIP) {
+            if (order.getStatus() != OrderStatus.READY_TO_SHIP
+                    && order.getStatus() != OrderStatus.PRODUCED) {
                 throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
             }
             order.setStatus(OrderStatus.SHIPPED);
@@ -1061,6 +1095,10 @@ public class OrderService {
 
         inventory.setReservedQuantity(inventory.getReservedQuantity() + diff);
         inventory.setQuantity(inventory.getQuantity() - diff);
+
+        if (inventory.getReservedQuantity() < 0) {
+            inventory.setReservedQuantity(0);
+        }
         inventoryRepository.save(inventory);
 
         item.setQuantity(newQty);

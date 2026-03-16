@@ -28,6 +28,27 @@ public class ManagementOrderController {
 
     OrderService orderService;
 
+
+
+    @GetMapping("/cancelled/paid")
+    @Operation(summary = "Get cancelled orders that already have successful payment")
+    public ApiResponse<List<OrderResponse>> getCancelledPaidOrders() {
+        return ApiResponse.<List<OrderResponse>>builder()
+                .result(orderService.getCancelledPaidOrders())
+                .build();
+    }
+
+
+    @PostMapping("/{orderId}/stock-arrived")
+    public ApiResponse<OrderResponse> stockArrived(
+            @PathVariable String orderId) {
+
+        return ApiResponse.<OrderResponse>builder()
+                .result(orderService.markStockArrived(orderId))
+                .build();
+    }
+
+
     @GetMapping("/{orderId}")
     @Operation(summary = "Get order details with combo info", description = "Provides full details of a specific order including items, prescriptions, and applied combo discount info")
     public ApiResponse<OrderResponse> getOrderById(@PathVariable("orderId") String orderId) {

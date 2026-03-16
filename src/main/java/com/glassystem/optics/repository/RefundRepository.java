@@ -13,6 +13,7 @@ import java.util.Optional;
 
 public interface RefundRepository extends JpaRepository<Refund,String> {
 
+    Optional<Refund> findByPaymentId(String paymentId);
     List<Refund> findByStatus(RefundStatus status);
     Boolean existsByOrderId(String orderId);
     Optional<Refund> findFirstByOrderIdAndStatus(String orderId, RefundStatus status);
