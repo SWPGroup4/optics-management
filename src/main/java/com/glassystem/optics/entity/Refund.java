@@ -40,6 +40,10 @@ public class Refund {
 
     String accountHolderName;
 
+    BigDecimal refundPercentage;
+
+    BigDecimal deductionAmount;
+
     @Enumerated(EnumType.STRING)
     RefundStatus status;
 
