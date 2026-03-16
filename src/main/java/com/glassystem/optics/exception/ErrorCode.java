@@ -109,6 +109,15 @@ public enum ErrorCode {
     ORDER_COMBO_STOCK_INSUFFICIENT(5002, "Insufficient stock for combo items!", HttpStatus.BAD_REQUEST),
     ORDER_COMBO_RULE_NOT_MATCH(5003, "Order items do not match combo rules!", HttpStatus.BAD_REQUEST),
     ORDER_COMBO_LOCK_FAILED(5004, "Failed to lock inventory for combo!", HttpStatus.BAD_REQUEST),
+
+    // ===== POLICY ERROR CODES (6xxx) =====
+    POLICY_NOT_FOUND(6001, "Policy not found!", HttpStatus.NOT_FOUND),
+    POLICY_CODE_REQUIRED(6002, "Policy code is required!", HttpStatus.BAD_REQUEST),
+    POLICY_TITLE_REQUIRED(6003, "Policy title is required!", HttpStatus.BAD_REQUEST),
+    POLICY_CODE_ALREADY_EXISTS(6004, "Policy code already exists!", HttpStatus.BAD_REQUEST),
+    POLICY_DATE_INVALID(6005, "Effective from must be before effective to!", HttpStatus.BAD_REQUEST),
+    POLICY_MANAGER_NOT_FOUND(6006, "Manager user not found!", HttpStatus.NOT_FOUND),
+
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {
