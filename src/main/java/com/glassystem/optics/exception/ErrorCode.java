@@ -108,6 +108,11 @@ public enum ErrorCode {
     ORDER_COMBO_STOCK_INSUFFICIENT(5002, "Insufficient stock for combo items!", HttpStatus.BAD_REQUEST),
     ORDER_COMBO_RULE_NOT_MATCH(5003, "Order items do not match combo rules!", HttpStatus.BAD_REQUEST),
     ORDER_COMBO_LOCK_FAILED(5004, "Failed to lock inventory for combo!", HttpStatus.BAD_REQUEST),
+
+    // ===== NOTIFICATION ERROR CODES (6xxx) =====
+    NOTIFICATION_NOT_FOUND(6001, "Notification not found", HttpStatus.NOT_FOUND),
+
+
     ;
 
     private ErrorCode(int code, String message, HttpStatusCode statusCode) {

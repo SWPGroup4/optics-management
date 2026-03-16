@@ -34,6 +34,7 @@ public class PaymentService {
     final VNPayService vnPayService;
     final PaymentMapper paymentMapper;
     final RefundService refundService;
+    final NotificationService notificationService;
 
     @Transactional
     public String initiatePayment(String orderId, PaymentMethod paymentMethod, String baseUrl) {
@@ -88,6 +89,7 @@ public class PaymentService {
                     ? TransactionType.DEPOSIT
                     : TransactionType.CHARGE;
 
+
             Transaction transaction = Transaction.builder()
                     .payment(payment)
                     .type(txnType)
@@ -108,6 +110,7 @@ public class PaymentService {
 
             updateOrderStatusBasedOnItems(order);
             orderRepository.save(order);
+
 
         } else {
             payment.setStatus(PaymentStatus.FAILED);
@@ -158,6 +161,7 @@ public class PaymentService {
             case DEPOSIT -> order.getDepositAmount();
             case REMAINING -> order.getRemainingAmount();
             case FULL -> order.getTotalAmount();
+            case REFUND -> null;
         };
     }
 
