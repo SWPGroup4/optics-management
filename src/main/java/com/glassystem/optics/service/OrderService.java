@@ -689,6 +689,9 @@ public class OrderService {
     }
 
 
+
+
+
     /*
      * ===================== 3. PRODUCTION FLOW
      * =====================
@@ -717,9 +720,10 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse finishProduction(String orderId) {
+    public OrderResponse finishProductionOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
 
         OrderStatus currentStatus = order.getStatus();
         if (currentStatus != OrderStatus.PROCESSING && currentStatus != OrderStatus.PREPARING) {
@@ -764,7 +768,7 @@ public class OrderService {
                 .allMatch(item -> item.getStatus().equals(OrderItemStatus.PRODUCED));
 
         boolean anyInProduction = order.getItems().stream()
-                .allMatch(item -> item.getStatus().equals(OrderItemStatus.IN_PRODUCTION));
+                .anyMatch(item -> item.getStatus().equals(OrderItemStatus.IN_PRODUCTION));
 
         if (allFinished) {
             order.setStatus(OrderStatus.PRODUCED);
@@ -774,6 +778,7 @@ public class OrderService {
 
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
+
     @Transactional
     public void deleteOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
