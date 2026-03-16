@@ -15,6 +15,7 @@ import com.glassystem.optics.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.AccessLevel;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,10 +49,23 @@ public class RefundService {
     public String initiateRefundPayment(String refundId, String baseUrl){
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+
         if(refund.getStatus() != RefundStatus.READY_FOR_REFUND){
             throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
         }
+
         BigDecimal amount = refund.getRefundAmount();
+
+        if (amount == null || amount.compareTo(new BigDecimal("5000")) < 0) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT);
+        }
+
+        if (refund.getBankName() == null || refund.getBankName().isBlank()
+                || refund.getBankAccountNumber() == null || refund.getBankAccountNumber().isBlank()
+                || refund.getAccountHolderName() == null || refund.getAccountHolderName().isBlank()) {
+            throw new AppException(ErrorCode.FIELD_MISSING);
+        }
+
 
         Payment payment = Payment.builder()
                 .order(refund.getOrder())
@@ -63,7 +77,9 @@ public class RefundService {
                 .build();
 
         payment = paymentRepository.save(payment);
-
+        refund.setPayment(payment);
+        refund.setStatus(RefundStatus.PROCESSING);
+        refundRepository.save(refund);
         return vnPayService.createPaymentUrl(payment, baseUrl);
     }
 
@@ -180,7 +196,7 @@ public class RefundService {
         }else {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
-        refund.setStatus(RefundStatus.WAITING_CUSTOMER_INFO);
+        refund.setStatus(RefundStatus.READY_FOR_REFUND);
         refund.setCreatedAt(LocalDateTime.now());
 
         return refundMapper.toRefundResponse(refundRepository.save(refund));
@@ -206,12 +222,13 @@ public class RefundService {
                 ? safePaidAmount
                 : safePaidAmount.min(orderTotal);
 
-        BigDecimal managerRefundAmount = eligibleAmount
-                .multiply(safeDeductionPercent)
+        BigDecimal refundPercent = new BigDecimal("100").subtract(safeDeductionPercent);
+
+        BigDecimal refundAmount = eligibleAmount
+                .multiply(refundPercent)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
-        BigDecimal deductionAmount = eligibleAmount.subtract(managerRefundAmount);
-        return managerRefundAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : managerRefundAmount;
+        return refundAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : refundAmount;
     }
 
     private BigDecimal resolveDeductionAmount(Orders order, BigDecimal paidAmount, BigDecimal deductionPercent) {
@@ -235,24 +252,24 @@ public class RefundService {
                 : deductionAmount;
     }
 
-    @Transactional
-    public RefundBankAccountResponse submitBankInfo(String refundId, BankInfoRequest request){
-
-        Refund refund = refundRepository.findById(refundId)
-                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
-
-        if(refund.getStatus() != RefundStatus.WAITING_CUSTOMER_INFO){
-            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
-        }
-
-        refund.setBankName(request.getBankName());
-        refund.setBankAccountNumber(request.getBankAccountNumber());
-        refund.setAccountHolderName(request.getAccountHolderName());
-
-        refund.setStatus(RefundStatus.READY_FOR_REFUND);
-
-        return refundMapper.toRefundBankAccountResponse(refundRepository.save(refund));
-    }
+//    @Transactional
+//    public RefundBankAccountResponse submitBankInfo(String refundId, BankInfoRequest request){
+//
+//        Refund refund = refundRepository.findById(refundId)
+//                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+//
+//        if(refund.getStatus() != RefundStatus.WAITING_CUSTOMER_INFO){
+//            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
+//        }
+//
+//        refund.setBankName(request.getBankName());
+//        refund.setBankAccountNumber(request.getBankAccountNumber());
+//        refund.setAccountHolderName(request.getAccountHolderName());
+//
+//        refund.setStatus(RefundStatus.READY_FOR_REFUND);
+//
+//        return refundMapper.toRefundBankAccountResponse(refundRepository.save(refund));
+//    }
 
     public List<RefundResponse> getReadyRefunds(){
 
@@ -276,12 +293,15 @@ public class RefundService {
 
     @Transactional
     public void completeRefundByPayment(Payment payment){
-        Refund refund = refundRepository.findByOrderId(payment.getOrder().getId())
+        Refund refund = refundRepository.findByPaymentId(payment.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
-        if (refund.getStatus() != RefundStatus.READY_FOR_REFUND) {
+
+        if (refund.getStatus() != RefundStatus.PROCESSING) {
             throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
         }
-        processRefundCompletion(refund, "SYSTEM_VNPAY");
+        String processBy  = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        processRefundCompletion(refund, processBy);
     }
 
     private RefundResponse processRefundCompletion(Refund refund, String processedBy){

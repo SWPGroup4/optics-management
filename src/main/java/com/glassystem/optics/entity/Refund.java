@@ -52,4 +52,7 @@ public class Refund {
     LocalDateTime completedAt;
 
     String processedBy;
+
+    @ManyToOne
+    private Payment payment;
 }

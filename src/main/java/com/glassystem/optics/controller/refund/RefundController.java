@@ -64,14 +64,14 @@ public class RefundController {
 
 
 
-    @PostMapping("/bank-info/{refundId}")
-    public ApiResponse<RefundBankAccountResponse> submitBankInfo(
-            @PathVariable String refundId,
-            @RequestBody BankInfoRequest request){
-        return ApiResponse.<RefundBankAccountResponse>builder()
-                .result(refundService.submitBankInfo(refundId, request))
-                .build();
-    }
+//    @PostMapping("/bank-info/{refundId}")
+//    public ApiResponse<RefundBankAccountResponse> submitBankInfo(
+//            @PathVariable String refundId,
+//            @RequestBody BankInfoRequest request){
+//        return ApiResponse.<RefundBankAccountResponse>builder()
+//                .result(refundService.submitBankInfo(refundId, request))
+//                .build();
+//    }
 
 
 
