@@ -1,8 +1,5 @@
 package com.glassystem.optics.controller.order;
 
-import java.util.List;
-
-import com.glassystem.optics.dto.request.ShipOrdersRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,15 +53,5 @@ public class ProductionOrderController {
                 .result(orderService.updateOrderItemProductionStatus(orderItemId, status))
                 .build();
     }
-
-
-
-    @PutMapping("/ready-to-ship")
-    public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.markAsReadyToShip(request.getOrderIds()))
-                .build();
-    }
-
 
 }

@@ -721,19 +721,28 @@ public class OrderService {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStatus().equals(OrderStatus.PROCESSING)) {
+        OrderStatus currentStatus = order.getStatus();
+        if (currentStatus != OrderStatus.PROCESSING && currentStatus != OrderStatus.PREPARING) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
-        if (order.getItems() != null) {
-            for (OrderItem orderItem : order.getItems()) {
-                if (requiresProcessing(orderItem)
-                        || orderItem.getStatus() == OrderItemStatus.IN_PRODUCTION) {
 
-                    orderItem.setStatus(OrderItemStatus.PRODUCED);
+        List<OrderItem> items = order.getItems();
+        if (items == null || items.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        if (currentStatus == OrderStatus.PREPARING) {
+            items.forEach(item -> item.setStatus(OrderItemStatus.PRODUCED));
+        } else {
+            for (OrderItem item : items) {
+                if (requiresProcessing(item) && item.getStatus() != OrderItemStatus.IN_PRODUCTION) {
+                    throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                 }
+                item.setStatus(OrderItemStatus.PRODUCED);
             }
         }
+
         order.setStatus(OrderStatus.PRODUCED);
+
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
 
@@ -765,38 +774,6 @@ public class OrderService {
 
         return orderMapper.toOrderResponse(orderRepository.save(order));
     }
-
-
-
-    @Transactional
-    public List<OrderResponse> markAsReadyToShip(List<String> orderIds) {
-        List<OrderResponse> responses = new ArrayList<>();
-        for (String orderId : orderIds) {
-            Orders order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-            for (OrderItem orderItem : order.getItems()) {
-                if (requiresProcessing(orderItem)) {
-                    if (order.getStatus() != OrderStatus.PRODUCED) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                    if (order.getStatus() != OrderStatus.PREPARING) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                } else if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
-                    if (order.getStatus() != OrderStatus.PREPARING
-                            && order.getStatus() != OrderStatus.PRODUCED) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                }
-            }
-            order.setStatus(OrderStatus.READY_TO_SHIP);
-            responses.add(orderMapper.toOrderResponse(order));
-        }
-        return responses;
-    }
-
-
-
     @Transactional
     public void deleteOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
@@ -840,7 +817,8 @@ public class OrderService {
         for (String orderId : orderIds) {
             Orders order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-            if (order.getStatus() != OrderStatus.READY_TO_SHIP) {
+            if (order.getStatus() != OrderStatus.READY_TO_SHIP
+                    && order.getStatus() != OrderStatus.PRODUCED) {
                 throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
             }
             order.setStatus(OrderStatus.SHIPPED);
