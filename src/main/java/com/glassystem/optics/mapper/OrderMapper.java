@@ -28,5 +28,10 @@ public interface OrderMapper {
     @Mapping(target = "bankInfo.bankName", source = "bankName")
     @Mapping(target = "bankInfo.bankAccountNumber", source = "bankAccountNumber")
     @Mapping(target = "bankInfo.accountHolderName", source = "accountHolderName")
+    @Mapping(target = "orderName", ignore = true)
+    @Mapping(target = "payments", ignore = true)
+    @Mapping(target = "paidAmount", ignore = true)
+    @Mapping(target = "refundedAmount", ignore = true)
+    @Mapping(target = "finalTotalAfterRefund", ignore = true)
     OrderResponse toOrderResponse(Orders order);
 }
