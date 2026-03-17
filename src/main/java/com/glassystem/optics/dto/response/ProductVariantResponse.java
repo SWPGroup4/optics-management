@@ -22,6 +22,7 @@ public class ProductVariantResponse {
 	Integer templeLengthMm;
 	String sizeLabel;
 	BigDecimal price;
+    Integer quantity;
 	ProductVariantStatus status;
 
     OrderItemType orderItemType;
