@@ -30,6 +30,7 @@ public class OrderResponse {
     BigDecimal paidAmount;
     List<OrderItemResponse> items;
     List<PaymentResponse> payments;
+    ShipperInfoResponse shipperInfo;
 
     String comboId;
     String comboName;

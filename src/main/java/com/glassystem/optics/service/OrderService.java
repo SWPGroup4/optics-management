@@ -651,6 +651,7 @@ public class OrderService {
     private OrderResponse buildOrderResponse(Orders order) {
         OrderResponse response = orderMapper.toOrderResponse(order);
         enrichOrderPresentation(response);
+        enrichShipperInfo(response, order);
         enrichPaymentInfo(response);
         enrichRefundInfo(response);
         return response;
@@ -673,13 +674,54 @@ public class OrderService {
             response.setOrderName("Order " + response.getOrderId());
             return;
         }
-
         if (itemNames.size() == 1) {
             response.setOrderName(itemNames.get(0));
             return;
         }
-
         response.setOrderName(itemNames.get(0) + " và " + (itemNames.size() - 1) + " sản phẩm khác");
+    }
+
+    private void enrichShipperInfo(OrderResponse response, Orders order) {
+        if (response == null || order == null || order.getShipperId() == null || order.getShipperId().isBlank()) {
+            if (response != null) {
+                response.setShipperInfo(null);
+            }
+            return;
+        }
+
+        userRepository.findById(order.getShipperId())
+                .ifPresentOrElse(
+                        shipper -> response.setShipperInfo(new ShipperInfoResponse(
+                                shipper.getId(),
+                                buildUserFullName(shipper),
+                                shipper.getPhone(),
+                                shipper.getEmail(),
+                                shipper.getImageUrl()
+                        )),
+                        () -> response.setShipperInfo(null)
+                );
+    }
+
+    private String buildUserFullName(User user) {
+        if (user == null) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        if (user.getFirstName() != null && !user.getFirstName().isBlank()) {
+            parts.add(user.getFirstName().trim());
+        }
+        if (user.getLastName() != null && !user.getLastName().isBlank()) {
+            parts.add(user.getLastName().trim());
+        }
+        if (!parts.isEmpty()) {
+            return String.join(" ", parts);
+        }
+
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+
+        return null;
     }
 
     private void enrichPaymentInfo(OrderResponse response) {
