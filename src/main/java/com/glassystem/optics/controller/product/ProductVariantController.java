@@ -1,7 +1,9 @@
 package com.glassystem.optics.controller.product;
 
+import com.glassystem.optics.dto.request.InventoryUpdateRequest;
 import com.glassystem.optics.dto.request.ProductVariantRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.dto.response.InventoryQuantityUpdateResponse;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.service.ProductVariantService;
 import jakarta.validation.Valid;
@@ -42,5 +44,14 @@ public class ProductVariantController {
 		return ApiResponse.<Void>builder().build();
 	}
 
+
+    @PatchMapping("/inventory")
+    @PreAuthorize("hasRole('OPERATION') or hasRole('MANAGER') or hasRole('ADMIN')")
+    ApiResponse<InventoryQuantityUpdateResponse> updateInventoryQuantity(
+            @RequestBody @Valid InventoryUpdateRequest request) {
+        return ApiResponse.<InventoryQuantityUpdateResponse>builder()
+                .result(productVariantService.updateInventoryQuantity(request))
+                .build();
+    }
 
 }

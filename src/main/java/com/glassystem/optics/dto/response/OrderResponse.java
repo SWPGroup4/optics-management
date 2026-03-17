@@ -19,20 +19,17 @@ import java.util.List;
 public class OrderResponse {
     String customerId;
     String orderId;
+    String orderName;
     String deliveryAddress;
     String phoneNumber;
-
-
     OrderStatus orderStatus;
-
     BigDecimal totalAmount;
-    // PRE ORDER
     BigDecimal depositAmount;
-    // IN STOCK
+    BigDecimal remainingAmount;
     BigDecimal paidAmount;
     List<OrderItemResponse> items;
+    List<PaymentResponse> payments;
 
-    // ===== COMBO INFO =====
     String comboId;
     String comboName;
     BigDecimal comboDiscountAmount;
@@ -41,6 +38,6 @@ public class OrderResponse {
     BigDecimal refundedAmount;
     BigDecimal finalTotalAfterRefund;
 
-    BankInfoResponse  bankInfo;
+    BankInfoResponse bankInfo;
 
 }

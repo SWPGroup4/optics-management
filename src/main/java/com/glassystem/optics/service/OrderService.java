@@ -10,6 +10,7 @@ import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.OrderItemMapper;
 import com.glassystem.optics.mapper.OrderMapper;
+import com.glassystem.optics.mapper.PaymentMapper;
 import com.glassystem.optics.mapper.PrescriptionMapper;
 import com.glassystem.optics.repository.*;
 import lombok.AccessLevel;
@@ -52,6 +53,9 @@ public class OrderService {
      final PaymentCalculationService paymentCalculationService;
      final RefundRepository refundRepository;
      final PaymentRepository paymentRepository;
+    final PaymentMapper paymentMapper;
+    final TransactionRepository transactionRepository;
+
 
 
     /*
@@ -184,7 +188,8 @@ public class OrderService {
         order.setTotalAmount(finalTotal);
         log.info("Tạo đơn hàng: totalGốc={}, comboDiscount={}, finalTotal={}, comboId={}",
                 totalAmount, comboDiscountAmount, finalTotal, request.getComboId());
-        return orderMapper.toOrderResponse(orderRepository.save(order));
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);
     }
 
     /**
@@ -411,8 +416,7 @@ public class OrderService {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         return orderRepository.findByCustomerId(userId)
                 .stream()
-                .map(orderMapper::toOrderResponse)
-                .map(this::enrichRefundInfo)
+                .map(this::buildOrderResponse)
                 .toList();
     }
 
@@ -449,7 +453,8 @@ public class OrderService {
                 }
             }
         }
-        return orderMapper.toOrderResponse(orderRepository.save(orders));
+        Orders savedOrder = orderRepository.save(orders);
+        return buildOrderResponse(savedOrder);
     }
 
     @Transactional
@@ -494,8 +499,8 @@ public class OrderService {
             }
         }
         order.setStatus(OrderStatus.CANCELLED);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getMyCancelledOrders() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -519,8 +524,8 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.COMPLETED);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);    }
 
     /*
      * ===================== 2. MANAGEMENT FLOW (APIs cho Admin/Sales)
@@ -535,7 +540,7 @@ public class OrderService {
         if (!order.getCustomer().getId().equals(currentId)) {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
-        return orderMapper.toOrderResponse(order);
+        return buildOrderResponse(order);
     }
 
     @Transactional
@@ -559,9 +564,7 @@ public class OrderService {
             order.setStatus(OrderStatus.ON_HOLD);
         }
         Orders savedOrder = orderRepository.save(order);
-
-        return orderMapper.toOrderResponse(savedOrder);
-    }
+        return buildOrderResponse(savedOrder);    }
 
     @Transactional
     public OrderResponse revertVerification(String orderId) {
@@ -577,10 +580,8 @@ public class OrderService {
         OrderStatus previousStatus = OrderStatus.AWAITING_VERIFICATION;
 
         order.setStatus(previousStatus);
-        orderRepository.save(order);
-
-        return orderMapper.toOrderResponse(order);
-    }
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);    }
 
 
     @Transactional
@@ -602,8 +603,8 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
 
@@ -611,17 +612,13 @@ public class OrderService {
 
         if (status == null) {
             return orderRepository.findAll(sort).stream()
-                    .map(orderMapper::toOrderResponse)
-                    .map(this::enrichPaidAmount)
-                    .map(this::enrichRefundInfo)
+                    .map(this::buildOrderResponse)
                     .toList();
         }
 
         return orderRepository.findByStatus(status)
                 .stream()
-                .map(orderMapper::toOrderResponse)
-                .map(this::enrichPaidAmount)
-                .map(this::enrichRefundInfo)
+                .map(this::buildOrderResponse)
                 .toList();
     }
 
@@ -629,7 +626,9 @@ public class OrderService {
         userRepository.findById(customerId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         return orderRepository.findByCustomerId(customerId)
-                .stream().map(orderMapper::toOrderResponse).toList();
+                .stream()
+                .map(this::buildOrderResponse)
+                .toList();
     }
 
     private OrderResponse enrichPaidAmount(OrderResponse response) {
@@ -645,6 +644,74 @@ public class OrderService {
         response.setPaidAmount(paidAmount);
         return response;
     }
+    private OrderResponse buildOrderResponse(Orders order) {
+        OrderResponse response = orderMapper.toOrderResponse(order);
+        enrichOrderPresentation(response);
+        enrichPaymentInfo(response);
+        enrichRefundInfo(response);
+        return response;
+    }
+
+    private void enrichOrderPresentation(OrderResponse response) {
+        if (response == null || response.getItems() == null || response.getItems().isEmpty()) {
+            response.setOrderName(null);
+            return;
+        }
+
+        List<String> itemNames = response.getItems().stream()
+                .map(OrderItemResponse::getItemName)
+                .filter(Objects::nonNull)
+                .filter(name -> !name.isBlank())
+                .distinct()
+                .toList();
+
+        if (itemNames.isEmpty()) {
+            response.setOrderName("Order " + response.getOrderId());
+            return;
+        }
+
+        if (itemNames.size() == 1) {
+            response.setOrderName(itemNames.get(0));
+            return;
+        }
+
+        response.setOrderName(itemNames.get(0) + " và " + (itemNames.size() - 1) + " sản phẩm khác");
+    }
+
+    private void enrichPaymentInfo(OrderResponse response) {
+        if (response == null || response.getOrderId() == null) {
+            return;
+        }
+
+        List<PaymentResponse> payments = paymentRepository.findByOrderId(response.getOrderId())
+                .stream()
+                .sorted((p1, p2) -> {
+                    if (p1.getPaymentDate() == null && p2.getPaymentDate() == null) return 0;
+                    if (p1.getPaymentDate() == null) return 1;
+                    if (p2.getPaymentDate() == null) return -1;
+                    return p2.getPaymentDate().compareTo(p1.getPaymentDate());
+                })
+                .map(payment -> {
+                    PaymentResponse paymentResponse = paymentMapper.toPaymentResponse(payment);
+                    String transactionReference = transactionRepository
+                            .findTopByPaymentIdOrderByDateTimeDesc(payment.getId())
+                            .map(Transaction::getGatewayReference)
+                            .orElse(null);
+                    paymentResponse.setTransactionReference(transactionReference);
+                    return paymentResponse;
+                })
+                .toList();
+
+        BigDecimal paidAmount = payments.stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PAID)
+                .map(PaymentResponse::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        response.setPayments(payments);
+        response.setPaidAmount(paidAmount);
+    }
+
 
 
     private OrderResponse enrichRefundInfo(OrderResponse response) {
@@ -677,8 +744,7 @@ public class OrderService {
         return orderRepository.findByStatus(OrderStatus.CANCELLED)
                 .stream()
                 .filter(this::hasPaidTransaction)
-                .map(orderMapper::toOrderResponse)
-                .map(this::enrichPaidAmount)
+                .map(this::buildOrderResponse)
                 .toList();
     }
 
@@ -716,8 +782,8 @@ public class OrderService {
                 orderItem.setStatus(OrderItemStatus.PRODUCED);
             }
         }
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);    }
 
     @Transactional
     public OrderResponse finishProductionOrder(String orderId) {
@@ -747,8 +813,8 @@ public class OrderService {
 
         order.setStatus(OrderStatus.PRODUCED);
 
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);    }
 
     @Transactional
     public OrderResponse updateOrderItemProductionStatus(String orderItemId, OrderItemStatus status) {
@@ -776,8 +842,8 @@ public class OrderService {
             order.setStatus(OrderStatus.PROCESSING);
         }
 
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);    }
 
     @Transactional
     public void deleteOrder(String orderId) {
@@ -798,17 +864,17 @@ public class OrderService {
     }
 
 
-    @Transactional
-    public OrderResponse markStockArrived(String orderId) {
-        Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        if(order.getStatus() != OrderStatus.CONFIRMED){
-            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-        }
-        order.setStatus(OrderStatus.AWAITING_FINAL_PAYMENT);
-        orderRepository.save(order);
-        return orderMapper.toOrderResponse(order);
-    }
+//    @Transactional
+//    public OrderResponse markStockArrived(String orderId) {
+//        Orders order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+//        if(order.getStatus() != OrderStatus.CONFIRMED){
+//            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+//        }
+//        order.setStatus(OrderStatus.AWAITING_FINAL_PAYMENT);
+//        orderRepository.save(order);
+//        return orderMapper.toOrderResponse(order);
+//    }
 
 
     /*
@@ -862,8 +928,8 @@ public class OrderService {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
         order.setStatus(OrderStatus.DELIVERING);
-        orderRepository.save(order);
-        return orderMapper.toOrderResponse(order);
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);
     }
 
     @Transactional
@@ -881,9 +947,8 @@ public class OrderService {
 
         order.setStatus(OrderStatus.COMPLETED);
 
-        orderRepository.save(order);
-
-        return orderMapper.toOrderResponse(order);
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);
     }
 
 
@@ -1056,7 +1121,7 @@ public class OrderService {
     public OrderResponse getOrderDetailWithCombo(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        return orderMapper.toOrderResponse(order);
+        return buildOrderResponse(order);
     }
 
     private String buildSkuLabel(ProductVariant variant) {
@@ -1129,4 +1194,6 @@ public class OrderService {
     private BigDecimal normalizeAmount(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
+
+
 }

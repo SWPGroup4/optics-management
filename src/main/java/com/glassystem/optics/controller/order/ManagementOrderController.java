@@ -39,14 +39,14 @@ public class ManagementOrderController {
     }
 
 
-    @PostMapping("/{orderId}/stock-arrived")
-    public ApiResponse<OrderResponse> stockArrived(
-            @PathVariable String orderId) {
-
-        return ApiResponse.<OrderResponse>builder()
-                .result(orderService.markStockArrived(orderId))
-                .build();
-    }
+//    @PostMapping("/{orderId}/stock-arrived")
+//    public ApiResponse<OrderResponse> stockArrived(
+//            @PathVariable String orderId) {
+//
+//        return ApiResponse.<OrderResponse>builder()
+//                .result(orderService.markStockArrived(orderId))
+//                .build();
+//    }
 
 
     @GetMapping("/{orderId}")
