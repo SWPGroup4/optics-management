@@ -21,6 +21,7 @@ public class OrderResponse {
     String orderId;
     String orderName;
     String deliveryAddress;
+    String recipientName;
     String phoneNumber;
     OrderStatus orderStatus;
     BigDecimal totalAmount;

@@ -19,6 +19,7 @@ public class OrderItemResponse {
     String productVariantId;
     String itemName;
     String productName;
+    String productImage;
     String variantName;
     OrderItemType orderItemType;
     Integer quantity;

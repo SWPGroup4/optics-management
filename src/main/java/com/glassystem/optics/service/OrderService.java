@@ -74,6 +74,7 @@ public class OrderService {
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDate.now());
         order.setDeliveryAddress(request.getDeliveryAddress());
+        order.setRecipientName(request.getRecipientName());
         order.setPhoneNumber(request.getPhoneNumber());
         order.setBankName(request.getBankInfo().getBankName());
         order.setBankAccountNumber(request.getBankInfo().getBankAccountNumber());
@@ -435,6 +436,9 @@ public class OrderService {
 
         if (request.getDeliveryAddress() != null) {
             orders.setDeliveryAddress(request.getDeliveryAddress());
+        }
+        if (request.getRecipientName() != null) {
+            orders.setRecipientName(request.getRecipientName());
         }
         if (request.getPhoneNumber() != null) {
             orders.setPhoneNumber(request.getPhoneNumber());
