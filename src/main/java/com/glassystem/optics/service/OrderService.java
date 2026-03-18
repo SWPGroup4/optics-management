@@ -55,6 +55,7 @@ public class OrderService {
      final PaymentRepository paymentRepository;
     final PaymentMapper paymentMapper;
     final TransactionRepository transactionRepository;
+    final NotificationService notificationService;
 
 
 
@@ -190,6 +191,14 @@ public class OrderService {
         log.info("Tạo đơn hàng: totalGốc={}, comboDiscount={}, finalTotal={}, comboId={}",
                 totalAmount, comboDiscountAmount, finalTotal, request.getComboId());
         Orders savedOrder = orderRepository.save(order);
+        if (savedOrder.getCustomer() != null && savedOrder.getCustomer().getId() != null) {
+            notificationService.createSystemNotification(
+                    savedOrder.getCustomer().getId(),
+                    NotificationTemplate.ORDER_CREATED,
+                    savedOrder.getId(),
+                    savedOrder.getStatus()
+            );
+        }
         return buildOrderResponse(savedOrder);
     }
 
