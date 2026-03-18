@@ -11,18 +11,7 @@ import java.math.BigDecimal;
 public class RefundResponse {
 
     String refundId;
-
-    String orderId;
-
-    String variantId;
-
-    String customerName;
-
-    String bankName;
-
-    String bankAccount;
-
-    BigDecimal orderTotalAmount;
+    OrderResponse order;
 
     BigDecimal refundAmount;
 

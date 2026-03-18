@@ -55,6 +55,7 @@ public class OrderService {
      final PaymentRepository paymentRepository;
     final PaymentMapper paymentMapper;
     final TransactionRepository transactionRepository;
+    final NotificationService notificationService;
 
 
 
@@ -74,6 +75,7 @@ public class OrderService {
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDate.now());
         order.setDeliveryAddress(request.getDeliveryAddress());
+        order.setRecipientName(request.getRecipientName());
         order.setPhoneNumber(request.getPhoneNumber());
         order.setBankName(request.getBankInfo().getBankName());
         order.setBankAccountNumber(request.getBankInfo().getBankAccountNumber());
@@ -189,6 +191,14 @@ public class OrderService {
         log.info("Tạo đơn hàng: totalGốc={}, comboDiscount={}, finalTotal={}, comboId={}",
                 totalAmount, comboDiscountAmount, finalTotal, request.getComboId());
         Orders savedOrder = orderRepository.save(order);
+        if (savedOrder.getCustomer() != null && savedOrder.getCustomer().getId() != null) {
+            notificationService.createSystemNotification(
+                    savedOrder.getCustomer().getId(),
+                    NotificationTemplate.ORDER_CREATED,
+                    savedOrder.getId(),
+                    savedOrder.getStatus()
+            );
+        }
         return buildOrderResponse(savedOrder);
     }
 
@@ -436,6 +446,9 @@ public class OrderService {
         if (request.getDeliveryAddress() != null) {
             orders.setDeliveryAddress(request.getDeliveryAddress());
         }
+        if (request.getRecipientName() != null) {
+            orders.setRecipientName(request.getRecipientName());
+        }
         if (request.getPhoneNumber() != null) {
             orders.setPhoneNumber(request.getPhoneNumber());
         }
@@ -647,6 +660,7 @@ public class OrderService {
     private OrderResponse buildOrderResponse(Orders order) {
         OrderResponse response = orderMapper.toOrderResponse(order);
         enrichOrderPresentation(response);
+        enrichShipperInfo(response, order);
         enrichPaymentInfo(response);
         enrichRefundInfo(response);
         return response;
@@ -669,13 +683,54 @@ public class OrderService {
             response.setOrderName("Order " + response.getOrderId());
             return;
         }
-
         if (itemNames.size() == 1) {
             response.setOrderName(itemNames.get(0));
             return;
         }
-
         response.setOrderName(itemNames.get(0) + " và " + (itemNames.size() - 1) + " sản phẩm khác");
+    }
+
+    private void enrichShipperInfo(OrderResponse response, Orders order) {
+        if (response == null || order == null || order.getShipperId() == null || order.getShipperId().isBlank()) {
+            if (response != null) {
+                response.setShipperInfo(null);
+            }
+            return;
+        }
+
+        userRepository.findById(order.getShipperId())
+                .ifPresentOrElse(
+                        shipper -> response.setShipperInfo(new ShipperInfoResponse(
+                                shipper.getId(),
+                                buildUserFullName(shipper),
+                                shipper.getPhone(),
+                                shipper.getEmail(),
+                                shipper.getImageUrl()
+                        )),
+                        () -> response.setShipperInfo(null)
+                );
+    }
+
+    private String buildUserFullName(User user) {
+        if (user == null) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        if (user.getFirstName() != null && !user.getFirstName().isBlank()) {
+            parts.add(user.getFirstName().trim());
+        }
+        if (user.getLastName() != null && !user.getLastName().isBlank()) {
+            parts.add(user.getLastName().trim());
+        }
+        if (!parts.isEmpty()) {
+            return String.join(" ", parts);
+        }
+
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+
+        return null;
     }
 
     private void enrichPaymentInfo(OrderResponse response) {
@@ -1121,6 +1176,10 @@ public class OrderService {
     public OrderResponse getOrderDetailWithCombo(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        return buildOrderResponse(order);
+    }
+
+    public OrderResponse toOrderResponse(Orders order) {
         return buildOrderResponse(order);
     }
 

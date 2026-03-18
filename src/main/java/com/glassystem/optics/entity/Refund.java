@@ -28,8 +28,6 @@ public class Refund {
 
     String customerId;
 
-    String variantId;
-
     BigDecimal orderTotalAmount;
 
     BigDecimal refundAmount;

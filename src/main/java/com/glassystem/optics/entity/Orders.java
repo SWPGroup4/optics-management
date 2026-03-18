@@ -46,6 +46,10 @@ public class Orders {
     String deliveryAddress;
 
     @NonNull
+    @Column(name = "recipient_name")
+    String recipientName;
+
+    @NonNull
     String phoneNumber;
 
     @Enumerated(EnumType.STRING)

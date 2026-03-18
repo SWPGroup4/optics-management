@@ -2,6 +2,7 @@ package com.glassystem.optics.service;
 
 
 import com.glassystem.optics.dto.request.BankInfoRequest;
+import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.dto.response.RefundBankAccountResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
@@ -31,8 +32,8 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RefundService {
 
-    static final BigDecimal CUSTOMER_CANCEL_DEDUCTION_PERCENT = new BigDecimal("95");
-    static final BigDecimal MANUFACTURER_CANCEL_DEDUCTION_PERCENT = BigDecimal.ZERO;
+    static final BigDecimal CUSTOMER_CANCEL_REFUND_PERCENT = new BigDecimal("95");
+    static final BigDecimal MANUFACTURER_CANCEL_REFUND_PERCENT = new BigDecimal("100");
 
     final RefundRepository refundRepository;
     final OrderRepository orderRepository;
@@ -41,6 +42,7 @@ public class RefundService {
     final ProductVariantRepository productVariantRepository;
     final ProductVariantMapper productVariantMapper;
     final VNPayService vnPayService;
+    final OrderService orderService;
 
 
 
@@ -50,7 +52,8 @@ public class RefundService {
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
 
-        if(refund.getStatus() != RefundStatus.READY_FOR_REFUND){
+        if(refund.getStatus() != RefundStatus.READY_FOR_REFUND
+                && refund.getStatus() != RefundStatus.FAILED){
             throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
         }
 
@@ -59,6 +62,8 @@ public class RefundService {
         if (amount == null || amount.compareTo(new BigDecimal("5000")) < 0) {
             throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT);
         }
+
+        populateRefundBankInfo(refund);
 
         if (refund.getBankName() == null || refund.getBankName().isBlank()
                 || refund.getBankAccountNumber() == null || refund.getBankAccountNumber().isBlank()
@@ -133,18 +138,11 @@ public class RefundService {
                 .map(this::calculateRefundAmountForItem)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        String customerName = null;
-        if (order.getCustomer() != null) {
-            customerName = (order.getCustomer().getFirstName() + " " + order.getCustomer().getLastName()).trim();
-        }
-
         return RefundResponse.builder()
-                .orderId(order.getId())
-                .variantId(variantId)
-                .customerName(customerName)
-                .orderTotalAmount(order.getTotalAmount())
+                .order(orderService.toOrderResponse(order))
                 .refundAmount(refundAmount)
-                .refundPercentage(MANUFACTURER_CANCEL_DEDUCTION_PERCENT)
+                .refundPercentage(MANUFACTURER_CANCEL_REFUND_PERCENT)
+                .deductionAmount(BigDecimal.ZERO)
                 .build();
     }
 
@@ -154,6 +152,23 @@ public class RefundService {
             return BigDecimal.ZERO;
         }
         return item.getDepositPrice();
+    }
+
+    private void populateRefundBankInfo(Refund refund) {
+        if (refund == null || refund.getOrder() == null) {
+            return;
+        }
+
+        Orders order = refund.getOrder();
+        if (refund.getBankName() == null || refund.getBankName().isBlank()) {
+            refund.setBankName(order.getBankName());
+        }
+        if (refund.getBankAccountNumber() == null || refund.getBankAccountNumber().isBlank()) {
+            refund.setBankAccountNumber(order.getBankAccountNumber());
+        }
+        if (refund.getAccountHolderName() == null || refund.getAccountHolderName().isBlank()) {
+            refund.setAccountHolderName(order.getAccountHolderName());
+        }
     }
 
 
@@ -180,30 +195,40 @@ public class RefundService {
         refund.setOrder(order);
         refund.setCustomerId(order.getCustomer() != null ? order.getCustomer().getId() : null);
         refund.setOrderTotalAmount(order.getTotalAmount());
+        populateRefundBankInfo(refund);
 
         if(order.getStatus() == OrderStatus.CANCELLED) {
-            BigDecimal paidAmount  = getPaidAmount(orderId);
-            if(paidAmount.compareTo(BigDecimal.ZERO) <= 0){
+            if (!applyCustomerCancellationRefund(refund, orderId)) {
                 return null;
             }
-            refund.setRefundPercentage(CUSTOMER_CANCEL_DEDUCTION_PERCENT);
-            refund.setRefundAmount(resolveRefundAmount(order, paidAmount, CUSTOMER_CANCEL_DEDUCTION_PERCENT));
-            refund.setDeductionAmount(resolveDeductionAmount(order,  paidAmount, CUSTOMER_CANCEL_DEDUCTION_PERCENT));
         }else if(order.getPreOrderStatus() == PreOrderStatus.DEPOSIT_PAID){
             BigDecimal depositAmount = order.getDepositAmount() == null ? BigDecimal.ZERO : order.getDepositAmount();
             if(depositAmount.compareTo(BigDecimal.ZERO) <= 0){
                 return null;
             }
-            refund.setRefundPercentage(MANUFACTURER_CANCEL_DEDUCTION_PERCENT);
-            refund.setRefundAmount(resolveRefundAmount(order, depositAmount, MANUFACTURER_CANCEL_DEDUCTION_PERCENT));
-            refund.setDeductionAmount(resolveDeductionAmount(order, depositAmount, MANUFACTURER_CANCEL_DEDUCTION_PERCENT));
+            refund.setRefundPercentage(MANUFACTURER_CANCEL_REFUND_PERCENT);
+            refund.setRefundAmount(resolveRefundAmount(order, depositAmount, MANUFACTURER_CANCEL_REFUND_PERCENT));
+            refund.setDeductionAmount(resolveDeductionAmount(order, depositAmount, MANUFACTURER_CANCEL_REFUND_PERCENT));
         }else {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
         refund.setStatus(RefundStatus.READY_FOR_REFUND);
         refund.setCreatedAt(LocalDateTime.now());
 
-        return refundMapper.toRefundResponse(refundRepository.save(refund));
+        return buildRefundResponse(refundRepository.save(refund));
+    }
+
+    private boolean applyCustomerCancellationRefund(Refund refund, String orderId) {
+        BigDecimal paidAmount = getPaidAmount(orderId);
+        if (paidAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+
+        Orders order = refund.getOrder();
+        refund.setRefundPercentage(CUSTOMER_CANCEL_REFUND_PERCENT);
+        refund.setRefundAmount(resolveRefundAmount(order, paidAmount, CUSTOMER_CANCEL_REFUND_PERCENT));
+        refund.setDeductionAmount(resolveDeductionAmount(order, paidAmount, CUSTOMER_CANCEL_REFUND_PERCENT));
+        return true;
     }
 
 
@@ -217,27 +242,25 @@ public class RefundService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private BigDecimal resolveRefundAmount(Orders order, BigDecimal paidAmount, BigDecimal deductionPercent) {
+    private BigDecimal resolveRefundAmount(Orders order, BigDecimal paidAmount, BigDecimal refundPercent) {
         BigDecimal safePaidAmount = paidAmount == null ? BigDecimal.ZERO : paidAmount;
-        BigDecimal safeDeductionPercent = deductionPercent == null ? BigDecimal.ZERO : deductionPercent;
+        BigDecimal safeRefundPercent = refundPercent == null ? BigDecimal.ZERO : refundPercent;
 
         BigDecimal orderTotal = order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount();
         BigDecimal eligibleAmount = orderTotal.compareTo(BigDecimal.ZERO) <= 0
                 ? safePaidAmount
                 : safePaidAmount.min(orderTotal);
 
-        BigDecimal refundPercent = new BigDecimal("100").subtract(safeDeductionPercent);
-
         BigDecimal refundAmount = eligibleAmount
-                .multiply(refundPercent)
+                .multiply(safeRefundPercent)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
         return refundAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : refundAmount;
     }
 
-    private BigDecimal resolveDeductionAmount(Orders order, BigDecimal paidAmount, BigDecimal deductionPercent) {
+    private BigDecimal resolveDeductionAmount(Orders order, BigDecimal paidAmount, BigDecimal refundPercent) {
         BigDecimal safePaidAmount = paidAmount == null ? BigDecimal.ZERO : paidAmount;
-        BigDecimal safeDeductionPercent = deductionPercent == null ? BigDecimal.ZERO : deductionPercent;
+        BigDecimal safeRefundPercent = refundPercent == null ? BigDecimal.ZERO : refundPercent;
 
         BigDecimal orderTotal = order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount();
 
@@ -245,11 +268,11 @@ public class RefundService {
                 ? safePaidAmount
                 : safePaidAmount.min(orderTotal);
 
-        BigDecimal managerRefundAmount = eligibleAmount
-                .multiply(safeDeductionPercent)
+        BigDecimal refundAmount = eligibleAmount
+                .multiply(safeRefundPercent)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
-        BigDecimal deductionAmount = eligibleAmount.subtract(managerRefundAmount);
+        BigDecimal deductionAmount = eligibleAmount.subtract(refundAmount);
 
         return deductionAmount.compareTo(BigDecimal.ZERO) < 0
                 ? BigDecimal.ZERO
@@ -279,7 +302,7 @@ public class RefundService {
 
         return refundRepository.findByStatus(RefundStatus.READY_FOR_REFUND)
                 .stream()
-                .map(refundMapper::toRefundResponse)
+                .map(this::buildRefundResponse)
                 .toList();
     }
 
@@ -306,6 +329,22 @@ public class RefundService {
         String processBy  = SecurityContextHolder.getContext().getAuthentication().getName();
 
         processRefundCompletion(refund, processBy);
+    }
+
+    @Transactional
+    public void markRefundPaymentFailed(Payment payment) {
+        if (payment == null || payment.getId() == null) {
+            return;
+        }
+
+        refundRepository.findByPaymentId(payment.getId())
+                .ifPresent(refund -> {
+                    if (refund.getStatus() == RefundStatus.PROCESSING) {
+                        refund.setStatus(RefundStatus.FAILED);
+                        refund.setPayment(null);
+                        refundRepository.save(refund);
+                    }
+                });
     }
 
     private RefundResponse processRefundCompletion(Refund refund, String processedBy){
@@ -343,6 +382,20 @@ public class RefundService {
         orderRepository.save(order);
         paymentRepository.saveAll(paidPayments);
 
-        return refundMapper.toRefundResponse(savedRefund);
+        return buildRefundResponse(savedRefund);
+    }
+
+    private RefundResponse buildRefundResponse(Refund refund) {
+        RefundResponse response = refundMapper.toRefundResponse(refund);
+        if (response == null) {
+            return null;
+        }
+
+        Orders order = refund.getOrder();
+        if (order != null) {
+            response.setOrder(orderService.toOrderResponse(order));
+        }
+
+        return response;
     }
 }

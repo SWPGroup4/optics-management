@@ -4,8 +4,10 @@ import com.glassystem.optics.dto.request.NotificationCreateRequest;
 import com.glassystem.optics.dto.response.NotificationResponse;
 import com.glassystem.optics.entity.Notification;
 import com.glassystem.optics.entity.User;
+import com.glassystem.optics.enums.NotificationTemplate;
 import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
+import com.glassystem.optics.mapper.NotificationMapper;
 import com.glassystem.optics.repository.NotificationRepository;
 import com.glassystem.optics.repository.UserRepository;
 import lombok.AccessLevel;
@@ -26,6 +28,7 @@ public class NotificationService {
     NotificationRepository notificationRepository;
     UserRepository userRepository;
     NotificationSseService notificationSseService;
+    NotificationMapper notificationMapper;
 
     @Transactional
     public NotificationResponse createNotification(NotificationCreateRequest request) {
@@ -43,10 +46,15 @@ public class NotificationService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        NotificationResponse response = toResponse(notificationRepository.save(notification));
+        NotificationResponse response = notificationMapper.toResponse(notificationRepository.save(notification));
         notificationSseService.publishToUser(notification.getRecipient().getId(), response);
 
         return response;
+    }
+
+    @Transactional
+    public NotificationResponse createSystemNotification(String recipientId, NotificationTemplate template, Object... args) {
+        return createSystemNotification(recipientId, template.getTitle(args), template.getContent(args));
     }
 
 
@@ -64,7 +72,7 @@ public class NotificationService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        NotificationResponse response = toResponse(notificationRepository.save(notification));
+        NotificationResponse response = notificationMapper.toResponse(notificationRepository.save(notification));
         notificationSseService.publishToUser(notification.getRecipient().getId(), response);
 
         return response;
@@ -75,7 +83,7 @@ public class NotificationService {
 
         return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(currentUserId)
                 .stream()
-                .map(this::toResponse)
+                .map(notificationMapper::toResponse)
                 .toList();
     }
 
@@ -96,7 +104,7 @@ public class NotificationService {
             notification.setReadAt(LocalDateTime.now());
         }
 
-        NotificationResponse response = toResponse(notificationRepository.save(notification));
+        NotificationResponse response = notificationMapper.toResponse(notificationRepository.save(notification));
         notificationSseService.publishToUser(notification.getRecipient().getId(), response);
 
         return response;
@@ -119,23 +127,10 @@ public class NotificationService {
         if (!notifications.isEmpty()) {
             List<Notification> updatedNotifications = notificationRepository.saveAll(notifications);
             updatedNotifications.forEach(updatedNotification ->
-                    notificationSseService.publishToUser(currentUserId, toResponse(updatedNotification))
+                    notificationSseService.publishToUser(currentUserId, notificationMapper.toResponse(updatedNotification))
             );
         }
 
         return notifications.size();
-    }
-
-    private NotificationResponse toResponse(Notification notification) {
-        return NotificationResponse.builder()
-                .id(notification.getId())
-                .recipientId(notification.getRecipient().getId())
-                .title(notification.getTitle())
-                .content(notification.getContent())
-                .senderId(notification.getSenderId())
-                .isRead(notification.isRead())
-                .createdAt(notification.getCreatedAt())
-                .readAt(notification.getReadAt())
-                .build();
     }
 }

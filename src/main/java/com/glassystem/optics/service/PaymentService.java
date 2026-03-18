@@ -106,6 +106,8 @@ public class PaymentService {
                 order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
             } else if (payment.getPaymentPurpose() == PaymentPurpose.REFUND){
                 refundService.completeRefundByPayment(payment);
+                orderRepository.save(order);
+                return paymentRepository.save(payment);
             }
 
             updateOrderStatusBasedOnItems(order);
@@ -115,6 +117,9 @@ public class PaymentService {
         } else {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setPaymentDate(LocalDateTime.now());
+            if (payment.getPaymentPurpose() == PaymentPurpose.REFUND) {
+                refundService.markRefundPaymentFailed(payment);
+            }
 
         }
         return paymentRepository.save(payment);

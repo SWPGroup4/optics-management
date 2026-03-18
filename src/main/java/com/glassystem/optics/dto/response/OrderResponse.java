@@ -21,6 +21,7 @@ public class OrderResponse {
     String orderId;
     String orderName;
     String deliveryAddress;
+    String recipientName;
     String phoneNumber;
     OrderStatus orderStatus;
     BigDecimal totalAmount;
@@ -29,6 +30,7 @@ public class OrderResponse {
     BigDecimal paidAmount;
     List<OrderItemResponse> items;
     List<PaymentResponse> payments;
+    ShipperInfoResponse shipperInfo;
 
     String comboId;
     String comboName;
