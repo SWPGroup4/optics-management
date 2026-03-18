@@ -198,13 +198,9 @@ public class RefundService {
         populateRefundBankInfo(refund);
 
         if(order.getStatus() == OrderStatus.CANCELLED) {
-            BigDecimal paidAmount  = getPaidAmount(orderId);
-            if(paidAmount.compareTo(BigDecimal.ZERO) <= 0){
+            if (!applyCustomerCancellationRefund(refund, orderId)) {
                 return null;
             }
-            refund.setRefundPercentage(CUSTOMER_CANCEL_REFUND_PERCENT);
-            refund.setRefundAmount(resolveRefundAmount(order, paidAmount, CUSTOMER_CANCEL_REFUND_PERCENT));
-            refund.setDeductionAmount(resolveDeductionAmount(order, paidAmount, CUSTOMER_CANCEL_REFUND_PERCENT));
         }else if(order.getPreOrderStatus() == PreOrderStatus.DEPOSIT_PAID){
             BigDecimal depositAmount = order.getDepositAmount() == null ? BigDecimal.ZERO : order.getDepositAmount();
             if(depositAmount.compareTo(BigDecimal.ZERO) <= 0){
@@ -220,6 +216,19 @@ public class RefundService {
         refund.setCreatedAt(LocalDateTime.now());
 
         return buildRefundResponse(refundRepository.save(refund));
+    }
+
+    private boolean applyCustomerCancellationRefund(Refund refund, String orderId) {
+        BigDecimal paidAmount = getPaidAmount(orderId);
+        if (paidAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+
+        Orders order = refund.getOrder();
+        refund.setRefundPercentage(CUSTOMER_CANCEL_REFUND_PERCENT);
+        refund.setRefundAmount(resolveRefundAmount(order, paidAmount, CUSTOMER_CANCEL_REFUND_PERCENT));
+        refund.setDeductionAmount(resolveDeductionAmount(order, paidAmount, CUSTOMER_CANCEL_REFUND_PERCENT));
+        return true;
     }
 
 
