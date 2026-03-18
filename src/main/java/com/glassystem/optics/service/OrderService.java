@@ -1179,6 +1179,10 @@ public class OrderService {
         return buildOrderResponse(order);
     }
 
+    public OrderResponse toOrderResponse(Orders order) {
+        return buildOrderResponse(order);
+    }
+
     private String buildSkuLabel(ProductVariant variant) {
         if (variant == null) return null;
         String color = variant.getColorName();
