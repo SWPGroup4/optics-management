@@ -60,6 +60,18 @@ public enum NotificationTemplate {
     ORDER_CANCELLED(
             "Don hang da bi huy",
             "Don %s da bi huy. %s"
+    ),
+    REFUND_CREATED(
+            "Yeu cau hoan tien da duoc tao",
+            "Yeu cau hoan tien cho don %s da duoc tao thanh cong."
+    ),
+    REFUND_COMPLETED(
+            "Hoan tien thanh cong",
+            "Khoan hoan tien cho don %s da hoan tat."
+    ),
+    REFUND_FAILED(
+            "Hoan tien chua thanh cong",
+            "Khoan hoan tien cho don %s that bai. Vui long thu lai."
     );
 
     private final String titleTemplate;

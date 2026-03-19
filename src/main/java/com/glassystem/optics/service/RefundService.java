@@ -215,7 +215,9 @@ public class RefundService {
         refund.setStatus(RefundStatus.READY_FOR_REFUND);
         refund.setCreatedAt(LocalDateTime.now());
 
-        return buildRefundResponse(refundRepository.save(refund));
+        Refund savedRefund = refundRepository.save(refund);
+        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_CREATED);
+        return buildRefundResponse(savedRefund);
     }
 
     private boolean applyCustomerCancellationRefund(Refund refund, String orderId) {
@@ -342,7 +344,8 @@ public class RefundService {
                     if (refund.getStatus() == RefundStatus.PROCESSING) {
                         refund.setStatus(RefundStatus.FAILED);
                         refund.setPayment(null);
-                        refundRepository.save(refund);
+                        Refund savedRefund = refundRepository.save(refund);
+                        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_FAILED);
                     }
                 });
     }
@@ -381,6 +384,7 @@ public class RefundService {
         Refund savedRefund = refundRepository.save(refund);
         orderRepository.save(order);
         paymentRepository.saveAll(paidPayments);
+        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_COMPLETED);
 
         return buildRefundResponse(savedRefund);
     }
@@ -397,5 +401,21 @@ public class RefundService {
         }
 
         return response;
+    }
+
+    private void sendRefundNotification(Refund refund, NotificationTemplate template) {
+        if (refund == null
+                || template == null
+                || refund.getOrder() == null
+                || refund.getOrder().getCustomer() == null
+                || refund.getOrder().getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                refund.getOrder().getCustomer().getId(),
+                template,
+                refund.getOrder().getId()
+        );
     }
 }
