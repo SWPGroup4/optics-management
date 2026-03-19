@@ -3,7 +3,6 @@ package com.glassystem.optics.controller.order;
 import java.io.IOException;
 import java.util.List;
 
-import com.glassystem.optics.dto.response.PaymentRequirementResponse;
 import com.glassystem.optics.enums.PaymentMethod;
 import jakarta.validation.Valid;
 
@@ -12,7 +11,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.glassystem.optics.dto.request.OrderCreationRequest;
-import com.glassystem.optics.dto.request.PaymentRequirementRequest;
 import com.glassystem.optics.dto.request.OrderUpdateRequest;
 import com.glassystem.optics.dto.request.PrescriptionRequest;
 import com.glassystem.optics.dto.response.ApiResponse;

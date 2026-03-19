@@ -12,5 +12,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface PaymentMapper {
+
+    @Mapping(target = "transactionReference", ignore = true)
     PaymentResponse toPaymentResponse(Payment payment);
 }

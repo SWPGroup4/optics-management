@@ -1,5 +1,6 @@
 package com.glassystem.optics.service;
 
+import com.glassystem.optics.constant.PredefinedRole;
 import com.glassystem.optics.dto.response.PaymentResponse;
 import com.glassystem.optics.entity.OrderItem;
 import com.glassystem.optics.entity.Orders;
@@ -12,6 +13,7 @@ import com.glassystem.optics.mapper.PaymentMapper;
 import com.glassystem.optics.repository.OrderRepository;
 import com.glassystem.optics.repository.PaymentRepository;
 import com.glassystem.optics.repository.TransactionRepository;
+import com.glassystem.optics.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.UUID;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +36,9 @@ public class PaymentService {
     final TransactionRepository transactionRepository;
     final VNPayService vnPayService;
     final PaymentMapper paymentMapper;
+    final RefundService refundService;
+    final NotificationService notificationService;
+    final UserRepository userRepository;
 
     @Transactional
     public String initiatePayment(String orderId, PaymentMethod paymentMethod, String baseUrl) {
@@ -87,6 +93,7 @@ public class PaymentService {
                     ? TransactionType.DEPOSIT
                     : TransactionType.CHARGE;
 
+
             Transaction transaction = Transaction.builder()
                     .payment(payment)
                     .type(txnType)
@@ -101,17 +108,139 @@ public class PaymentService {
                 order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
             } else if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
                 order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
+            } else if (payment.getPaymentPurpose() == PaymentPurpose.REFUND){
+                refundService.completeRefundByPayment(payment);
+                orderRepository.save(order);
+                return paymentRepository.save(payment);
             }
 
             updateOrderStatusBasedOnItems(order);
             orderRepository.save(order);
+            sendPaymentSuccessNotification(order, payment);
+            sendAwaitingVerificationNotification(order);
+            sendAwaitingVerificationNotificationToStaff(order);
+
 
         } else {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setPaymentDate(LocalDateTime.now());
+            if (payment.getPaymentPurpose() == PaymentPurpose.REFUND) {
+                refundService.markRefundPaymentFailed(payment);
+            } else {
+                sendPaymentFailedNotification(payment.getOrder());
+            }
 
         }
         return paymentRepository.save(payment);
+    }
+
+    private void sendPaymentSuccessNotification(Orders order, Payment payment) {
+        if (order == null || payment == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        NotificationTemplate template = resolvePaymentSuccessTemplate(payment.getPaymentPurpose());
+        if (template == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                template,
+                formatCurrency(payment.getAmount()),
+                order.getId(),
+                resolvePaymentPurposeLabel(payment.getPaymentPurpose())
+        );
+    }
+
+    private NotificationTemplate resolvePaymentSuccessTemplate(PaymentPurpose purpose) {
+        if (purpose == null) {
+            return null;
+        }
+
+        return switch (purpose) {
+            case FULL -> NotificationTemplate.FULL_PAID_SUCCESS;
+            case DEPOSIT -> NotificationTemplate.DEPOSIT_PAID_SUCCESS;
+            case REMAINING -> NotificationTemplate.REMAINING_PAID_SUCCESS;
+            case REFUND -> null;
+        };
+    }
+
+    private String resolvePaymentPurposeLabel(PaymentPurpose purpose) {
+        if (purpose == null) {
+            return "";
+        }
+
+        return switch (purpose) {
+            case FULL -> "thanh toan toan bo";
+            case DEPOSIT -> "dat coc";
+            case REMAINING -> "thanh toan con lai";
+            case REFUND -> "hoan tien";
+        };
+    }
+
+    private String formatCurrency(BigDecimal amount) {
+        if (amount == null) {
+            return "0";
+        }
+        return amount.stripTrailingZeros().toPlainString();
+    }
+
+    private void sendPaymentFailedNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.PAYMENT_FAILED,
+                order.getId()
+        );
+    }
+
+    private void sendAwaitingVerificationNotification(Orders order) {
+        if (order == null
+                || order.getStatus() != OrderStatus.AWAITING_VERIFICATION
+                || order.getCustomer() == null
+                || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_AWAITING_VERIFICATION,
+                order.getId()
+        );
+    }
+
+    private void sendAwaitingVerificationNotificationToStaff(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.AWAITING_VERIFICATION) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.SALE_ROLE.equals(role.getName())
+                            || PredefinedRole.OPERATION_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_AWAITING_VERIFICATION,
+                        order.getId()
+                )
+        );
     }
     
     @Transactional
@@ -155,6 +284,7 @@ public class PaymentService {
             case DEPOSIT -> order.getDepositAmount();
             case REMAINING -> order.getRemainingAmount();
             case FULL -> order.getTotalAmount();
+            case REFUND -> null;
         };
     }
 

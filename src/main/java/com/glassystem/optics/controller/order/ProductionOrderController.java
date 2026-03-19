@@ -1,8 +1,5 @@
 package com.glassystem.optics.controller.order;
 
-import java.util.List;
-
-import com.glassystem.optics.dto.request.ShipOrdersRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,7 +39,7 @@ public class ProductionOrderController {
     @Operation(summary = "Complete order production", description = "Marks an entire order as PRODUCED once all items are ready")
     public ApiResponse<OrderResponse> finishProduction(@PathVariable("orderId") String orderId) {
         return ApiResponse.<OrderResponse>builder()
-                .result(orderService.finishProduction(orderId))
+                .result(orderService.finishProductionOrder(orderId))
                 .message("Order production finalized successfully")
                 .build();
     }
@@ -56,15 +53,5 @@ public class ProductionOrderController {
                 .result(orderService.updateOrderItemProductionStatus(orderItemId, status))
                 .build();
     }
-
-
-
-    @PutMapping("/ready-to-ship")
-    public ApiResponse<List<OrderResponse>> markAsShipped(@RequestBody ShipOrdersRequest request) {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.markAsReadyToShip(request.getOrderIds()))
-                .build();
-    }
-
 
 }

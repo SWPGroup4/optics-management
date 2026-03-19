@@ -77,6 +77,10 @@ public enum ErrorCode {
     ORDER_NOT_PREORDER(1033, "Order item is not PRE_ORDER", HttpStatus.BAD_REQUEST),
     REFUND_ALREADY_EXISTS(1034, "A refund request for Order ID %s already exists.", HttpStatus.BAD_REQUEST),
 
+    ORDER_ITEMS_NOT_FINISHED(1035, "order items not finish", HttpStatus.BAD_REQUEST),
+    INVALID_PAYMENT_AMOUNT(1036, "Refund amount must be at least 5,000 VND", HttpStatus.BAD_REQUEST),
+
+
     // ===== COMBO ERROR CODES (3xxx) =====
     COMBO_NOT_FOUND(3001, "Combo not found!", HttpStatus.NOT_FOUND),
     COMBO_NAME_REQUIRED(3002, "Combo name is required!", HttpStatus.BAD_REQUEST),
@@ -123,6 +127,10 @@ public enum ErrorCode {
     POLICY_CODE_ALREADY_EXISTS(6004, "Policy code already exists!", HttpStatus.BAD_REQUEST),
     POLICY_DATE_INVALID(6005, "Effective from must be before effective to!", HttpStatus.BAD_REQUEST),
     POLICY_MANAGER_NOT_FOUND(6006, "Manager user not found!", HttpStatus.NOT_FOUND),
+
+    // ===== NOTIFICATION ERROR CODES (6xxx) =====
+    NOTIFICATION_NOT_FOUND(6007, "Notification not found", HttpStatus.NOT_FOUND),
+
 
     ;
 
