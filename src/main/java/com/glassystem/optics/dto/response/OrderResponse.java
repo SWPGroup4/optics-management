@@ -1,7 +1,8 @@
 package com.glassystem.optics.dto.response;
 
-import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.OrderStatus;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,15 +19,19 @@ import java.util.List;
 public class OrderResponse {
     String customerId;
     String orderId;
+    String orderName;
     String deliveryAddress;
+    String recipientName;
     String phoneNumber;
-
     OrderStatus orderStatus;
     BigDecimal totalAmount;
     BigDecimal depositAmount;
+    BigDecimal remainingAmount;
+    BigDecimal paidAmount;
     List<OrderItemResponse> items;
+    List<PaymentResponse> payments;
+    ShipperInfoResponse shipperInfo;
 
-    // ===== COMBO INFO =====
     String comboId;
     String comboName;
     BigDecimal comboDiscountAmount;
@@ -34,5 +39,7 @@ public class OrderResponse {
 
     BigDecimal refundedAmount;
     BigDecimal finalTotalAfterRefund;
+
+    BankInfoResponse bankInfo;
 
 }

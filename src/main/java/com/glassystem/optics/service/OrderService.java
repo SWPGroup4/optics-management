@@ -2,6 +2,7 @@ package com.glassystem.optics.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glassystem.optics.constant.PredefinedRole;
 import com.glassystem.optics.dto.request.*;
 import com.glassystem.optics.dto.response.*;
 import com.glassystem.optics.entity.*;
@@ -10,6 +11,7 @@ import com.glassystem.optics.exception.AppException;
 import com.glassystem.optics.exception.ErrorCode;
 import com.glassystem.optics.mapper.OrderItemMapper;
 import com.glassystem.optics.mapper.OrderMapper;
+import com.glassystem.optics.mapper.PaymentMapper;
 import com.glassystem.optics.mapper.PrescriptionMapper;
 import com.glassystem.optics.repository.*;
 import lombok.AccessLevel;
@@ -51,6 +53,12 @@ public class OrderService {
     final ObjectMapper objectMapper;
     final PaymentCalculationService paymentCalculationService;
     final RefundRepository refundRepository;
+    final PaymentRepository paymentRepository;
+    final PaymentMapper paymentMapper;
+    final TransactionRepository transactionRepository;
+    final NotificationService notificationService;
+
+
 
     /*
      * ===================== 1. CUSTOMER FLOW (APIs cho khách hàng)
@@ -68,7 +76,11 @@ public class OrderService {
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDate.now());
         order.setDeliveryAddress(request.getDeliveryAddress());
+        order.setRecipientName(request.getRecipientName());
         order.setPhoneNumber(request.getPhoneNumber());
+        order.setBankName(request.getBankInfo().getBankName());
+        order.setBankAccountNumber(request.getBankInfo().getBankAccountNumber());
+        order.setAccountHolderName(request.getBankInfo().getAccountHolderName());
 
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -158,7 +170,15 @@ public class OrderService {
         }
 
         BigDecimal requiredPaymentTotal = paymentCalculation.getRequiredPaymentTotal().min(finalTotal);
-        order.setDepositAmount(requiredPaymentTotal);
+        boolean hasPreOrderItem = order.getItems().stream()
+                .anyMatch(i -> i.getOrderItemType() == OrderItemType.PRE_ORDER);
+
+        if (hasPreOrderItem) {
+            order.setDepositAmount(requiredPaymentTotal);
+        } else {
+            order.setDepositAmount(BigDecimal.ZERO);
+        }
+
         order.setRemainingAmount(finalTotal.subtract(requiredPaymentTotal));
         order.setPaymentMethod(PaymentMethod.VNPAY);
 
@@ -171,7 +191,16 @@ public class OrderService {
         order.setTotalAmount(finalTotal);
         log.info("Tạo đơn hàng: totalGốc={}, comboDiscount={}, finalTotal={}, comboId={}",
                 totalAmount, comboDiscountAmount, finalTotal, request.getComboId());
-        return orderMapper.toOrderResponse(orderRepository.save(order));
+        Orders savedOrder = orderRepository.save(order);
+        if (savedOrder.getCustomer() != null && savedOrder.getCustomer().getId() != null) {
+            notificationService.createSystemNotification(
+                    savedOrder.getCustomer().getId(),
+                    NotificationTemplate.ORDER_CREATED,
+                    savedOrder.getId(),
+                    savedOrder.getStatus()
+            );
+        }
+        return buildOrderResponse(savedOrder);
     }
 
     /**
@@ -398,8 +427,7 @@ public class OrderService {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         return orderRepository.findByCustomerId(userId)
                 .stream()
-                .map(orderMapper::toOrderResponse)
-                .map(this::enrichRefundInfo)
+                .map(this::buildOrderResponse)
                 .toList();
     }
 
@@ -419,6 +447,9 @@ public class OrderService {
         if (request.getDeliveryAddress() != null) {
             orders.setDeliveryAddress(request.getDeliveryAddress());
         }
+        if (request.getRecipientName() != null) {
+            orders.setRecipientName(request.getRecipientName());
+        }
         if (request.getPhoneNumber() != null) {
             orders.setPhoneNumber(request.getPhoneNumber());
         }
@@ -436,7 +467,8 @@ public class OrderService {
                 }
             }
         }
-        return orderMapper.toOrderResponse(orderRepository.save(orders));
+        Orders savedOrder = orderRepository.save(orders);
+        return buildOrderResponse(savedOrder);
     }
 
     @Transactional
@@ -465,6 +497,7 @@ public class OrderService {
 
         List<OrderStatus> cancellableStatuses = List.of(
                 OrderStatus.PENDING,
+                OrderStatus.PREPARING,
                 OrderStatus.AWAITING_VERIFICATION,
                 OrderStatus.ON_HOLD);
 
@@ -480,8 +513,10 @@ public class OrderService {
             }
         }
         order.setStatus(OrderStatus.CANCELLED);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        sendOrderCancelledNotification(savedOrder, "Ban da huy don hang.");
+        sendCancelledPaidOrderNotificationToManagers(savedOrder);
+        return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getMyCancelledOrders() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -505,8 +540,9 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.COMPLETED);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        sendOrderCompletedNotification(savedOrder);
+        return buildOrderResponse(savedOrder);    }
 
     /*
      * ===================== 2. MANAGEMENT FLOW (APIs cho Admin/Sales)
@@ -521,7 +557,7 @@ public class OrderService {
         if (!order.getCustomer().getId().equals(currentId)) {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
-        return orderMapper.toOrderResponse(order);
+        return buildOrderResponse(order);
     }
 
     @Transactional
@@ -545,9 +581,13 @@ public class OrderService {
             order.setStatus(OrderStatus.ON_HOLD);
         }
         Orders savedOrder = orderRepository.save(order);
-
-        return orderMapper.toOrderResponse(savedOrder);
-    }
+        sendVerificationNotification(savedOrder, isApproved
+                ? NotificationTemplate.ORDER_VERIFIED_APPROVED
+                : NotificationTemplate.ORDER_ON_HOLD);
+        if (!isApproved) {
+            sendOrderOnHoldNotificationToStaff(savedOrder);
+        }
+        return buildOrderResponse(savedOrder);    }
 
     @Transactional
     public OrderResponse revertVerification(String orderId) {
@@ -563,10 +603,8 @@ public class OrderService {
         OrderStatus previousStatus = OrderStatus.AWAITING_VERIFICATION;
 
         order.setStatus(previousStatus);
-        orderRepository.save(order);
-
-        return orderMapper.toOrderResponse(order);
-    }
+        Orders savedOrder = orderRepository.save(order);
+        return buildOrderResponse(savedOrder);    }
 
 
     @Transactional
@@ -588,8 +626,11 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        sendOrderCancelledNotification(savedOrder, buildCancellationReason(reason));
+        sendCancelledPaidOrderNotificationToManagers(savedOrder);
+        sendVerificationNotification(savedOrder, NotificationTemplate.ORDER_VERIFIED_REJECTED);
+        return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
 
@@ -597,15 +638,13 @@ public class OrderService {
 
         if (status == null) {
             return orderRepository.findAll(sort).stream()
-                    .map(orderMapper::toOrderResponse)
-                    .map(this::enrichRefundInfo)
+                    .map(this::buildOrderResponse)
                     .toList();
         }
 
         return orderRepository.findByStatus(status)
                 .stream()
-                .map(orderMapper::toOrderResponse)
-                .map(this::enrichRefundInfo)
+                .map(this::buildOrderResponse)
                 .toList();
     }
 
@@ -613,33 +652,177 @@ public class OrderService {
         userRepository.findById(customerId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         return orderRepository.findByCustomerId(customerId)
-                .stream().map(orderMapper::toOrderResponse).toList();
+                .stream()
+                .map(this::buildOrderResponse)
+                .toList();
     }
+
+    private OrderResponse enrichPaidAmount(OrderResponse response) {
+        if (response == null || response.getOrderId() == null) {
+            return response;
+        }
+        BigDecimal paidAmount = paymentRepository.findByOrderId(response.getOrderId())
+                .stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PAID)
+                .map(Payment::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        response.setPaidAmount(paidAmount);
+        return response;
+    }
+    private OrderResponse buildOrderResponse(Orders order) {
+        OrderResponse response = orderMapper.toOrderResponse(order);
+        enrichOrderPresentation(response);
+        enrichShipperInfo(response, order);
+        enrichPaymentInfo(response);
+        enrichRefundInfo(response);
+        return response;
+    }
+
+    private void enrichOrderPresentation(OrderResponse response) {
+        if (response == null || response.getItems() == null || response.getItems().isEmpty()) {
+            response.setOrderName(null);
+            return;
+        }
+
+        List<String> itemNames = response.getItems().stream()
+                .map(OrderItemResponse::getItemName)
+                .filter(Objects::nonNull)
+                .filter(name -> !name.isBlank())
+                .distinct()
+                .toList();
+
+        if (itemNames.isEmpty()) {
+            response.setOrderName("Order " + response.getOrderId());
+            return;
+        }
+        if (itemNames.size() == 1) {
+            response.setOrderName(itemNames.get(0));
+            return;
+        }
+        response.setOrderName(itemNames.get(0) + " và " + (itemNames.size() - 1) + " sản phẩm khác");
+    }
+
+    private void enrichShipperInfo(OrderResponse response, Orders order) {
+        if (response == null || order == null || order.getShipperId() == null || order.getShipperId().isBlank()) {
+            if (response != null) {
+                response.setShipperInfo(null);
+            }
+            return;
+        }
+
+        userRepository.findById(order.getShipperId())
+                .ifPresentOrElse(
+                        shipper -> response.setShipperInfo(new ShipperInfoResponse(
+                                shipper.getId(),
+                                buildUserFullName(shipper),
+                                shipper.getPhone(),
+                                shipper.getEmail(),
+                                shipper.getImageUrl()
+                        )),
+                        () -> response.setShipperInfo(null)
+                );
+    }
+
+    private String buildUserFullName(User user) {
+        if (user == null) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        if (user.getFirstName() != null && !user.getFirstName().isBlank()) {
+            parts.add(user.getFirstName().trim());
+        }
+        if (user.getLastName() != null && !user.getLastName().isBlank()) {
+            parts.add(user.getLastName().trim());
+        }
+        if (!parts.isEmpty()) {
+            return String.join(" ", parts);
+        }
+
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+
+        return null;
+    }
+
+    private void enrichPaymentInfo(OrderResponse response) {
+        if (response == null || response.getOrderId() == null) {
+            return;
+        }
+
+        List<PaymentResponse> payments = paymentRepository.findByOrderId(response.getOrderId())
+                .stream()
+                .sorted((p1, p2) -> {
+                    if (p1.getPaymentDate() == null && p2.getPaymentDate() == null) return 0;
+                    if (p1.getPaymentDate() == null) return 1;
+                    if (p2.getPaymentDate() == null) return -1;
+                    return p2.getPaymentDate().compareTo(p1.getPaymentDate());
+                })
+                .map(payment -> {
+                    PaymentResponse paymentResponse = paymentMapper.toPaymentResponse(payment);
+                    String transactionReference = transactionRepository
+                            .findTopByPaymentIdOrderByDateTimeDesc(payment.getId())
+                            .map(Transaction::getGatewayReference)
+                            .orElse(null);
+                    paymentResponse.setTransactionReference(transactionReference);
+                    return paymentResponse;
+                })
+                .toList();
+
+        BigDecimal paidAmount = payments.stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PAID)
+                .map(PaymentResponse::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        response.setPayments(payments);
+        response.setPaidAmount(paidAmount);
+    }
+
 
 
     private OrderResponse enrichRefundInfo(OrderResponse response) {
         if (response == null || response.getOrderId() == null) {
             return response;
         }
+        BigDecimal depositAmount = Optional.ofNullable(response.getDepositAmount())
+                .orElse(BigDecimal.ZERO);
         BigDecimal refundedAmount = refundRepository
                 .findByOrder_IdAndStatus(response.getOrderId(), RefundStatus.COMPLETED)
                 .stream()
                 .map(refund -> refund.getRefundAmount() != null
                         ? refund.getRefundAmount()
-                        : response.getDepositAmount())
+                        : depositAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalAmount = response.getTotalAmount() == null
-                ? BigDecimal.ZERO
-                : response.getTotalAmount();
+        BigDecimal totalAmount = Optional.ofNullable(response.getTotalAmount())
+                .orElse(BigDecimal.ZERO);
         BigDecimal finalTotalAfterRefund = totalAmount.subtract(refundedAmount);
         if (finalTotalAfterRefund.compareTo(BigDecimal.ZERO) < 0) {
             finalTotalAfterRefund = BigDecimal.ZERO;
         }
+        response.setDepositAmount(depositAmount);
         response.setRefundedAmount(refundedAmount);
         response.setFinalTotalAfterRefund(finalTotalAfterRefund);
         return response;
     }
+
+    public List<OrderResponse> getCancelledPaidOrders() {
+        return orderRepository.findByStatus(OrderStatus.CANCELLED)
+                .stream()
+                .filter(this::hasPaidTransaction)
+                .map(this::buildOrderResponse)
+                .toList();
+    }
+
+    private boolean hasPaidTransaction(Orders order) {
+        return paymentRepository.findByOrderId(order.getId())
+                .stream()
+                .anyMatch(payment -> payment.getStatus() == PaymentStatus.PAID);
+    }
+
+
 
 
 
@@ -667,29 +850,43 @@ public class OrderService {
                 orderItem.setStatus(OrderItemStatus.PRODUCED);
             }
         }
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+        Orders savedOrder = orderRepository.save(order);
+        sendProductionStartedNotification(savedOrder);
+        sendProductionStartedNotificationToManagers(savedOrder);
+        return buildOrderResponse(savedOrder);    }
 
     @Transactional
-    public OrderResponse finishProduction(String orderId) {
+    public OrderResponse finishProductionOrder(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStatus().equals(OrderStatus.PROCESSING)) {
+
+        OrderStatus currentStatus = order.getStatus();
+        if (currentStatus != OrderStatus.PROCESSING && currentStatus != OrderStatus.PREPARING) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
-        if (order.getItems() != null) {
-            for (OrderItem orderItem : order.getItems()) {
-                if (requiresProcessing(orderItem)
-                        || orderItem.getStatus() == OrderItemStatus.IN_PRODUCTION) {
 
-                    orderItem.setStatus(OrderItemStatus.PRODUCED);
+        List<OrderItem> items = order.getItems();
+        if (items == null || items.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+        }
+        if (currentStatus == OrderStatus.PREPARING) {
+            items.forEach(item -> item.setStatus(OrderItemStatus.PRODUCED));
+        } else {
+            for (OrderItem item : items) {
+                if (requiresProcessing(item) && item.getStatus() != OrderItemStatus.IN_PRODUCTION) {
+                    throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
                 }
+                item.setStatus(OrderItemStatus.PRODUCED);
             }
         }
+
         order.setStatus(OrderStatus.PRODUCED);
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
+
+        Orders savedOrder = orderRepository.save(order);
+        sendProductionCompletedNotifications(savedOrder);
+        sendOrderReadyToShipNotificationToShippers(savedOrder);
+        return buildOrderResponse(savedOrder);    }
 
     @Transactional
     public OrderResponse updateOrderItemProductionStatus(String orderItemId, OrderItemStatus status) {
@@ -709,7 +906,7 @@ public class OrderService {
                 .allMatch(item -> item.getStatus().equals(OrderItemStatus.PRODUCED));
 
         boolean anyInProduction = order.getItems().stream()
-                .allMatch(item -> item.getStatus().equals(OrderItemStatus.IN_PRODUCTION));
+                .anyMatch(item -> item.getStatus().equals(OrderItemStatus.IN_PRODUCTION));
 
         if (allFinished) {
             order.setStatus(OrderStatus.PRODUCED);
@@ -717,39 +914,12 @@ public class OrderService {
             order.setStatus(OrderStatus.PROCESSING);
         }
 
-        return orderMapper.toOrderResponse(orderRepository.save(order));
-    }
-
-
-
-    @Transactional
-    public List<OrderResponse> markAsReadyToShip(List<String> orderIds) {
-        List<OrderResponse> responses = new ArrayList<>();
-        for (String orderId : orderIds) {
-            Orders order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-            for (OrderItem orderItem : order.getItems()) {
-                if (requiresProcessing(orderItem)) {
-                    if (order.getStatus() != OrderStatus.PRODUCED) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                    if (order.getStatus() != OrderStatus.PREPARING) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                } else if (orderItem.getOrderItemType() == OrderItemType.IN_STOCK) {
-                    if (order.getStatus() != OrderStatus.PREPARING
-                            && order.getStatus() != OrderStatus.PRODUCED) {
-                        throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-                    }
-                }
-            }
-            order.setStatus(OrderStatus.READY_TO_SHIP);
-            responses.add(orderMapper.toOrderResponse(order));
+        Orders savedOrder = orderRepository.save(order);
+        if (savedOrder.getStatus() == OrderStatus.PRODUCED) {
+            sendProductionCompletedNotifications(savedOrder);
         }
-        return responses;
-    }
-
-
+        sendOrderReadyToShipNotificationToShippers(savedOrder);
+        return buildOrderResponse(savedOrder);    }
 
     @Transactional
     public void deleteOrder(String orderId) {
@@ -770,17 +940,17 @@ public class OrderService {
     }
 
 
-    @Transactional
-    public OrderResponse markStockArrived(String orderId) {
-        Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        if(order.getStatus() != OrderStatus.CONFIRMED){
-            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
-        }
-        order.setStatus(OrderStatus.AWAITING_FINAL_PAYMENT);
-        orderRepository.save(order);
-        return orderMapper.toOrderResponse(order);
-    }
+//    @Transactional
+//    public OrderResponse markStockArrived(String orderId) {
+//        Orders order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+//        if(order.getStatus() != OrderStatus.CONFIRMED){
+//            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
+//        }
+//        order.setStatus(OrderStatus.AWAITING_FINAL_PAYMENT);
+//        orderRepository.save(order);
+//        return orderMapper.toOrderResponse(order);
+//    }
 
 
     /*
@@ -794,14 +964,17 @@ public class OrderService {
         for (String orderId : orderIds) {
             Orders order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-            if (order.getStatus() != OrderStatus.READY_TO_SHIP) {
+            if (order.getStatus() != OrderStatus.READY_TO_SHIP
+                    && order.getStatus() != OrderStatus.PRODUCED) {
                 throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
             }
             order.setStatus(OrderStatus.SHIPPED);
             order.setShipperId(shipperId);
             order.setShippedAt(LocalDateTime.now());
-            orderRepository.save(order);
-            responses.add(orderMapper.toOrderResponse(order));
+            Orders savedOrder = orderRepository.save(order);
+            sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_SHIPPED);
+            sendAssignedShipperNotification(savedOrder, shipperId);
+            responses.add(orderMapper.toOrderResponse(savedOrder));
         }
 
         return responses;
@@ -833,8 +1006,9 @@ public class OrderService {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
         order.setStatus(OrderStatus.DELIVERING);
-        orderRepository.save(order);
-        return orderMapper.toOrderResponse(order);
+        Orders savedOrder = orderRepository.save(order);
+        sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_DELIVERING);
+        return buildOrderResponse(savedOrder);
     }
 
     @Transactional
@@ -852,9 +1026,10 @@ public class OrderService {
 
         order.setStatus(OrderStatus.COMPLETED);
 
-        orderRepository.save(order);
-
-        return orderMapper.toOrderResponse(order);
+        Orders savedOrder = orderRepository.save(order);
+        sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_DELIVERED);
+        sendOrderCompletedNotification(savedOrder);
+        return buildOrderResponse(savedOrder);
     }
 
 
@@ -1027,7 +1202,11 @@ public class OrderService {
     public OrderResponse getOrderDetailWithCombo(String orderId) {
         Orders order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        return orderMapper.toOrderResponse(order);
+        return buildOrderResponse(order);
+    }
+
+    public OrderResponse toOrderResponse(Orders order) {
+        return buildOrderResponse(order);
     }
 
     private String buildSkuLabel(ProductVariant variant) {
@@ -1038,6 +1217,279 @@ public class OrderService {
         if (color != null) return color;
         if (size != null) return size;
         return variant.getId();
+    }
+
+    private void sendVerificationNotification(Orders order, NotificationTemplate template) {
+        if (order == null || template == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                template,
+                order.getId()
+        );
+    }
+
+    private void sendLogisticsNotification(Orders order, NotificationTemplate template) {
+        if (order == null || template == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                template,
+                order.getId()
+        );
+    }
+
+    private void sendOrderCompletedNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_COMPLETED,
+                order.getId()
+        );
+    }
+
+    private void sendOrderCancelledNotification(Orders order, String reason) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_CANCELLED,
+                order.getId(),
+                buildCancellationReason(reason)
+        );
+    }
+
+    private void sendOrderOnHoldNotificationToStaff(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.ON_HOLD) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.SALE_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_ON_HOLD,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendCancelledPaidOrderNotificationToManagers(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.CANCELLED || !hasPaidTransaction(order)) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.ADMIN_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_CANCELLED_PAID_ORDER,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendOrderReadyToShipNotificationToShippers(Orders order) {
+        if (order == null
+                || (order.getStatus() != OrderStatus.READY_TO_SHIP && order.getStatus() != OrderStatus.PRODUCED)) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.SHIPPER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_READY_TO_SHIP,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendAssignedShipperNotification(Orders order, String shipperId) {
+        if (order == null || shipperId == null || shipperId.isBlank()) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                shipperId,
+                NotificationTemplate.SHIPPER_ORDER_ASSIGNED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionStartedNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_PRODUCTION_STARTED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionStartedNotificationToManagers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_PRODUCTION_STARTED,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendProductionCompletedNotifications(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.PRODUCED) {
+            return;
+        }
+
+        sendProductionCompletedNotificationToCustomer(order);
+        sendProductionCompletedNotificationToManagers(order);
+        sendProductionCompletedNotificationToShippers(order);
+    }
+
+    private void sendProductionCompletedNotificationToCustomer(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_PRODUCTION_COMPLETED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionCompletedNotificationToManagers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_PRODUCTION_COMPLETED,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendProductionCompletedNotificationToShippers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.SHIPPER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.SHIPPER_ORDER_READY_AFTER_PRODUCTION,
+                        order.getId()
+                )
+        );
+    }
+
+    private String buildCancellationReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return "Khong co thong tin bo sung.";
+        }
+        return reason.trim();
     }
 
     /* ===================== 6. PRIVATE LOGIC (Hàm phụ trợ) ===================== */
@@ -1066,6 +1518,10 @@ public class OrderService {
 
         inventory.setReservedQuantity(inventory.getReservedQuantity() + diff);
         inventory.setQuantity(inventory.getQuantity() - diff);
+
+        if (inventory.getReservedQuantity() < 0) {
+            inventory.setReservedQuantity(0);
+        }
         inventoryRepository.save(inventory);
 
         item.setQuantity(newQty);
@@ -1096,4 +1552,6 @@ public class OrderService {
     private BigDecimal normalizeAmount(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
+
+
 }

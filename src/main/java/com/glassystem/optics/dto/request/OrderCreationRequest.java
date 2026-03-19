@@ -21,6 +21,10 @@ public class OrderCreationRequest {
 
     @NotBlank(message = "FIELD_MISSING")
     String deliveryAddress;
+
+    @NotBlank(message = "FIELD_MISSING")
+    String recipientName;
+
     @NotBlank(message = "FIELD_MISSING")
     @VietNamPhone(message = "INVALID_VNPHONE")
     String phoneNumber;
@@ -33,4 +37,6 @@ public class OrderCreationRequest {
 
     String comboId;
 
+    @Valid
+    BankInfoRequest bankInfo;
 }

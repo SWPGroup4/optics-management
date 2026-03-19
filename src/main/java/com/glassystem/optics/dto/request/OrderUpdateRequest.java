@@ -22,6 +22,9 @@ public class OrderUpdateRequest {
     String deliveryAddress;
 
     @NotBlank(message = "FIELD_MISSING")
+    String recipientName;
+
+    @NotBlank(message = "FIELD_MISSING")
     @VietNamPhone(message = "INVALID_VNPHONE")
     String phoneNumber;
 

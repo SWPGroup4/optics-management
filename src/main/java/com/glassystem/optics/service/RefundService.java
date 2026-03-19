@@ -1,7 +1,9 @@
 package com.glassystem.optics.service;
 
 
+import com.glassystem.optics.constant.PredefinedRole;
 import com.glassystem.optics.dto.request.BankInfoRequest;
+import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
 import com.glassystem.optics.dto.response.RefundBankAccountResponse;
 import com.glassystem.optics.dto.response.RefundResponse;
@@ -15,17 +17,26 @@ import com.glassystem.optics.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.AccessLevel;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RefundService {
+
+    static final BigDecimal CUSTOMER_CANCEL_REFUND_PERCENT = new BigDecimal("95");
+    static final BigDecimal MANUFACTURER_CANCEL_REFUND_PERCENT = new BigDecimal("100");
 
     final RefundRepository refundRepository;
     final OrderRepository orderRepository;
@@ -33,6 +44,58 @@ public class RefundService {
     final RefundMapper  refundMapper;
     final ProductVariantRepository productVariantRepository;
     final ProductVariantMapper productVariantMapper;
+    final VNPayService vnPayService;
+    final OrderService orderService;
+    final NotificationService notificationService;
+    final UserRepository userRepository;
+
+
+
+
+    @Transactional
+    public String initiateRefundPayment(String refundId, String baseUrl){
+        Refund refund = refundRepository.findById(refundId)
+                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+
+        if(refund.getStatus() != RefundStatus.READY_FOR_REFUND
+                && refund.getStatus() != RefundStatus.FAILED){
+            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
+        }
+
+        BigDecimal amount = refund.getRefundAmount();
+
+        if (amount == null || amount.compareTo(new BigDecimal("5000")) < 0) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT);
+        }
+
+        populateRefundBankInfo(refund);
+
+        if (refund.getBankName() == null || refund.getBankName().isBlank()
+                || refund.getBankAccountNumber() == null || refund.getBankAccountNumber().isBlank()
+                || refund.getAccountHolderName() == null || refund.getAccountHolderName().isBlank()) {
+            throw new AppException(ErrorCode.FIELD_MISSING);
+        }
+
+
+        Payment payment = Payment.builder()
+                .order(refund.getOrder())
+                .paymentMethod(PaymentMethod.VNPAY)
+                .paymentPurpose(PaymentPurpose.REFUND)
+                .amount(amount)
+                .status(PaymentStatus.UNPAID)
+                .description("Refund payment" + refund.getOrder().getId())
+                .build();
+
+        payment = paymentRepository.save(payment);
+        refund.setPayment(payment);
+        refund.setStatus(RefundStatus.PROCESSING);
+        refundRepository.save(refund);
+        return vnPayService.createPaymentUrl(payment, baseUrl);
+    }
+
+
+
+
 
 
     @Transactional
@@ -80,17 +143,11 @@ public class RefundService {
                 .map(this::calculateRefundAmountForItem)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        String customerName = null;
-        if (order.getCustomer() != null) {
-            customerName = (order.getCustomer().getFirstName() + " " + order.getCustomer().getLastName()).trim();
-        }
-
         return RefundResponse.builder()
-                .orderId(order.getId())
-                .variantId(variantId)
-                .customerName(customerName)
-                .orderTotalAmount(order.getTotalAmount())
+                .order(orderService.toOrderResponse(order))
                 .refundAmount(refundAmount)
+                .refundPercentage(MANUFACTURER_CANCEL_REFUND_PERCENT)
+                .deductionAmount(BigDecimal.ZERO)
                 .build();
     }
 
@@ -102,77 +159,212 @@ public class RefundService {
         return item.getDepositPrice();
     }
 
+    private void populateRefundBankInfo(Refund refund) {
+        if (refund == null || refund.getOrder() == null) {
+            return;
+        }
+
+        Orders order = refund.getOrder();
+        if (refund.getBankName() == null || refund.getBankName().isBlank()) {
+            refund.setBankName(order.getBankName());
+        }
+        if (refund.getBankAccountNumber() == null || refund.getBankAccountNumber().isBlank()) {
+            refund.setBankAccountNumber(order.getBankAccountNumber());
+        }
+        if (refund.getAccountHolderName() == null || refund.getAccountHolderName().isBlank()) {
+            refund.setAccountHolderName(order.getAccountHolderName());
+        }
+    }
+
 
 
     @Transactional
-    public RefundResponse createRefundRequests(List<String> orderIds){
+    public List<RefundResponse> createRefundRequests(List<String> orderIds){
+        return orderIds.stream()
+                .map(this::createSingleRefundRequest)
+                .filter(refund -> refund != null)
+                //.map(refundMapper::toRefundResponse)
+                .toList();
+    }
 
-        RefundResponse response = null;
-        for(String orderId : orderIds){
-            Orders order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-            if(refundRepository.existsByOrderId(orderId)){
-                String errorMessage = String.valueOf(ErrorCode.REFUND_ALREADY_EXISTS);
-                System.out.println(errorMessage);
-                continue;
+    private RefundResponse createSingleRefundRequest(String orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        if(refundRepository.existsByOrderId(orderId)){
+            return null;
+        }
+
+        Refund refund = new Refund();
+        refund.setOrder(order);
+        refund.setCustomerId(order.getCustomer() != null ? order.getCustomer().getId() : null);
+        refund.setOrderTotalAmount(order.getTotalAmount());
+        populateRefundBankInfo(refund);
+
+        if(order.getStatus() == OrderStatus.CANCELLED) {
+            if (!applyCustomerCancellationRefund(refund, orderId)) {
+                return null;
             }
-            Refund refund = new Refund();
-            refund.setOrder(order);
-            refund.setCustomerId(order.getCustomer() != null ? order.getCustomer().getId() : null);
-            refund.setOrderTotalAmount(order.getTotalAmount());
-            refund.setRefundAmount(order.getDepositAmount());
-            refund.setStatus(RefundStatus.WAITING_CUSTOMER_INFO);
-            refund.setCreatedAt(LocalDateTime.now());
-
-            response = refundMapper.toRefundResponse(refundRepository.save(refund));
+        }else if(order.getPreOrderStatus() == PreOrderStatus.DEPOSIT_PAID){
+            BigDecimal depositAmount = order.getDepositAmount() == null ? BigDecimal.ZERO : order.getDepositAmount();
+            if(depositAmount.compareTo(BigDecimal.ZERO) <= 0){
+                return null;
+            }
+            refund.setRefundPercentage(MANUFACTURER_CANCEL_REFUND_PERCENT);
+            refund.setRefundAmount(resolveRefundAmount(order, depositAmount, MANUFACTURER_CANCEL_REFUND_PERCENT));
+            refund.setDeductionAmount(resolveDeductionAmount(order, depositAmount, MANUFACTURER_CANCEL_REFUND_PERCENT));
+        }else {
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS);
         }
-        return response;
-    }
-
-
-    @Transactional
-    public RefundBankAccountResponse submitBankInfo(String refundId, BankInfoRequest request){
-
-        Refund refund = refundRepository.findById(refundId)
-                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
-
-        if(refund.getStatus() != RefundStatus.WAITING_CUSTOMER_INFO){
-            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
-        }
-
-        refund.setBankName(request.getBankName());
-        refund.setBankAccountNumber(request.getBankAccountNumber());
-        refund.setAccountHolderName(request.getAccountHolderName());
-
         refund.setStatus(RefundStatus.READY_FOR_REFUND);
+        refund.setCreatedAt(LocalDateTime.now());
 
-        return refundMapper.toRefundBankAccountResponse(refundRepository.save(refund));
+        Refund savedRefund = refundRepository.save(refund);
+        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_CREATED);
+        sendRefundReadyNotificationToManagers(savedRefund);
+        return buildRefundResponse(savedRefund);
     }
+
+    private boolean applyCustomerCancellationRefund(Refund refund, String orderId) {
+        BigDecimal paidAmount = getPaidAmount(orderId);
+        if (paidAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+
+        Orders order = refund.getOrder();
+        refund.setRefundPercentage(CUSTOMER_CANCEL_REFUND_PERCENT);
+        refund.setRefundAmount(resolveRefundAmount(order, paidAmount, CUSTOMER_CANCEL_REFUND_PERCENT));
+        refund.setDeductionAmount(resolveDeductionAmount(order, paidAmount, CUSTOMER_CANCEL_REFUND_PERCENT));
+        return true;
+    }
+
+
+
+    private BigDecimal getPaidAmount(String orderId) {
+        return paymentRepository.findByOrderId(orderId)
+                .stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PAID)
+                .map(Payment::getAmount)
+                .filter(amount -> amount != null && amount.compareTo(BigDecimal.ZERO) > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal resolveRefundAmount(Orders order, BigDecimal paidAmount, BigDecimal refundPercent) {
+        BigDecimal safePaidAmount = paidAmount == null ? BigDecimal.ZERO : paidAmount;
+        BigDecimal safeRefundPercent = refundPercent == null ? BigDecimal.ZERO : refundPercent;
+
+        BigDecimal orderTotal = order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount();
+        BigDecimal eligibleAmount = orderTotal.compareTo(BigDecimal.ZERO) <= 0
+                ? safePaidAmount
+                : safePaidAmount.min(orderTotal);
+
+        BigDecimal refundAmount = eligibleAmount
+                .multiply(safeRefundPercent)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+
+        return refundAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : refundAmount;
+    }
+
+    private BigDecimal resolveDeductionAmount(Orders order, BigDecimal paidAmount, BigDecimal refundPercent) {
+        BigDecimal safePaidAmount = paidAmount == null ? BigDecimal.ZERO : paidAmount;
+        BigDecimal safeRefundPercent = refundPercent == null ? BigDecimal.ZERO : refundPercent;
+
+        BigDecimal orderTotal = order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount();
+
+        BigDecimal eligibleAmount = orderTotal.compareTo(BigDecimal.ZERO) <= 0
+                ? safePaidAmount
+                : safePaidAmount.min(orderTotal);
+
+        BigDecimal refundAmount = eligibleAmount
+                .multiply(safeRefundPercent)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+
+        BigDecimal deductionAmount = eligibleAmount.subtract(refundAmount);
+
+        return deductionAmount.compareTo(BigDecimal.ZERO) < 0
+                ? BigDecimal.ZERO
+                : deductionAmount;
+    }
+
+//    @Transactional
+//    public RefundBankAccountResponse submitBankInfo(String refundId, BankInfoRequest request){
+//
+//        Refund refund = refundRepository.findById(refundId)
+//                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+//
+//        if(refund.getStatus() != RefundStatus.WAITING_CUSTOMER_INFO){
+//            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
+//        }
+//
+//        refund.setBankName(request.getBankName());
+//        refund.setBankAccountNumber(request.getBankAccountNumber());
+//        refund.setAccountHolderName(request.getAccountHolderName());
+//
+//        refund.setStatus(RefundStatus.READY_FOR_REFUND);
+//
+//        return refundMapper.toRefundBankAccountResponse(refundRepository.save(refund));
+//    }
 
     public List<RefundResponse> getReadyRefunds(){
 
         return refundRepository.findByStatus(RefundStatus.READY_FOR_REFUND)
                 .stream()
-                .map(refundMapper::toRefundResponse)
+                .map(this::buildRefundResponse)
                 .toList();
     }
 
-    @Transactional
-    public RefundResponse completeRefund(String refundId, String managerId){
+//    @Transactional
+//    public RefundResponse completeRefund(String refundId, String managerId){
+//        Refund refund = refundRepository.findById(refundId)
+//                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+//        if (refund.getStatus() != RefundStatus.READY_FOR_REFUND) {
+//            throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
+//        }
+//        return processRefundCompletion(refund, managerId);
+//    }
 
-        Refund refund = refundRepository.findById(refundId)
+
+
+    @Transactional
+    public void completeRefundByPayment(Payment payment){
+        Refund refund = refundRepository.findByPaymentId(payment.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
 
-        if (refund.getStatus() != RefundStatus.READY_FOR_REFUND) {
+        if (refund.getStatus() != RefundStatus.PROCESSING) {
             throw new AppException(ErrorCode.INVALID_REFUND_STATUS);
         }
+        String processBy  = SecurityContextHolder.getContext().getAuthentication().getName();
 
+        processRefundCompletion(refund, processBy);
+    }
+
+    @Transactional
+    public void markRefundPaymentFailed(Payment payment) {
+        if (payment == null || payment.getId() == null) {
+            return;
+        }
+
+        refundRepository.findByPaymentId(payment.getId())
+                .ifPresent(refund -> {
+                    if (refund.getStatus() == RefundStatus.PROCESSING) {
+                        refund.setStatus(RefundStatus.FAILED);
+                        refund.setPayment(null);
+                        Refund savedRefund = refundRepository.save(refund);
+                        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_FAILED);
+                    }
+                });
+    }
+
+    private RefundResponse processRefundCompletion(Refund refund, String processedBy){
         Orders order = refund.getOrder();
-
-        Payment payment = paymentRepository.findFirstByOrderId(order.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
-
+        List<Payment> paidPayments = paymentRepository.findByOrderId(order.getId())
+                .stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PAID)
+                .toList();
+        if (paidPayments.isEmpty()) {
+            throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
+        }
         if (refund.getOrderTotalAmount() == null) {
             refund.setOrderTotalAmount(order.getTotalAmount());
         }
@@ -180,21 +372,85 @@ public class RefundService {
             refund.setCustomerId(order.getCustomer().getId());
         }
         if (refund.getRefundAmount() == null) {
-            refund.setRefundAmount(order.getDepositAmount());
+            BigDecimal basePaidAmount = order.getStatus() == OrderStatus.CANCELLED
+                    ? getPaidAmount(order.getId())
+                    : (order.getDepositAmount() == null ? BigDecimal.ZERO : order.getDepositAmount());
+
+            refund.setRefundAmount(basePaidAmount);
         }
 
         refund.setStatus(RefundStatus.COMPLETED);
         refund.setCompletedAt(LocalDateTime.now());
-        refund.setProcessedBy(managerId);
+        refund.setProcessedBy(processedBy);
 
         order.setStatus(OrderStatus.REFUNDED);
 
-        payment.setStatus(PaymentStatus.REFUNDED);
+        paidPayments.forEach(payment -> payment.setStatus(PaymentStatus.REFUNDED));
 
         Refund savedRefund = refundRepository.save(refund);
         orderRepository.save(order);
-        paymentRepository.save(payment);
+        paymentRepository.saveAll(paidPayments);
+        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_COMPLETED);
 
-        return refundMapper.toRefundResponse(savedRefund);
+        return buildRefundResponse(savedRefund);
+    }
+
+    private RefundResponse buildRefundResponse(Refund refund) {
+        RefundResponse response = refundMapper.toRefundResponse(refund);
+        if (response == null) {
+            return null;
+        }
+
+        Orders order = refund.getOrder();
+        if (order != null) {
+            response.setOrder(orderService.toOrderResponse(order));
+        }
+
+        return response;
+    }
+
+    private void sendRefundNotification(Refund refund, NotificationTemplate template) {
+        if (refund == null
+                || template == null
+                || refund.getOrder() == null
+                || refund.getOrder().getCustomer() == null
+                || refund.getOrder().getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                refund.getOrder().getCustomer().getId(),
+                template,
+                refund.getOrder().getId()
+        );
+    }
+
+    private void sendRefundReadyNotificationToManagers(Refund refund) {
+        if (refund == null || refund.getStatus() != RefundStatus.READY_FOR_REFUND) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.ADMIN_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_REFUND_READY,
+                        refund.getOrder() != null ? refund.getOrder().getId() : null
+                )
+        );
     }
 }

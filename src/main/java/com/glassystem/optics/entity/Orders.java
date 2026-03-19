@@ -46,6 +46,10 @@ public class Orders {
     String deliveryAddress;
 
     @NonNull
+    @Column(name = "recipient_name")
+    String recipientName;
+
+    @NonNull
     String phoneNumber;
 
     @Enumerated(EnumType.STRING)
@@ -53,6 +57,11 @@ public class Orders {
 
     @Enumerated(EnumType.STRING)
     PreOrderStatus preOrderStatus;
+
+    // ===== BANK INFO =====
+    String bankName;
+    String bankAccountNumber;
+    String accountHolderName;
 
     // ===== COMBO FIELDS =====
     @ManyToOne(fetch = FetchType.LAZY)

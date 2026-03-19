@@ -16,7 +16,12 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class OrderItemResponse {
     String orderItemId;
+    String productId;
     String productVariantId;
+    String itemName;
+    String productName;
+    String productImage;
+    String variantName;
     OrderItemType orderItemType;
     Integer quantity;
     BigDecimal unitPrice;
