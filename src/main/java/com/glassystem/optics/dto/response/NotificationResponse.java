@@ -14,6 +14,7 @@ public class NotificationResponse {
 
     String id;
     String recipientId;
+    String recipientName;
     String title;
     String content;
     String senderId;

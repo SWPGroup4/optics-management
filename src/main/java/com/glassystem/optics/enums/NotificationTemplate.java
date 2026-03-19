@@ -4,6 +4,18 @@ public enum NotificationTemplate {
     ORDER_CREATED(
             "Dat hang thanh cong",
             "Don hang %s da duoc tao thanh cong. Trang thai hien tai: %s."
+    ),
+    FULL_PAID_SUCCESS(
+            "Thanh toan thanh cong",
+            "Ban da thanh toan %s cho don %s. Hinh thuc: %s."
+    ),
+    DEPOSIT_PAID_SUCCESS(
+            "Thanh toan thanh cong",
+            "Ban da thanh toan %s cho don %s. Hinh thuc: %s."
+    ),
+    REMAINING_PAID_SUCCESS(
+            "Thanh toan thanh cong",
+            "Ban da thanh toan %s cho don %s. Hinh thuc: %s."
     );
 
     private final String titleTemplate;

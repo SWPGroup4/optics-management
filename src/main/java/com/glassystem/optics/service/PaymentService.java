@@ -112,6 +112,7 @@ public class PaymentService {
 
             updateOrderStatusBasedOnItems(order);
             orderRepository.save(order);
+            sendPaymentSuccessNotification(order, payment);
 
 
         } else {
@@ -123,6 +124,58 @@ public class PaymentService {
 
         }
         return paymentRepository.save(payment);
+    }
+
+    private void sendPaymentSuccessNotification(Orders order, Payment payment) {
+        if (order == null || payment == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        NotificationTemplate template = resolvePaymentSuccessTemplate(payment.getPaymentPurpose());
+        if (template == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                template,
+                formatCurrency(payment.getAmount()),
+                order.getId(),
+                resolvePaymentPurposeLabel(payment.getPaymentPurpose())
+        );
+    }
+
+    private NotificationTemplate resolvePaymentSuccessTemplate(PaymentPurpose purpose) {
+        if (purpose == null) {
+            return null;
+        }
+
+        return switch (purpose) {
+            case FULL -> NotificationTemplate.FULL_PAID_SUCCESS;
+            case DEPOSIT -> NotificationTemplate.DEPOSIT_PAID_SUCCESS;
+            case REMAINING -> NotificationTemplate.REMAINING_PAID_SUCCESS;
+            case REFUND -> null;
+        };
+    }
+
+    private String resolvePaymentPurposeLabel(PaymentPurpose purpose) {
+        if (purpose == null) {
+            return "";
+        }
+
+        return switch (purpose) {
+            case FULL -> "thanh toan toan bo";
+            case DEPOSIT -> "dat coc";
+            case REMAINING -> "thanh toan con lai";
+            case REFUND -> "hoan tien";
+        };
+    }
+
+    private String formatCurrency(BigDecimal amount) {
+        if (amount == null) {
+            return "0";
+        }
+        return amount.stripTrailingZeros().toPlainString();
     }
     
     @Transactional
