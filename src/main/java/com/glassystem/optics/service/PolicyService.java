@@ -159,8 +159,9 @@ public class PolicyService {
 	}
 
 	private User getCurrentUser() {
-		String username = SecurityContextHolder.getContext().getAuthentication().getName();
-		return userRepository.findByUsername(username)
+
+		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+		return userRepository.findById(userId)
 				.orElseThrow(() -> new AppException(ErrorCode.POLICY_MANAGER_NOT_FOUND));
 	}
 }

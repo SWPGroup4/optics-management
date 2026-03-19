@@ -51,6 +51,14 @@ public class ProductVariantService {
     OrderRepository orderRepository;
     OrderMapper orderMapper;
     NotificationService notificationService;
+	public List<ProductVariantResponse> getActiveVariantsByProductId(String productId) {
+		return productVariantRepository
+				.findAllByProductIdAndStatus(productId, ProductVariantStatus.ACTIVE)
+				.stream()
+				.map(productVariantMapper::toResponse)
+				.toList();
+	}
+
 
     @Transactional
     public ProductVariantResponse create(ProductVariantRequest request) {

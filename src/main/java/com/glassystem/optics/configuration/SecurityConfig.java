@@ -29,7 +29,9 @@ public class SecurityConfig {
             "/users/registration", "/auth/login", "/auth/check-token", "/auth/logout", "/auth/refresh-token",
             "/payment/checkout", "/payment/vnpay-callback", "/products", "/products/filter", "product-variants/{id}",
             "/actuator/health",
-            "/products/{id}","/products/{productId}/variants", "/lenses", "/lenses/{id}"
+            "/products/{id}","/products/{productId}/variants", "/lenses", "/lenses/{id}",
+            "/chatbot/**",
+            "/feedbacks/product/**", "/feedbacks/{feedbackId}"
 
             
     };
