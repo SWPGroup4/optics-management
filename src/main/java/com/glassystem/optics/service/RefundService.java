@@ -1,6 +1,7 @@
 package com.glassystem.optics.service;
 
 
+import com.glassystem.optics.constant.PredefinedRole;
 import com.glassystem.optics.dto.request.BankInfoRequest;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.dto.response.ProductVariantResponse;
@@ -25,7 +26,9 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +46,8 @@ public class RefundService {
     final ProductVariantMapper productVariantMapper;
     final VNPayService vnPayService;
     final OrderService orderService;
+    final NotificationService notificationService;
+    final UserRepository userRepository;
 
 
 
@@ -215,7 +220,10 @@ public class RefundService {
         refund.setStatus(RefundStatus.READY_FOR_REFUND);
         refund.setCreatedAt(LocalDateTime.now());
 
-        return buildRefundResponse(refundRepository.save(refund));
+        Refund savedRefund = refundRepository.save(refund);
+        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_CREATED);
+        sendRefundReadyNotificationToManagers(savedRefund);
+        return buildRefundResponse(savedRefund);
     }
 
     private boolean applyCustomerCancellationRefund(Refund refund, String orderId) {
@@ -342,7 +350,8 @@ public class RefundService {
                     if (refund.getStatus() == RefundStatus.PROCESSING) {
                         refund.setStatus(RefundStatus.FAILED);
                         refund.setPayment(null);
-                        refundRepository.save(refund);
+                        Refund savedRefund = refundRepository.save(refund);
+                        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_FAILED);
                     }
                 });
     }
@@ -381,6 +390,7 @@ public class RefundService {
         Refund savedRefund = refundRepository.save(refund);
         orderRepository.save(order);
         paymentRepository.saveAll(paidPayments);
+        sendRefundNotification(savedRefund, NotificationTemplate.REFUND_COMPLETED);
 
         return buildRefundResponse(savedRefund);
     }
@@ -397,5 +407,50 @@ public class RefundService {
         }
 
         return response;
+    }
+
+    private void sendRefundNotification(Refund refund, NotificationTemplate template) {
+        if (refund == null
+                || template == null
+                || refund.getOrder() == null
+                || refund.getOrder().getCustomer() == null
+                || refund.getOrder().getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                refund.getOrder().getCustomer().getId(),
+                template,
+                refund.getOrder().getId()
+        );
+    }
+
+    private void sendRefundReadyNotificationToManagers(Refund refund) {
+        if (refund == null || refund.getStatus() != RefundStatus.READY_FOR_REFUND) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.ADMIN_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_REFUND_READY,
+                        refund.getOrder() != null ? refund.getOrder().getId() : null
+                )
+        );
     }
 }

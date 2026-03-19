@@ -2,6 +2,7 @@ package com.glassystem.optics.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glassystem.optics.constant.PredefinedRole;
 import com.glassystem.optics.dto.request.*;
 import com.glassystem.optics.dto.response.*;
 import com.glassystem.optics.entity.*;
@@ -513,6 +514,8 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.CANCELLED);
         Orders savedOrder = orderRepository.save(order);
+        sendOrderCancelledNotification(savedOrder, "Ban da huy don hang.");
+        sendCancelledPaidOrderNotificationToManagers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getMyCancelledOrders() {
@@ -538,6 +541,7 @@ public class OrderService {
 
         order.setStatus(OrderStatus.COMPLETED);
         Orders savedOrder = orderRepository.save(order);
+        sendOrderCompletedNotification(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     /*
@@ -577,6 +581,12 @@ public class OrderService {
             order.setStatus(OrderStatus.ON_HOLD);
         }
         Orders savedOrder = orderRepository.save(order);
+        sendVerificationNotification(savedOrder, isApproved
+                ? NotificationTemplate.ORDER_VERIFIED_APPROVED
+                : NotificationTemplate.ORDER_ON_HOLD);
+        if (!isApproved) {
+            sendOrderOnHoldNotificationToStaff(savedOrder);
+        }
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -617,6 +627,9 @@ public class OrderService {
 
         order.setStatus(OrderStatus.CANCELLED);
         Orders savedOrder = orderRepository.save(order);
+        sendOrderCancelledNotification(savedOrder, buildCancellationReason(reason));
+        sendCancelledPaidOrderNotificationToManagers(savedOrder);
+        sendVerificationNotification(savedOrder, NotificationTemplate.ORDER_VERIFIED_REJECTED);
         return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
@@ -838,6 +851,8 @@ public class OrderService {
             }
         }
         Orders savedOrder = orderRepository.save(order);
+        sendProductionStartedNotification(savedOrder);
+        sendProductionStartedNotificationToManagers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -869,6 +884,8 @@ public class OrderService {
         order.setStatus(OrderStatus.PRODUCED);
 
         Orders savedOrder = orderRepository.save(order);
+        sendProductionCompletedNotifications(savedOrder);
+        sendOrderReadyToShipNotificationToShippers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -898,6 +915,10 @@ public class OrderService {
         }
 
         Orders savedOrder = orderRepository.save(order);
+        if (savedOrder.getStatus() == OrderStatus.PRODUCED) {
+            sendProductionCompletedNotifications(savedOrder);
+        }
+        sendOrderReadyToShipNotificationToShippers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -950,8 +971,10 @@ public class OrderService {
             order.setStatus(OrderStatus.SHIPPED);
             order.setShipperId(shipperId);
             order.setShippedAt(LocalDateTime.now());
-            orderRepository.save(order);
-            responses.add(orderMapper.toOrderResponse(order));
+            Orders savedOrder = orderRepository.save(order);
+            sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_SHIPPED);
+            sendAssignedShipperNotification(savedOrder, shipperId);
+            responses.add(orderMapper.toOrderResponse(savedOrder));
         }
 
         return responses;
@@ -984,6 +1007,7 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.DELIVERING);
         Orders savedOrder = orderRepository.save(order);
+        sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_DELIVERING);
         return buildOrderResponse(savedOrder);
     }
 
@@ -1003,6 +1027,8 @@ public class OrderService {
         order.setStatus(OrderStatus.COMPLETED);
 
         Orders savedOrder = orderRepository.save(order);
+        sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_DELIVERED);
+        sendOrderCompletedNotification(savedOrder);
         return buildOrderResponse(savedOrder);
     }
 
@@ -1191,6 +1217,279 @@ public class OrderService {
         if (color != null) return color;
         if (size != null) return size;
         return variant.getId();
+    }
+
+    private void sendVerificationNotification(Orders order, NotificationTemplate template) {
+        if (order == null || template == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                template,
+                order.getId()
+        );
+    }
+
+    private void sendLogisticsNotification(Orders order, NotificationTemplate template) {
+        if (order == null || template == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                template,
+                order.getId()
+        );
+    }
+
+    private void sendOrderCompletedNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_COMPLETED,
+                order.getId()
+        );
+    }
+
+    private void sendOrderCancelledNotification(Orders order, String reason) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_CANCELLED,
+                order.getId(),
+                buildCancellationReason(reason)
+        );
+    }
+
+    private void sendOrderOnHoldNotificationToStaff(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.ON_HOLD) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.SALE_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_ON_HOLD,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendCancelledPaidOrderNotificationToManagers(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.CANCELLED || !hasPaidTransaction(order)) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.ADMIN_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_CANCELLED_PAID_ORDER,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendOrderReadyToShipNotificationToShippers(Orders order) {
+        if (order == null
+                || (order.getStatus() != OrderStatus.READY_TO_SHIP && order.getStatus() != OrderStatus.PRODUCED)) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.SHIPPER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_READY_TO_SHIP,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendAssignedShipperNotification(Orders order, String shipperId) {
+        if (order == null || shipperId == null || shipperId.isBlank()) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                shipperId,
+                NotificationTemplate.SHIPPER_ORDER_ASSIGNED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionStartedNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_PRODUCTION_STARTED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionStartedNotificationToManagers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_PRODUCTION_STARTED,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendProductionCompletedNotifications(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.PRODUCED) {
+            return;
+        }
+
+        sendProductionCompletedNotificationToCustomer(order);
+        sendProductionCompletedNotificationToManagers(order);
+        sendProductionCompletedNotificationToShippers(order);
+    }
+
+    private void sendProductionCompletedNotificationToCustomer(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_PRODUCTION_COMPLETED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionCompletedNotificationToManagers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_PRODUCTION_COMPLETED,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendProductionCompletedNotificationToShippers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.SHIPPER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.SHIPPER_ORDER_READY_AFTER_PRODUCTION,
+                        order.getId()
+                )
+        );
+    }
+
+    private String buildCancellationReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return "Khong co thong tin bo sung.";
+        }
+        return reason.trim();
     }
 
     /* ===================== 6. PRIVATE LOGIC (Hàm phụ trợ) ===================== */

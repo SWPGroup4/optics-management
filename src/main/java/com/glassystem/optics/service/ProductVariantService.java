@@ -15,6 +15,7 @@ import com.glassystem.optics.entity.OrderItem;
 import com.glassystem.optics.entity.Orders;
 import com.glassystem.optics.entity.Product;
 import com.glassystem.optics.entity.ProductVariant;
+import com.glassystem.optics.enums.NotificationTemplate;
 import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.OrderStatus;
 import com.glassystem.optics.enums.PreOrderStatus;
@@ -49,6 +50,7 @@ public class ProductVariantService {
     OrderItemRepository orderItemRepository;
     OrderRepository orderRepository;
     OrderMapper orderMapper;
+    NotificationService notificationService;
 
     @Transactional
     public ProductVariantResponse create(ProductVariantRequest request) {
@@ -160,10 +162,27 @@ public class ProductVariantService {
             order.setPreOrderStatus(PreOrderStatus.REMAINING_PENDING);
 
             Orders savedOrder = orderRepository.save(order);
+            sendRemainingPaymentDueNotification(savedOrder);
             updatedOrders.add(orderMapper.toOrderResponse(savedOrder));
         }
 
         return updatedOrders;
+    }
+
+    private void sendRemainingPaymentDueNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        BigDecimal remainingAmount = order.getRemainingAmount() == null ? BigDecimal.ZERO : order.getRemainingAmount();
+        String amountText = remainingAmount.stripTrailingZeros().toPlainString();
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.REMAINING_PAYMENT_DUE,
+                order.getId(),
+                amountText
+        );
     }
 
     private boolean canReleaseOrder(Orders order) {
