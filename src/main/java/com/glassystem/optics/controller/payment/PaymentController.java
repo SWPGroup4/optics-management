@@ -6,6 +6,7 @@ import com.glassystem.optics.dto.response.PaymentRequirementResponse;
 import com.glassystem.optics.dto.response.PaymentResponse;
 import com.glassystem.optics.entity.Payment;
 import com.glassystem.optics.enums.PaymentMethod;
+import com.glassystem.optics.enums.PaymentPurpose;
 import com.glassystem.optics.enums.PaymentStatus;
 import com.glassystem.optics.service.OrderService;
 import com.glassystem.optics.service.PaymentService;
@@ -55,22 +56,32 @@ public class PaymentController {
                 .result(paymentUrl)
                 .build();
     }
-    
+
     @GetMapping("/vnpay-callback")
     public void vnpayCallback(HttpServletRequest request, HttpServletResponse response) throws IOException {
         Payment payment = paymentService.processVnPayCallback(request);
-
-        if (payment != null && payment.getStatus().equals((PaymentStatus.PAID))) {
+        if (payment == null) {
+            response.sendRedirect(String.format("%s/checkout/failure", frontendUrl));
+            return;
+        }
+        if (payment.getPaymentPurpose() == PaymentPurpose.REFUND
+                && payment.getStatus() == PaymentStatus.REFUNDED) {
             String orderId = payment.getOrder().getId();
             String email = payment.getOrder().getCustomer().getEmail();
-
+            response.sendRedirect(String.format("%s/refund/success?orderId=%s&email=%s",
+                    frontendUrl, orderId, email));
+            return;
+        }
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            String orderId = payment.getOrder().getId();
+            String email = payment.getOrder().getCustomer().getEmail();
             response.sendRedirect(String.format("%s/checkout/success?orderId=%s&email=%s",
                     frontendUrl, orderId, email));
-        } else {
-            response.sendRedirect(String.format("%s/checkout/failure", frontendUrl));
-
+            return;
         }
+        response.sendRedirect(String.format("%s/checkout/failure", frontendUrl));
     }
+
 
     @GetMapping("/orders/{orderId}/history")
     public ApiResponse<List<PaymentResponse>> getPaymentHistory(
