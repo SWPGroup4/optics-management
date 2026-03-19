@@ -513,6 +513,7 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.CANCELLED);
         Orders savedOrder = orderRepository.save(order);
+        sendOrderCancelledNotification(savedOrder, "Ban da huy don hang.");
         return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getMyCancelledOrders() {
@@ -538,6 +539,7 @@ public class OrderService {
 
         order.setStatus(OrderStatus.COMPLETED);
         Orders savedOrder = orderRepository.save(order);
+        sendOrderCompletedNotification(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     /*
@@ -620,6 +622,7 @@ public class OrderService {
 
         order.setStatus(OrderStatus.CANCELLED);
         Orders savedOrder = orderRepository.save(order);
+        sendOrderCancelledNotification(savedOrder, buildCancellationReason(reason));
         sendVerificationNotification(savedOrder, NotificationTemplate.ORDER_VERIFIED_REJECTED);
         return buildOrderResponse(savedOrder);    }
 
@@ -954,8 +957,9 @@ public class OrderService {
             order.setStatus(OrderStatus.SHIPPED);
             order.setShipperId(shipperId);
             order.setShippedAt(LocalDateTime.now());
-            orderRepository.save(order);
-            responses.add(orderMapper.toOrderResponse(order));
+            Orders savedOrder = orderRepository.save(order);
+            sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_SHIPPED);
+            responses.add(orderMapper.toOrderResponse(savedOrder));
         }
 
         return responses;
@@ -988,6 +992,7 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.DELIVERING);
         Orders savedOrder = orderRepository.save(order);
+        sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_DELIVERING);
         return buildOrderResponse(savedOrder);
     }
 
@@ -1007,6 +1012,8 @@ public class OrderService {
         order.setStatus(OrderStatus.COMPLETED);
 
         Orders savedOrder = orderRepository.save(order);
+        sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_DELIVERED);
+        sendOrderCompletedNotification(savedOrder);
         return buildOrderResponse(savedOrder);
     }
 
@@ -1207,6 +1214,50 @@ public class OrderService {
                 template,
                 order.getId()
         );
+    }
+
+    private void sendLogisticsNotification(Orders order, NotificationTemplate template) {
+        if (order == null || template == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                template,
+                order.getId()
+        );
+    }
+
+    private void sendOrderCompletedNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_COMPLETED,
+                order.getId()
+        );
+    }
+
+    private void sendOrderCancelledNotification(Orders order, String reason) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_CANCELLED,
+                order.getId(),
+                buildCancellationReason(reason)
+        );
+    }
+
+    private String buildCancellationReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return "Khong co thong tin bo sung.";
+        }
+        return reason.trim();
     }
 
     /* ===================== 6. PRIVATE LOGIC (Hàm phụ trợ) ===================== */

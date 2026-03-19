@@ -40,6 +40,26 @@ public enum NotificationTemplate {
     REMAINING_PAYMENT_DUE(
             "Den han thanh toan phan con lai",
             "Don %s da san sang cho buoc tiep theo. Vui long thanh toan %s."
+    ),
+    ORDER_SHIPPED(
+            "Don hang da duoc ban giao cho van chuyen",
+            "Don %s da duoc ban giao cho don vi van chuyen."
+    ),
+    ORDER_DELIVERING(
+            "Don hang dang duoc giao",
+            "Don %s dang tren duong giao den ban."
+    ),
+    ORDER_DELIVERED(
+            "Don hang da giao thanh cong",
+            "Don %s da duoc giao thanh cong."
+    ),
+    ORDER_COMPLETED(
+            "Don hang da hoan tat",
+            "Cam on ban! Don %s da hoan tat."
+    ),
+    ORDER_CANCELLED(
+            "Don hang da bi huy",
+            "Don %s da bi huy. %s"
     );
 
     private final String titleTemplate;
