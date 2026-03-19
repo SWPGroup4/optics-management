@@ -19,6 +19,7 @@ public interface OrderItemMapper {
     OrderItem toOrderItem(OrderItemCreationRequest orderItemCreationRequest);
 
     @Mapping(source = "productVariant.id", target = "productVariantId")
+    @Mapping(target = "productId", expression = "java(getProductId(orderItem))")
     @Mapping(target = "orderItemId", source = "id")
     @Mapping(target = "productName", expression = "java(getProductName(orderItem))")
     @Mapping(target = "productImage", expression = "java(getProductImage(orderItem))")
@@ -44,6 +45,15 @@ public interface OrderItemMapper {
             return null;
         }
         return orderItem.getProductVariant().getProduct().getName();
+    }
+
+    default String getProductId(OrderItem orderItem) {
+        if (orderItem == null
+                || orderItem.getProductVariant() == null
+                || orderItem.getProductVariant().getProduct() == null) {
+            return null;
+        }
+        return orderItem.getProductVariant().getProduct().getId();
     }
 
     default String getProductImage(OrderItem orderItem) {
