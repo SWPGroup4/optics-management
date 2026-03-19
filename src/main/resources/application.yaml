@@ -35,6 +35,8 @@ ghn:
   token: 641ea953-123c-11f1-a3d6-dac90fb956b5
   shop-id: "199410"
 
+  openai:
+    api-key: ${OPENAI_API_KEY}
 management:
   endpoints:
     web:

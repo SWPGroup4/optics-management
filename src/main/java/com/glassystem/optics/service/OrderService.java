@@ -38,22 +38,22 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Slf4j
 public class OrderService {
-     final OrderMapper orderMapper;
-     final PrescriptionMapper prescriptionMapper;
-     final UserRepository userRepository;
-     final OrderRepository orderRepository;
-     final InventoryRepository inventoryRepository;
-     final PrescriptionRepository prescriptionRepository;
-     final OrderItemRepository orderItemRepository;
-     final FileStorageService fileStorageService;
-     final ComboRepository comboRepository;
-     final ComboService comboService;
-     final LensRepository lensRepository;
-     final ProductVariantRepository productVariantRepository;
-     final ObjectMapper objectMapper;
-     final PaymentCalculationService paymentCalculationService;
-     final RefundRepository refundRepository;
-     final PaymentRepository paymentRepository;
+    final OrderMapper orderMapper;
+    final PrescriptionMapper prescriptionMapper;
+    final UserRepository userRepository;
+    final OrderRepository orderRepository;
+    final InventoryRepository inventoryRepository;
+    final PrescriptionRepository prescriptionRepository;
+    final OrderItemRepository orderItemRepository;
+    final FileStorageService fileStorageService;
+    final ComboRepository comboRepository;
+    final ComboService comboService;
+    final LensRepository lensRepository;
+    final ProductVariantRepository productVariantRepository;
+    final ObjectMapper objectMapper;
+    final PaymentCalculationService paymentCalculationService;
+    final RefundRepository refundRepository;
+    final PaymentRepository paymentRepository;
     final PaymentMapper paymentMapper;
     final TransactionRepository transactionRepository;
     final NotificationService notificationService;

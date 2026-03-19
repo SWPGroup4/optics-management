@@ -14,4 +14,6 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     java.util.Optional<ProductVariant> findByProductIdAndColorNameAndSizeLabel(String productId, String colorName, String sizeLabel);
     List<ProductVariant> findAllByIdAndStatus(String id, ProductVariantStatus status);
 
+    List<ProductVariant> findAllByProductIdAndStatus(String productId, ProductVariantStatus status);
+
 }
