@@ -36,6 +36,10 @@ public enum NotificationTemplate {
     ORDER_ON_HOLD(
             "Don hang can dien lai thong tin don thuoc",
             "Don %s dang tam dung va can dien lai thong tin don thuoc."
+    ),
+    REMAINING_PAYMENT_DUE(
+            "Den han thanh toan phan con lai",
+            "Don %s da san sang cho buoc tiep theo. Vui long thanh toan %s."
     );
 
     private final String titleTemplate;
