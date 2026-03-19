@@ -16,6 +16,10 @@ public enum NotificationTemplate {
     REMAINING_PAID_SUCCESS(
             "Thanh toan thanh cong",
             "Ban da thanh toan %s cho don %s. Hinh thuc: %s."
+    ),
+    PAYMENT_FAILED(
+            "Thanh toan chua thanh cong",
+            "Thanh toan cho don %s that bai. Vui long thu lai."
     );
 
     private final String titleTemplate;

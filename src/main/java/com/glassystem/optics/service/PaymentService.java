@@ -120,6 +120,8 @@ public class PaymentService {
             payment.setPaymentDate(LocalDateTime.now());
             if (payment.getPaymentPurpose() == PaymentPurpose.REFUND) {
                 refundService.markRefundPaymentFailed(payment);
+            } else {
+                sendPaymentFailedNotification(payment.getOrder());
             }
 
         }
@@ -176,6 +178,18 @@ public class PaymentService {
             return "0";
         }
         return amount.stripTrailingZeros().toPlainString();
+    }
+
+    private void sendPaymentFailedNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.PAYMENT_FAILED,
+                order.getId()
+        );
     }
     
     @Transactional
