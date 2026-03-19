@@ -2,6 +2,7 @@ package com.glassystem.optics.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glassystem.optics.constant.PredefinedRole;
 import com.glassystem.optics.dto.request.*;
 import com.glassystem.optics.dto.response.*;
 import com.glassystem.optics.entity.*;
@@ -514,6 +515,7 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         Orders savedOrder = orderRepository.save(order);
         sendOrderCancelledNotification(savedOrder, "Ban da huy don hang.");
+        sendCancelledPaidOrderNotificationToManagers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getMyCancelledOrders() {
@@ -582,6 +584,9 @@ public class OrderService {
         sendVerificationNotification(savedOrder, isApproved
                 ? NotificationTemplate.ORDER_VERIFIED_APPROVED
                 : NotificationTemplate.ORDER_ON_HOLD);
+        if (!isApproved) {
+            sendOrderOnHoldNotificationToStaff(savedOrder);
+        }
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -623,6 +628,7 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         Orders savedOrder = orderRepository.save(order);
         sendOrderCancelledNotification(savedOrder, buildCancellationReason(reason));
+        sendCancelledPaidOrderNotificationToManagers(savedOrder);
         sendVerificationNotification(savedOrder, NotificationTemplate.ORDER_VERIFIED_REJECTED);
         return buildOrderResponse(savedOrder);    }
 
@@ -1250,6 +1256,64 @@ public class OrderService {
                 NotificationTemplate.ORDER_CANCELLED,
                 order.getId(),
                 buildCancellationReason(reason)
+        );
+    }
+
+    private void sendOrderOnHoldNotificationToStaff(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.ON_HOLD) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.SALE_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_ON_HOLD,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendCancelledPaidOrderNotificationToManagers(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.CANCELLED || !hasPaidTransaction(order)) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.ADMIN_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_CANCELLED_PAID_ORDER,
+                        order.getId()
+                )
         );
     }
 

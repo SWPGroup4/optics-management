@@ -1,5 +1,6 @@
 package com.glassystem.optics.service;
 
+import com.glassystem.optics.constant.PredefinedRole;
 import com.glassystem.optics.dto.response.PaymentResponse;
 import com.glassystem.optics.entity.OrderItem;
 import com.glassystem.optics.entity.Orders;
@@ -12,6 +13,7 @@ import com.glassystem.optics.mapper.PaymentMapper;
 import com.glassystem.optics.repository.OrderRepository;
 import com.glassystem.optics.repository.PaymentRepository;
 import com.glassystem.optics.repository.TransactionRepository;
+import com.glassystem.optics.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.UUID;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +38,7 @@ public class PaymentService {
     final PaymentMapper paymentMapper;
     final RefundService refundService;
     final NotificationService notificationService;
+    final UserRepository userRepository;
 
     @Transactional
     public String initiatePayment(String orderId, PaymentMethod paymentMethod, String baseUrl) {
@@ -114,6 +118,7 @@ public class PaymentService {
             orderRepository.save(order);
             sendPaymentSuccessNotification(order, payment);
             sendAwaitingVerificationNotification(order);
+            sendAwaitingVerificationNotificationToStaff(order);
 
 
         } else {
@@ -205,6 +210,36 @@ public class PaymentService {
                 order.getCustomer().getId(),
                 NotificationTemplate.ORDER_AWAITING_VERIFICATION,
                 order.getId()
+        );
+    }
+
+    private void sendAwaitingVerificationNotificationToStaff(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.AWAITING_VERIFICATION) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName())
+                            || PredefinedRole.SALE_ROLE.equals(role.getName())
+                            || PredefinedRole.OPERATION_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_AWAITING_VERIFICATION,
+                        order.getId()
+                )
         );
     }
     

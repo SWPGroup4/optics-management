@@ -72,6 +72,22 @@ public enum NotificationTemplate {
     REFUND_FAILED(
             "Hoan tien chua thanh cong",
             "Khoan hoan tien cho don %s that bai. Vui long thu lai."
+    ),
+    STAFF_ORDER_AWAITING_VERIFICATION(
+            "Co don moi cho xac minh",
+            "Don %s dang o trang thai AWAITING_VERIFICATION."
+    ),
+    STAFF_ORDER_ON_HOLD(
+            "Don hang can bo sung thong tin",
+            "Don %s dang o trang thai ON_HOLD va can duoc theo doi voi khach hang."
+    ),
+    STAFF_CANCELLED_PAID_ORDER(
+            "Co don huy can hoan tien",
+            "Don %s da huy nhung da phat sinh thanh toan."
+    ),
+    STAFF_REFUND_READY(
+            "Co refund san sang xu ly",
+            "Refund cho don %s da san sang de xu ly."
     );
 
     private final String titleTemplate;
