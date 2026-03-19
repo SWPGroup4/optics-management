@@ -851,6 +851,8 @@ public class OrderService {
             }
         }
         Orders savedOrder = orderRepository.save(order);
+        sendProductionStartedNotification(savedOrder);
+        sendProductionStartedNotificationToManagers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -882,6 +884,8 @@ public class OrderService {
         order.setStatus(OrderStatus.PRODUCED);
 
         Orders savedOrder = orderRepository.save(order);
+        sendProductionCompletedNotifications(savedOrder);
+        sendOrderReadyToShipNotificationToShippers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -911,6 +915,10 @@ public class OrderService {
         }
 
         Orders savedOrder = orderRepository.save(order);
+        if (savedOrder.getStatus() == OrderStatus.PRODUCED) {
+            sendProductionCompletedNotifications(savedOrder);
+        }
+        sendOrderReadyToShipNotificationToShippers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -965,6 +973,7 @@ public class OrderService {
             order.setShippedAt(LocalDateTime.now());
             Orders savedOrder = orderRepository.save(order);
             sendLogisticsNotification(savedOrder, NotificationTemplate.ORDER_SHIPPED);
+            sendAssignedShipperNotification(savedOrder, shipperId);
             responses.add(orderMapper.toOrderResponse(savedOrder));
         }
 
@@ -1312,6 +1321,165 @@ public class OrderService {
                 notificationService.createSystemNotification(
                         recipientId,
                         NotificationTemplate.STAFF_CANCELLED_PAID_ORDER,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendOrderReadyToShipNotificationToShippers(Orders order) {
+        if (order == null
+                || (order.getStatus() != OrderStatus.READY_TO_SHIP && order.getStatus() != OrderStatus.PRODUCED)) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.SHIPPER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_READY_TO_SHIP,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendAssignedShipperNotification(Orders order, String shipperId) {
+        if (order == null || shipperId == null || shipperId.isBlank()) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                shipperId,
+                NotificationTemplate.SHIPPER_ORDER_ASSIGNED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionStartedNotification(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_PRODUCTION_STARTED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionStartedNotificationToManagers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_PRODUCTION_STARTED,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendProductionCompletedNotifications(Orders order) {
+        if (order == null || order.getStatus() != OrderStatus.PRODUCED) {
+            return;
+        }
+
+        sendProductionCompletedNotificationToCustomer(order);
+        sendProductionCompletedNotificationToManagers(order);
+        sendProductionCompletedNotificationToShippers(order);
+    }
+
+    private void sendProductionCompletedNotificationToCustomer(Orders order) {
+        if (order == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_PRODUCTION_COMPLETED,
+                order.getId()
+        );
+    }
+
+    private void sendProductionCompletedNotificationToManagers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.MANAGER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.STAFF_ORDER_PRODUCTION_COMPLETED,
+                        order.getId()
+                )
+        );
+    }
+
+    private void sendProductionCompletedNotificationToShippers(Orders order) {
+        if (order == null) {
+            return;
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        userRepository.findAll().forEach(user -> {
+            if (user.getRoles() == null) {
+                return;
+            }
+
+            boolean shouldNotify = user.getRoles().stream()
+                    .anyMatch(role -> PredefinedRole.SHIPPER_ROLE.equals(role.getName()));
+
+            if (shouldNotify && user.getId() != null && !user.getId().isBlank()) {
+                recipientIds.add(user.getId());
+            }
+        });
+
+        recipientIds.forEach(recipientId ->
+                notificationService.createSystemNotification(
+                        recipientId,
+                        NotificationTemplate.SHIPPER_ORDER_READY_AFTER_PRODUCTION,
                         order.getId()
                 )
         );

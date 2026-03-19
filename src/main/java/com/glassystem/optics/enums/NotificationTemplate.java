@@ -88,6 +88,34 @@ public enum NotificationTemplate {
     STAFF_REFUND_READY(
             "Co refund san sang xu ly",
             "Refund cho don %s da san sang de xu ly."
+    ),
+    STAFF_ORDER_READY_TO_SHIP(
+            "Co don cho nhan giao",
+            "Don %s da san sang cho van chuyen."
+    ),
+    SHIPPER_ORDER_ASSIGNED(
+            "Ban vua duoc giao don moi",
+            "Don %s da duoc assign cho ban."
+    ),
+    ORDER_PRODUCTION_STARTED(
+            "Don hang bat dau san xuat",
+            "Don %s da bat dau duoc san xuat."
+    ),
+    STAFF_ORDER_PRODUCTION_STARTED(
+            "Don hang da bat dau san xuat",
+            "Don %s da chuyen sang giai doan san xuat."
+    ),
+    ORDER_PRODUCTION_COMPLETED(
+            "Don hang da san xuat xong",
+            "Don %s da san xuat xong va san sang cho buoc tiep theo."
+    ),
+    STAFF_ORDER_PRODUCTION_COMPLETED(
+            "Don hang da san xuat xong",
+            "Don %s da hoan tat san xuat."
+    ),
+    SHIPPER_ORDER_READY_AFTER_PRODUCTION(
+            "Co don san sang nhan giao",
+            "Don %s da san xuat xong va co the nhan giao."
     );
 
     private final String titleTemplate;
