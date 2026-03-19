@@ -35,6 +35,14 @@ public class ProductVariantService {
 	ProductVariantMapper productVariantMapper;
 	InventoryRepository inventoryRepository;
 
+	public List<ProductVariantResponse> getActiveVariantsByProductId(String productId) {
+		return productVariantRepository
+				.findAllByProductIdAndStatus(productId, ProductVariantStatus.ACTIVE)
+				.stream()
+				.map(productVariantMapper::toResponse)
+				.toList();
+	}
+
 	public ProductVariantResponse create(ProductVariantRequest request) {
 
 		Optional<ProductVariant> existingVariant = productVariantRepository

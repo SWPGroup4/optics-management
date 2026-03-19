@@ -5,16 +5,14 @@ public enum OrderStatus {
     AWAITING_VERIFICATION, // Đã thanh toán, chờ staff xác minh
     ON_HOLD, // Bị tạm dừng (do đơn thuốc chưa valid)
     CONFIRMED, // Đã xác nhận đơn
+    AWAITING_FINAL_PAYMENT,// Hàng đã về, chờ khách thanh toán phần còn lại
     PREPARING, // Đang chuẩn bị hàng (IN_STOCK sau thanh toán)
-    PREPARED,
     PROCESSING, // Có ít nhất 1 item đang sản xuất
     PRODUCED, // Tất cả item đã xong
-
     READY_TO_SHIP,
     SHIPPED, // Đã giao cho vận chuyển, shipper đã accept
     DELIVERING,
     DELIVERED,
-
     COMPLETED, // Thành công
     CANCELLED, // Hủy đơn
 
