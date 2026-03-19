@@ -113,6 +113,7 @@ public class PaymentService {
             updateOrderStatusBasedOnItems(order);
             orderRepository.save(order);
             sendPaymentSuccessNotification(order, payment);
+            sendAwaitingVerificationNotification(order);
 
 
         } else {
@@ -188,6 +189,21 @@ public class PaymentService {
         notificationService.createSystemNotification(
                 order.getCustomer().getId(),
                 NotificationTemplate.PAYMENT_FAILED,
+                order.getId()
+        );
+    }
+
+    private void sendAwaitingVerificationNotification(Orders order) {
+        if (order == null
+                || order.getStatus() != OrderStatus.AWAITING_VERIFICATION
+                || order.getCustomer() == null
+                || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                NotificationTemplate.ORDER_AWAITING_VERIFICATION,
                 order.getId()
         );
     }

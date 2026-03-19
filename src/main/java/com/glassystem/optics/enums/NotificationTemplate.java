@@ -20,6 +20,22 @@ public enum NotificationTemplate {
     PAYMENT_FAILED(
             "Thanh toan chua thanh cong",
             "Thanh toan cho don %s that bai. Vui long thu lai."
+    ),
+    ORDER_AWAITING_VERIFICATION(
+            "Don hang dang cho xac minh",
+            "Don %s da thanh toan va dang cho nhan vien xac minh thong tin."
+    ),
+    ORDER_VERIFIED_APPROVED(
+            "Don hang da duoc xac minh",
+            "Don %s da duoc nhan vien xac minh thanh cong."
+    ),
+    ORDER_VERIFIED_REJECTED(
+            "Don hang can bo sung thong tin",
+            "Don %s can bo sung them thong tin truoc khi tiep tuc xu ly."
+    ),
+    ORDER_ON_HOLD(
+            "Don hang can dien lai thong tin don thuoc",
+            "Don %s dang tam dung va can dien lai thong tin don thuoc."
     );
 
     private final String titleTemplate;

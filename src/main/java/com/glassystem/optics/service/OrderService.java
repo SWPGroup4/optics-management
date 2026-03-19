@@ -577,6 +577,9 @@ public class OrderService {
             order.setStatus(OrderStatus.ON_HOLD);
         }
         Orders savedOrder = orderRepository.save(order);
+        sendVerificationNotification(savedOrder, isApproved
+                ? NotificationTemplate.ORDER_VERIFIED_APPROVED
+                : NotificationTemplate.ORDER_ON_HOLD);
         return buildOrderResponse(savedOrder);    }
 
     @Transactional
@@ -617,6 +620,7 @@ public class OrderService {
 
         order.setStatus(OrderStatus.CANCELLED);
         Orders savedOrder = orderRepository.save(order);
+        sendVerificationNotification(savedOrder, NotificationTemplate.ORDER_VERIFIED_REJECTED);
         return buildOrderResponse(savedOrder);    }
 
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
@@ -1191,6 +1195,18 @@ public class OrderService {
         if (color != null) return color;
         if (size != null) return size;
         return variant.getId();
+    }
+
+    private void sendVerificationNotification(Orders order, NotificationTemplate template) {
+        if (order == null || template == null || order.getCustomer() == null || order.getCustomer().getId() == null) {
+            return;
+        }
+
+        notificationService.createSystemNotification(
+                order.getCustomer().getId(),
+                template,
+                order.getId()
+        );
     }
 
     /* ===================== 6. PRIVATE LOGIC (Hàm phụ trợ) ===================== */
