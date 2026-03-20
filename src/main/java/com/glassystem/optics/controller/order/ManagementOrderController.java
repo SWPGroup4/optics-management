@@ -6,6 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.dto.response.OrderPageResponse;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.enums.OrderStatus;
 import com.glassystem.optics.service.OrderService;
@@ -16,6 +17,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @Slf4j
 @RestController
@@ -32,9 +35,15 @@ public class ManagementOrderController {
 
     @GetMapping("/cancelled/paid")
     @Operation(summary = "Get cancelled orders that already have successful payment")
-    public ApiResponse<List<OrderResponse>> getCancelledPaidOrders() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getCancelledPaidOrders())
+    public ApiResponse<OrderPageResponse> getCancelledPaidOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        PageRequest pageable = PageRequest.of(page, size, sort);
+        return ApiResponse.<OrderPageResponse>builder()
+                .result(orderService.getCancelledPaidOrders(pageable))
                 .build();
     }
 
@@ -59,18 +68,31 @@ public class ManagementOrderController {
 
     @GetMapping
     @Operation(summary = "Filter orders by status", description = "Retrieves a list of orders based on a specific OrderStatus (e.g., PENDING, PROCESSING)")
-    public ApiResponse<List<OrderResponse>> getOrdersByStatus(
-            @RequestParam(value = "status", required = false) OrderStatus status) {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getOrdersByStatus(status))
+    public ApiResponse<OrderPageResponse> getOrdersByStatus(
+            @RequestParam(value = "status", required = false) OrderStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        PageRequest pageable = PageRequest.of(page, size, sort);
+        return ApiResponse.<OrderPageResponse>builder()
+                .result(orderService.getOrdersByStatus(status, pageable))
                 .build();
     }
 
     @GetMapping("/customer/{customerId}")
     @Operation(summary = "Get orders by customer", description = "Retrieves all orders placed by a specific customer")
-    public ApiResponse<List<OrderResponse>> getOrdersByCustomerId(@PathVariable String customerId) {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getOrdersByCustomerId(customerId))
+    public ApiResponse<OrderPageResponse> getOrdersByCustomerId(
+            @PathVariable String customerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        PageRequest pageable = PageRequest.of(page, size, sort);
+        return ApiResponse.<OrderPageResponse>builder()
+                .result(orderService.getOrdersByCustomerId(customerId, pageable))
                 .build();
     }
 
