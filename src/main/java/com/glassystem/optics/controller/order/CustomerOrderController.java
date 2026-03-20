@@ -14,6 +14,7 @@ import com.glassystem.optics.dto.request.OrderCreationRequest;
 import com.glassystem.optics.dto.request.OrderUpdateRequest;
 import com.glassystem.optics.dto.request.PrescriptionRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.dto.response.OrderPageResponse;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.dto.response.PrescriptionResponse;
 import com.glassystem.optics.service.OrderService;
@@ -24,6 +25,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
@@ -62,9 +65,15 @@ public class CustomerOrderController {
 
     @GetMapping("/me")
     @Operation(summary = "Get my order history", description = "Retrieves all orders placed by the current logged-in customer")
-    public ApiResponse<List<OrderResponse>> getMyOrders() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getMyOrders())
+    public ApiResponse<OrderPageResponse> getMyOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        PageRequest pageable = PageRequest.of(page, size, sort);
+        return ApiResponse.<OrderPageResponse>builder()
+                .result(orderService.getMyOrders(pageable))
                 .build();
     }
 
@@ -79,9 +88,15 @@ public class CustomerOrderController {
 
     @GetMapping("/me/cancelled")
     @Operation(summary = "Get my cancelled orders", description = "Retrieves only the cancelled orders of the current customer")
-    public ApiResponse<List<OrderResponse>> getMyCancelledOrders() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getMyCancelledOrders())
+    public ApiResponse<OrderPageResponse> getMyCancelledOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        PageRequest pageable = PageRequest.of(page, size, sort);
+        return ApiResponse.<OrderPageResponse>builder()
+                .result(orderService.getMyCancelledOrders(pageable))
                 .build();
     }
 

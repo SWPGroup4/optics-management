@@ -2,6 +2,7 @@ package com.glassystem.optics.controller.order;
 
 import com.glassystem.optics.dto.request.ShipOrdersRequest;
 import com.glassystem.optics.dto.response.ApiResponse;
+import com.glassystem.optics.dto.response.OrderPageResponse;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.enums.OrderItemStatus;
 import com.glassystem.optics.service.OrderService;
@@ -11,6 +12,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -44,9 +47,15 @@ public class ShipOrderController {
     }
 
     @GetMapping("/my-orders-accepted")
-    public ApiResponse<List<OrderResponse>> getMyOrders() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderService.getMyAcceptedOrders())
+    public ApiResponse<OrderPageResponse> getMyOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        PageRequest pageable = PageRequest.of(page, size, sort);
+        return ApiResponse.<OrderPageResponse>builder()
+                .result(orderService.getMyAcceptedOrders(pageable))
                 .build();
     }
 
