@@ -19,6 +19,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -423,12 +426,10 @@ public class OrderService {
         return prescriptionMapper.toPrescriptionResponse(prescription);
     }
 
-    public List<OrderResponse> getMyOrders() {
+    public OrderPageResponse getMyOrders(Pageable pageable) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        return orderRepository.findByCustomerId(userId)
-                .stream()
-                .map(this::buildOrderResponse)
-                .toList();
+        Page<Orders> page = orderRepository.findByCustomerId(userId, pageable);
+        return buildOrderPageResponse(page);
     }
 
     @Transactional
@@ -518,11 +519,11 @@ public class OrderService {
         sendCancelledPaidOrderNotificationToManagers(savedOrder);
         return buildOrderResponse(savedOrder);    }
 
-    public List<OrderResponse> getMyCancelledOrders() {
+    public OrderPageResponse getMyCancelledOrders(Pageable pageable) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        return orderRepository.findByCustomerIdAndStatus(userId, OrderStatus.CANCELLED)
-                .stream().map(orderMapper::toOrderResponse).toList();
+        Page<Orders> page = orderRepository.findByCustomerIdAndStatus(userId, OrderStatus.CANCELLED, pageable);
+        return buildOrderPageResponse(page);
     }
 
     @Transactional
@@ -632,29 +633,20 @@ public class OrderService {
         sendVerificationNotification(savedOrder, NotificationTemplate.ORDER_VERIFIED_REJECTED);
         return buildOrderResponse(savedOrder);    }
 
-    public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
-
-        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
-
+    public OrderPageResponse getOrdersByStatus(OrderStatus status, Pageable pageable) {
+        Pageable sortedPageable = ensurePageableSort(pageable, "createdAt", Sort.Direction.DESC);
         if (status == null) {
-            return orderRepository.findAll(sort).stream()
-                    .map(this::buildOrderResponse)
-                    .toList();
+            return buildOrderPageResponse(orderRepository.findAll(sortedPageable));
         }
 
-        return orderRepository.findByStatus(status)
-                .stream()
-                .map(this::buildOrderResponse)
-                .toList();
+        return buildOrderPageResponse(orderRepository.findByStatus(status, sortedPageable));
     }
 
-    public List<OrderResponse> getOrdersByCustomerId(String customerId) {
+    public OrderPageResponse getOrdersByCustomerId(String customerId, Pageable pageable) {
         userRepository.findById(customerId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-        return orderRepository.findByCustomerId(customerId)
-                .stream()
-                .map(this::buildOrderResponse)
-                .toList();
+        Pageable sortedPageable = ensurePageableSort(pageable, "createdAt", Sort.Direction.DESC);
+        return buildOrderPageResponse(orderRepository.findByCustomerId(customerId, sortedPageable));
     }
 
     private OrderResponse enrichPaidAmount(OrderResponse response) {
@@ -808,12 +800,13 @@ public class OrderService {
         return response;
     }
 
-    public List<OrderResponse> getCancelledPaidOrders() {
-        return orderRepository.findByStatus(OrderStatus.CANCELLED)
-                .stream()
-                .filter(this::hasPaidTransaction)
-                .map(this::buildOrderResponse)
-                .toList();
+    public OrderPageResponse getCancelledPaidOrders(Pageable pageable) {
+        Pageable sortedPageable = ensurePageableSort(pageable, "createdAt", Sort.Direction.DESC);
+        return buildOrderPageResponse(
+                orderRepository.findByStatusAndPaymentStatus(
+                        OrderStatus.CANCELLED,
+                        PaymentStatus.PAID,
+                        sortedPageable));
     }
 
     private boolean hasPaidTransaction(Orders order) {
@@ -981,17 +974,14 @@ public class OrderService {
     }
 
 
-    public List<OrderResponse> getMyAcceptedOrders() {
+    public OrderPageResponse getMyAcceptedOrders(Pageable pageable) {
         String shipperId = SecurityContextHolder
                 .getContext()
                 .getAuthentication()
                 .getName();
         OrderStatus status = OrderStatus.SHIPPED;
-        return orderRepository
-                .findByShipperIdAndStatus(shipperId, status)
-                .stream()
-                .map(orderMapper::toOrderResponse)
-                .toList();
+        Pageable sortedPageable = ensurePageableSort(pageable, "createdAt", Sort.Direction.DESC);
+        return buildOrderPageResponse(orderRepository.findByShipperIdAndStatus(shipperId, status, sortedPageable));
     }
 
 
@@ -1207,6 +1197,23 @@ public class OrderService {
 
     public OrderResponse toOrderResponse(Orders order) {
         return buildOrderResponse(order);
+    }
+
+    private Pageable ensurePageableSort(Pageable pageable, String defaultSortBy, Sort.Direction defaultDirection) {
+        if (pageable.getSort().isSorted()) {
+            return pageable;
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(defaultDirection, defaultSortBy));
+    }
+
+    private OrderPageResponse buildOrderPageResponse(Page<Orders> page) {
+        return OrderPageResponse.builder()
+                .items(page.getContent().stream().map(this::buildOrderResponse).toList())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .build();
     }
 
     private String buildSkuLabel(ProductVariant variant) {
