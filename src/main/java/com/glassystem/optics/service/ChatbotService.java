@@ -34,7 +34,7 @@ public class ChatbotService {
     @Value("${openai.base-url:https://api.openai.com/v1}")
     String openAiBaseUrl;
 
-    @Value("${openai.model:gpt-4.1}")
+    @Value("${openai.model:gpt-4.1-mini}")
     String openAiModel;
 
     static final String SYSTEM_PROMPT = "Bạn là chuyên gia tư vấn kính mắt tại cửa hàng OptiCare.\n\n"
