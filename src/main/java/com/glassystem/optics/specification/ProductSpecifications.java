@@ -66,8 +66,7 @@ public class ProductSpecifications {
 			}
 
 			if (gender != null && !gender.isBlank()) {
-				String like = "%" + gender.trim().toLowerCase() + "%";
-				predicate = cb.and(predicate, cb.like(cb.lower(root.get("gender")), like));
+				predicate = cb.and(predicate, cb.equal(cb.lower(root.get("gender")), gender.trim().toLowerCase()));
 			}
 
 			if (shape != null && !shape.isBlank()) {
