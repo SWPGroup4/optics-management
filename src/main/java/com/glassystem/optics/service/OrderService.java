@@ -426,9 +426,12 @@ public class OrderService {
         return prescriptionMapper.toPrescriptionResponse(prescription);
     }
 
-    public OrderPageResponse getMyOrders(Pageable pageable) {
+    public OrderPageResponse getMyOrders(OrderStatus status, Pageable pageable) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        Page<Orders> page = orderRepository.findByCustomerId(userId, pageable);
+        Pageable sortedPageable = ensurePageableSort(pageable, "createdAt", Sort.Direction.DESC);
+        Page<Orders> page = status == null
+                ? orderRepository.findByCustomerId(userId, sortedPageable)
+                : orderRepository.findByCustomerIdAndStatus(userId, status, sortedPageable);
         return buildOrderPageResponse(page);
     }
 

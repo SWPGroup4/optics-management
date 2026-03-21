@@ -17,6 +17,7 @@ import com.glassystem.optics.dto.response.ApiResponse;
 import com.glassystem.optics.dto.response.OrderPageResponse;
 import com.glassystem.optics.dto.response.OrderResponse;
 import com.glassystem.optics.dto.response.PrescriptionResponse;
+import com.glassystem.optics.enums.OrderStatus;
 import com.glassystem.optics.service.OrderService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -66,6 +67,7 @@ public class CustomerOrderController {
     @GetMapping("/me")
     @Operation(summary = "Get my order history", description = "Retrieves all orders placed by the current logged-in customer")
     public ApiResponse<OrderPageResponse> getMyOrders(
+            @RequestParam(value = "status", required = false) OrderStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -73,7 +75,7 @@ public class CustomerOrderController {
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         PageRequest pageable = PageRequest.of(page, size, sort);
         return ApiResponse.<OrderPageResponse>builder()
-                .result(orderService.getMyOrders(pageable))
+                .result(orderService.getMyOrders(status, pageable))
                 .build();
     }
 
