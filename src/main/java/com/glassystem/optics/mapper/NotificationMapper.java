@@ -11,6 +11,7 @@ public interface NotificationMapper {
 
     @Mapping(target = "recipientId", source = "recipient.id")
     @Mapping(target = "recipientName", expression = "java(resolveRecipientName(notification))")
+    @Mapping(target = "isRead", source = "read")
     NotificationResponse toResponse(Notification notification);
 
     default String resolveRecipientName(Notification notification) {
