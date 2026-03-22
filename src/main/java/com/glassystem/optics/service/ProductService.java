@@ -82,12 +82,10 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
         product.setIsDeleted(true);
-        product.setStatus(ProductStatus.INACTIVE);
         // Soft delete all variants of this product
         if (product.getVariants() != null) {
             for (var variant : product.getVariants()) {
                 variant.setIsDeleted(true);
-                variant.setStatus(com.glassystem.optics.enums.ProductVariantStatus.INACTIVE);
             }
         }
         productRepository.save(product);

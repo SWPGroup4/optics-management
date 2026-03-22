@@ -309,7 +309,6 @@ public class ProductVariantService {
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
 
         productVariant.setIsDeleted(true);
-        productVariant.setStatus(ProductVariantStatus.INACTIVE);
         productVariantRepository.save(productVariant);
     }
 
