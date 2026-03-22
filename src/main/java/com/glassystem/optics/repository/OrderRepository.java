@@ -1,8 +1,10 @@
 package com.glassystem.optics.repository;
 
 import com.glassystem.optics.entity.Orders;
+import com.glassystem.optics.enums.OrderItemType;
 import com.glassystem.optics.enums.OrderStatus;
 import com.glassystem.optics.enums.PaymentStatus;
+import com.glassystem.optics.enums.PreOrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -40,4 +42,21 @@ public interface OrderRepository extends JpaRepository<Orders, String> {
 
     @Query("SELECT COUNT(o) FROM Orders o WHERE o.status = :status")
     long countByStatus(@Param("status") OrderStatus status);
+
+    @Query("""
+            SELECT DISTINCT o
+            FROM Orders o
+            JOIN o.items i
+            WHERE i.productVariant.id = :variantId
+              AND i.orderItemType = :orderItemType
+              AND o.preOrderStatus = :preOrderStatus
+              AND o.status = :orderStatus
+            ORDER BY o.createdAt ASC
+            """)
+    List<Orders> findEligiblePreOrdersForVariant(
+            @Param("variantId") String variantId,
+            @Param("orderItemType") OrderItemType orderItemType,
+            @Param("preOrderStatus") PreOrderStatus preOrderStatus,
+            @Param("orderStatus") OrderStatus orderStatus
+    );
 }
