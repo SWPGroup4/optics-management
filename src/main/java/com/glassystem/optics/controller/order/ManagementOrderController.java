@@ -26,7 +26,7 @@ import org.springframework.data.domain.Sort;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Tag(name = "Order Management", description = "Administrative endpoints for managing and auditing all customer orders")
-@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN') or hasRole('SALE') or hasRole('OPERATION')")
+@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN') or hasRole('SALE') or hasRole('OPERATION') or hasRole('SHIPPER')")
 public class ManagementOrderController {
 
     OrderService orderService;
