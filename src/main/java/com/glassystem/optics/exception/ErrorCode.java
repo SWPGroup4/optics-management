@@ -124,7 +124,7 @@ public enum ErrorCode {
     POLICY_NOT_FOUND(6001, "Policy not found!", HttpStatus.NOT_FOUND),
     POLICY_CODE_REQUIRED(6002, "Policy code is required!", HttpStatus.BAD_REQUEST),
     POLICY_TITLE_REQUIRED(6003, "Policy title is required!", HttpStatus.BAD_REQUEST),
-    POLICY_CODE_ALREADY_EXISTS(6004, "Policy code already exists!", HttpStatus.BAD_REQUEST),
+    POLICY_CODE_ALREADY_EXISTS(6004, "Policy code already exists!", HttpStatus.BAD_REQUEST),//400
     POLICY_DATE_INVALID(6005, "Effective from must be before effective to!", HttpStatus.BAD_REQUEST),
     POLICY_MANAGER_NOT_FOUND(6006, "Manager user not found!", HttpStatus.NOT_FOUND),
 

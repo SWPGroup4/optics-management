@@ -60,7 +60,7 @@ public class PolicyService {
 				.build();
 
 		policy = policyRepository.save(policy);
-
+        // tu viet sql statement "insert in to ... " => connnection => stagtment =. resultset => response
 		log.info("Tạo policy thành công: id={}, code={}", policy.getId(), policy.getCode());
 		return policyMapper.toPolicyResponse(policy);
 	}
@@ -88,9 +88,9 @@ public class PolicyService {
 		policy.setEffectiveFrom(request.getEffectiveFrom());
 		policy.setEffectiveTo(request.getEffectiveTo());
 
-		policy = policyRepository.save(policy);
+		policy = policyRepository.save(policy);// luu db
 
-		log.info("Cập nhật policy thành công: id={}", id);
+		log.info("Cập nhật policy thành công: id={}", id); // ghi log
 		return policyMapper.toPolicyResponse(policy);
 	}
 
@@ -152,7 +152,7 @@ public class PolicyService {
 
 	private void validateDateRange(LocalDate effectiveFrom, LocalDate effectiveTo) {
 		if (effectiveFrom != null && effectiveTo != null) {
-			if (!effectiveFrom.isBefore(effectiveTo)) {
+			if (!effectiveFrom.isBefore(effectiveTo)) { // 22 - 19
 				throw new AppException(ErrorCode.POLICY_DATE_INVALID);
 			}
 		}
