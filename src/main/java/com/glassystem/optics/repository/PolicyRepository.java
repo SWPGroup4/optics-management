@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 public interface PolicyRepository extends
 		JpaRepository<Policy, Integer>,
 		JpaSpecificationExecutor<Policy> {
-
+   // crud căn bản , tìm kiếm by id findById findByname
 	boolean existsByCode(String code);
 
 	boolean existsByCodeAndIdNot(String code, Integer id);

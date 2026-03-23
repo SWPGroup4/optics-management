@@ -17,10 +17,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+// Springboot : tài xê taxi => ra lệnh nêu yc => springboot lo hết đưa em đi từ A-B
+// em ph tự đi , lái , rẽ , tìm đường
 
-@RestController
+
+// Client --Restful API--Server
+
+//Server : Controller -> Service(Logic) -> REpositoy (CRUD) -> Database  : postgresql  , mysql
+@RestController  //Restful API
 @RequestMapping("/api/policies")
-@RequiredArgsConstructor
+@RequiredArgsConstructor   // tạo các loại contructor ko tham so , hoac co tham so
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PolicyController {
 	PolicyService policyService;
@@ -83,18 +89,20 @@ public class PolicyController {
 
 	@GetMapping
 	ApiResponse<PolicyPageResponse> getAllPolicies(
-			@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String keyword,  // An , Kien
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate effectiveFrom,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate effectiveTo,
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "10") int size,
-			@RequestParam(defaultValue = "createdAt") String sortBy,
-			@RequestParam(defaultValue = "desc") String sortDir) {
-
+			@RequestParam(defaultValue = "createdAt") String sortBy, // tạo khi nào
+			@RequestParam(defaultValue = "asc") String sortDir) {  //từ lớn => bé  , asc bé =>lớn
+        //100
+		//1 - 10 => 10 cái đầu => page 1
+		//11-21 => 10 cái tieepts => page 2
 		Sort sort = sortDir.equalsIgnoreCase("desc")
 				? Sort.by(sortBy).descending()
 				: Sort.by(sortBy).ascending();
-		PageRequest pageable = PageRequest.of(page, size, sort);
+		PageRequest pageable = PageRequest.of(page, size, sort); // thu vien san cua java
 
 		return ApiResponse.<PolicyPageResponse>builder()
 				.result(policyService.getAllPolicies(keyword, effectiveFrom, effectiveTo, pageable))
