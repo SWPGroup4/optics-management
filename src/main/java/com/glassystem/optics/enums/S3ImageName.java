@@ -4,5 +4,6 @@ public enum S3ImageName {
     AVATAR,
     PRODUCT,
     PRESCRIPTION,
-    FEEDBACK
+    FEEDBACK,
+    MODEL
 }

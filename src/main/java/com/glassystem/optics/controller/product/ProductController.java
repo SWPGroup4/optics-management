@@ -170,6 +170,16 @@ public class ProductController {
 						pageable))
 				.build();
 	}
+	@PostMapping(value = "/{productId}/model", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	public ApiResponse<ProductResponse> uploadModel(
+			@PathVariable String productId,
+			@RequestParam("file") MultipartFile file) throws IOException {
+		return ApiResponse.<ProductResponse>builder()
+				.result(productService.uploadProductModel(productId, file))
+				.message("3D model uploaded successfully")
+				.build();
+	}
 
 
 }
