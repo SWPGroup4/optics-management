@@ -60,6 +60,9 @@ public class Product {
     @Column(name = "weight_gram", precision = 6, scale = 2)
     BigDecimal weightGram;
 
+    @Column(name = "model_url")
+    String modelUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     ProductStatus status;

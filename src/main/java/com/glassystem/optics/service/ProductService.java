@@ -181,4 +181,18 @@ public class ProductService {
                 .build();
     }
 
+    @Transactional
+    public ProductResponse uploadProductModel(String productId, MultipartFile file) throws IOException {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        if (product.getModelUrl() != null && !product.getModelUrl().isBlank()) {
+            fileStorageService.deleteFileByKey(product.getModelUrl());
+        }
+
+        String modelUrl = fileStorageService.uploadFile(file, S3ImageName.MODEL);
+        product.setModelUrl(modelUrl);
+        product = productRepository.save(product);
+        return productMapper.toProductResponse(product);
+    }
 }
