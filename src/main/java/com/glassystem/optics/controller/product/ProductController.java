@@ -171,7 +171,7 @@ public class ProductController {
 				.build();
 	}
 	@PostMapping(value = "/{productId}/model", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 	public ApiResponse<ProductResponse> uploadModel(
 			@PathVariable String productId,
 			@RequestParam("file") MultipartFile file) throws IOException {
