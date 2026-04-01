@@ -30,7 +30,7 @@ public class PolicyController {
 	// =====================================================================
 
 	@PostMapping
-	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 	ApiResponse<PolicyResponse> createPolicy(@RequestBody @Valid PolicyCreateRequest request) {
 		return ApiResponse.<PolicyResponse>builder()
 				.result(policyService.createPolicy(request))
@@ -43,7 +43,7 @@ public class PolicyController {
 	// =====================================================================
 
 	@PutMapping("/{id}")
-	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 	ApiResponse<PolicyResponse> updatePolicy(
 			@PathVariable Integer id,
 			@RequestBody @Valid PolicyUpdateRequest request) {
@@ -58,7 +58,7 @@ public class PolicyController {
 	// =====================================================================
 
 	@DeleteMapping("/{id}")
-	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 	ApiResponse<Void> deletePolicy(@PathVariable Integer id) {
 		policyService.deletePolicy(id);
 		return ApiResponse.<Void>builder()

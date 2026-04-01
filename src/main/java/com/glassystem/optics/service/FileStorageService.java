@@ -36,7 +36,7 @@ public class FileStorageService {
     public String uploadFile(MultipartFile file, S3ImageName folder) throws IOException {
 
         String safeFileName = file.getOriginalFilename()
-                .replaceAll("\\s+", "_");
+                .replaceAll("\\s+", "_"); //lam sach url khoang trang thay = _
 
         String key = folder.name()
                 + "/"
@@ -44,10 +44,10 @@ public class FileStorageService {
                 + "-"
                 + safeFileName;
 
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()  // khai báo
+                .bucket(bucketName) //upload vào bucket nào
                 .key(key)
-                .contentType(file.getContentType())
+                .contentType(file.getContentType()) //loai file
                 .build();
 
         s3Client.putObject(
@@ -63,14 +63,14 @@ public class FileStorageService {
         if (fileUrl == null || fileUrl.isBlank()) return;
 
         try {
-            String key = extractKeyFromUrl(fileUrl);
+            String key = extractKeyFromUrl(fileUrl); //Lấy key từ URL
 
-            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder() // tạo request xóa
                     .bucket(bucketName)
                     .key(key)
                     .build();
 
-            s3Client.deleteObject(deleteObjectRequest);
+            s3Client.deleteObject(deleteObjectRequest); // gọi s3 xóa
             log.info("Deleted S3 object: {}", key);
 
         } catch (Exception e) {

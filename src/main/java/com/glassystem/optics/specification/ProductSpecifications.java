@@ -30,11 +30,11 @@ public class ProductSpecifications {
 			BigDecimal maxPrice,
 			ProductStatus status) {
 		return (root, query, cb) -> {
-			query.distinct(true);
-			Predicate predicate = cb.conjunction();
+			query.distinct(true); // 1 product có nhiều variant → bị lặp nhiều lần
+			Predicate predicate = cb.conjunction(); //Khởi tạo predicate
 
-			if (q != null && !q.isBlank()) {
-				String like = "%" + q.trim().toLowerCase() + "%";
+			if (q != null && !q.isBlank()) { //Search tổng (q)
+				String like = "%" + q.trim().toLowerCase() + "%"; // giống sql (LIKE '%keyword%')
 				Predicate name = cb.like(cb.lower(root.get("name")), like);
 				Predicate brandLike = cb.like(cb.lower(root.get("brand")), like);
 				Predicate categoryLike = cb.like(cb.lower(root.get("category")), like);

@@ -43,5 +43,8 @@ public class ProductCreateRequest {
 	ProductStatus status;
 
     @Schema(hidden = true)
+    String modelUrl;
+
+    @Schema(hidden = true)
     List<String> imageUrl;
 }

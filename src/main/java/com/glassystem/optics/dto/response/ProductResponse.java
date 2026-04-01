@@ -28,6 +28,7 @@ public class ProductResponse {
 	BigDecimal minPrice;
 	BigDecimal maxPrice;
 	ProductStatus status;
+	String modelUrl;
     OrderItemType orderItemType;
     List<ProductImageResponse> imageUrl;
 }

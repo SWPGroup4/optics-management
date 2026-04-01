@@ -28,7 +28,7 @@ public class ChatbotService {
     final ProductVariantService productVariantService;
     final LensService lensService;
 
-    @Value("${openai.api-key:${OPENAI_API_KEY:}}")
+    @Value("${openai.api-key:${OPENAI_API_KEY:}}")  // cấu hình openai trong .yaml
     String openAiApiKey;
 
     @Value("${openai.base-url:https://api.openai.com/v1}")
@@ -37,7 +37,7 @@ public class ChatbotService {
     @Value("${openai.model:gpt-4.1-mini}")
     String openAiModel;
 
-    static final String SYSTEM_PROMPT = "Bạn là chuyên gia tư vấn kính mắt tại cửa hàng OptiCare.\n\n"
+    static final String SYSTEM_PROMPT = "Bạn là chuyên gia tư vấn kính mắt tại cửa hàng OptiCare.\n\n"  // luật cho AI
             + "⚠️ QUY TẮC BẮT BUỘC - TUYỆT ĐỐI TUÂN THỦ:\n"
             + "1. CHỈ ĐƯỢC gợi ý và recommend sản phẩm CÓ TRONG DANH SÁCH SẢN PHẨM CỦA CỬA HÀNG bên dưới.\n"
             + "2. TUYỆT ĐỐI KHÔNG được tự bịa ra, tưởng tượng, hay gợi ý bất kỳ sản phẩm nào KHÔNG CÓ trong danh sách.\n"
@@ -49,17 +49,18 @@ public class ChatbotService {
             + "- Trả lời ngắn gọn, dễ đọc, có bullet khi cần\n";
 
     public String chat(List<ChatbotMessageRequest> messages) {
-        String systemMessage = SYSTEM_PROMPT + buildStoreContext();
+        String systemMessage = SYSTEM_PROMPT + buildStoreContext();  // build 1 đoạn prompt cho AI
+
 
         List<Map<String, String>> fullMessages = new ArrayList<>();
-        fullMessages.add(Map.of("role", "system", "content", systemMessage));
+        fullMessages.add(Map.of("role", "system", "content", systemMessage)); //mess đầu tiên lun là system (luật+data)
         for (ChatbotMessageRequest m : messages) {
-            fullMessages.add(Map.of("role", m.getRole(), "content", m.getContent()));
+            fullMessages.add(Map.of("role", m.getRole(), "content", m.getContent())); // mess của user và assistant(lưu lịch sử chat)
         }
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        if (openAiApiKey != null && !openAiApiKey.isBlank()) {
+        HttpHeaders headers = new HttpHeaders(); // cho request
+        headers.setContentType(MediaType.APPLICATION_JSON); // content type là json
+        if (openAiApiKey != null && !openAiApiKey.isBlank()) { //ko null,ko rỗng
             headers.setBearerAuth(openAiApiKey);
         }
 
@@ -68,37 +69,38 @@ public class ChatbotService {
                 "messages", fullMessages,
                 "temperature", 0.6,
                 "max_tokens", 900
-        );
+        ); // json request body cho openai
 
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers); // tạo httpEntity=body+headers
 
         @SuppressWarnings("unchecked")
         Map<String, Object> response = restTemplate.postForObject(
                 openAiBaseUrl + "/chat/completions",
                 entity,
                 Map.class
-        );
+        ); //Gửi request tới OpenAI
 
         if (response == null) {
             return "Xin lỗi, hiện tại tôi không thể trả lời.";
         }
+        //bodyJSON+header->HttpEntity->Gửi POST request tới OpenAI->Nhận JSON response->Check null → tránh lỗi
 
         Object choicesObj = response.get("choices");
-        if (!(choicesObj instanceof List<?> choices) || choices.isEmpty()) {
+        if (!(choicesObj instanceof List<?> choices) || choices.isEmpty()) { //không phải List hoặc rỗng return
             return "Xin lỗi, hiện tại tôi không thể trả lời.";
         }
 
         Object first = choices.get(0);
-        if (!(first instanceof Map<?, ?> firstChoice)) {
+        if (!(first instanceof Map<?, ?> firstChoice)) { // có phải là map ko,có các field gì
             return "Xin lỗi, hiện tại tôi không thể trả lời.";
         }
 
         Object messageObj = firstChoice.get("message");
-        if (!(messageObj instanceof Map<?, ?> msg)) {
+        if (!(messageObj instanceof Map<?, ?> msg)) { //message đúng format ko
             return "Xin lỗi, hiện tại tôi không thể trả lời.";
         }
 
-        Object contentObj = msg.get("content");
+        Object contentObj = msg.get("content"); //content là câu trả lời của AI
         return contentObj != null ? contentObj.toString() : "Xin lỗi, hiện tại tôi không thể trả lời.";
     }
 
@@ -106,16 +108,16 @@ public class ChatbotService {
         List<ProductResponse> products = productService.getProducts();
         List<LensResponse> lenses = lensService.getLenses();
 
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(); // tạo đoạn chuỗi context có cấu trúc cho AI dễ đọc hiểu hơn
 
         sb.append("\n\n===== DANH SÁCH SẢN PHẨM HIỆN CÓ =====\n");
         int count = 0;
-        for (ProductResponse p : products) {
-            if (p == null || p.getStatus() == null || !"ACTIVE".equalsIgnoreCase(p.getStatus().name())) {
+        for (ProductResponse p : products) {  // mỗi lần lặp → biến p là 1 sản phẩm
+            if (p == null || p.getStatus() == null || !"ACTIVE".equalsIgnoreCase(p.getStatus().name())) {  //bỏ qua nếu p,status null,INACTIVE
                 continue;
             }
             count++;
-            sb.append("\n📦 ").append(p.getName())
+        sb.append("\n📦 ").append(p.getName())
                     .append(" | Brand: ").append(nullSafe(p.getBrand()))
                     .append(" | Category: ").append(p.getCategory() != null ? p.getCategory() : "N/A")
                     .append(" | Frame: ").append(nullSafe(p.getFrameType()))
@@ -171,7 +173,7 @@ public class ChatbotService {
         if (p.getMinPrice() != null && p.getMaxPrice() != null) {
             return p.getMinPrice().toString() + " - " + p.getMaxPrice().toString();
         }
-        return "Liên hệ";
+        return "Liên hệ"; //1 trong 2 min hoặc max null trả về lien he
     }
 
     private static String nullSafe(String s) {
@@ -180,5 +182,5 @@ public class ChatbotService {
 
     private static String num(Integer v) {
         return v == null ? "?" : v.toString();
-    }
+    } // xu li integer có thể bị null thì trả về '?'
 }

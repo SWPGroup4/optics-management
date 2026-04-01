@@ -4,6 +4,10 @@ server:
     context-path: /optics
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
   datasource:
       url: ${DB_URL}
       username: ${DB_USERNAME}

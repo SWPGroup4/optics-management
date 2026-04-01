@@ -17,7 +17,7 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, String>, JpaSpecificationExecutor<Product> {
     @Override
     @EntityGraph(attributePaths = {"variants"})
-    Optional<Product> findById(String id);
+    Optional<Product> findById(String id); // get product th lấy luôn variant
 
     @Override
     @EntityGraph(attributePaths = {"variants"})
@@ -27,6 +27,6 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @EntityGraph(attributePaths = {"variants"})
     Page<Product> findAll(Specification<Product> spec, Pageable pageable);
 
-    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.imageUrl")
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.imageUrl") // get product lay lun imageurl
     List<Product> findAllWithImages();
 }

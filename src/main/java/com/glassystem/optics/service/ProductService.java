@@ -39,8 +39,14 @@ public class ProductService {
     ProductImageRepository productImageRepository;
 
     @Transactional
-    public ProductResponse create(ProductCreateRequest request, List<MultipartFile> files) throws IOException {
+    public ProductResponse create(ProductCreateRequest request, List<MultipartFile> files, MultipartFile modelFile) throws IOException {
         Product product = productMapper.toProduct(request);
+
+        if (modelFile != null && !modelFile.isEmpty()) {
+            String modelUrl = fileStorageService.uploadFile(modelFile, S3ImageName.MODEL);
+            product.setModelUrl(modelUrl);
+        }
+
         product = productRepository.save(product);
 
         if (files != null && !files.isEmpty()) {
@@ -136,6 +142,35 @@ public class ProductService {
 
         fileStorageService.deleteFileByKey(productImage.getImageUrl());
         productImageRepository.delete(productImage);
+    }
+
+    @Transactional
+    public ProductResponse uploadProductModel(String productId, MultipartFile file) throws IOException {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        if (product.getModelUrl() != null && !product.getModelUrl().isBlank()) {
+            fileStorageService.deleteFileByKey(product.getModelUrl());
+        }
+
+        String modelUrl = fileStorageService.uploadFile(file, S3ImageName.MODEL);
+        product.setModelUrl(modelUrl);
+        product = productRepository.save(product);
+        return productMapper.toProductResponse(product);
+    }
+
+    @Transactional
+    public ProductResponse deleteProductModel(String productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        if (product.getModelUrl() != null && !product.getModelUrl().isBlank()) {
+            fileStorageService.deleteFileByKey(product.getModelUrl());
+        }
+
+        product.setModelUrl(null);
+        product = productRepository.save(product);
+        return productMapper.toProductResponse(product);
     }
 
     public ProductPageResponse filterProducts(

@@ -38,10 +38,11 @@ public class ProductController {
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("permitAll()")
 	ApiResponse<ProductResponse> create(
-			@RequestPart("product") @Valid ProductCreateRequest request,
-			@RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
+			@RequestPart("product") @Valid ProductCreateRequest request, // lay json map vao request va validate
+			@RequestPart(value = "files", required = false) List<MultipartFile> files,
+			@RequestPart(value = "modelFile", required = false) MultipartFile modelFile) throws IOException {
 		return ApiResponse.<ProductResponse>builder()
-				.result(productService.create(request, files))
+				.result(productService.create(request, files, modelFile))
 				.message("Product created successfully")
 				.build();
 	}
@@ -52,13 +53,13 @@ public class ProductController {
 	}
 
 	@PutMapping("/{id}")
-    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 	ApiResponse<ProductResponse> update(@PathVariable String id, @RequestBody @Valid ProductUpsertRequest request) {
 		return ApiResponse.<ProductResponse>builder().result(productService.update(id, request)).build();
 	}
 
 	@DeleteMapping("/{id}")
-	@PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+	@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 	ApiResponse<Void> delete(@PathVariable String id) {
 		productService.delete(id);
 		return ApiResponse.<Void>builder()
@@ -67,7 +68,7 @@ public class ProductController {
 	}
 
     @PostMapping(value = "/{productId}/images", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
     public ApiResponse<List<ProductImageResponse>> uploadImages(
             @PathVariable String productId,
             @RequestParam("files") List<MultipartFile> files) throws IOException {
@@ -79,11 +80,31 @@ public class ProductController {
     }
 
     @DeleteMapping("/images/{imageId}")
-    @PreAuthorize("hasRole('OPERATION') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
     public ApiResponse<Void> deleteImage(@PathVariable String imageId) {
         productService.deleteProductImage(imageId);
         return ApiResponse.<Void>builder()
                 .message("Deleted image successfully")
+                .build();
+    }
+
+    @PostMapping(value = "/{productId}/model", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+    public ApiResponse<ProductResponse> uploadModel(
+            @PathVariable String productId,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        return ApiResponse.<ProductResponse>builder()
+                .result(productService.uploadProductModel(productId, file))
+                .message("3D model uploaded successfully")
+                .build();
+    }
+
+    @DeleteMapping("/{productId}/model")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+    public ApiResponse<ProductResponse> deleteModel(@PathVariable String productId) {
+        return ApiResponse.<ProductResponse>builder()
+                .result(productService.deleteProductModel(productId))
+                .message("3D model deleted successfully")
                 .build();
     }
 	@GetMapping
@@ -113,7 +134,7 @@ public class ProductController {
 			@RequestParam(defaultValue = "10") int size,
 			@RequestParam(defaultValue = "name") String sortBy,
 			@RequestParam(defaultValue = "asc") String sortDir) {
-		Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+		Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending(); //desc=xuong và ngược lại
 		PageRequest pageable = PageRequest.of(page, size, sort);
 		return ApiResponse.<ProductPageResponse>builder()
 				.result(productService.filterProducts(

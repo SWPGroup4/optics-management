@@ -63,16 +63,16 @@ public class ProductVariantService {
     @Transactional
     public ProductVariantResponse create(ProductVariantRequest request) {
         Optional<ProductVariant> existingVariant = productVariantRepository
-                .findByProductIdAndColorNameAndSizeLabel(
+                .findByProductIdAndColorNameAndSizeLabel( //unique 3 cai nay
                         request.getProductId(),
                         request.getColorName(),
                         request.getSizeLabel()
                 );
 
-        if (existingVariant.isPresent()) {
+        if (existingVariant.isPresent()) { //varian ton tai r
             ProductVariant productVariant = existingVariant.get();
-            Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
-                    .orElseGet(() -> inventoryRepository.save(
+            Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId()) //lay inventory
+                    .orElseGet(() -> inventoryRepository.save(  //neu chua co inven thi tao
                             Inventory.builder()
                                     .productVariant(productVariant)
                                     .quantity(0)
@@ -82,12 +82,12 @@ public class ProductVariantService {
 
             int currentQuantity = safeInt(inventory.getQuantity());
             int addQuantity = safeInt(request.getQuantity());
-            int newQuantity = currentQuantity + addQuantity;
+            int newQuantity = currentQuantity + addQuantity; // con trong kho + them moi
 
             inventory.setQuantity(newQuantity);
-            inventoryRepository.save(inventory);
+            inventoryRepository.save(inventory); // set sl moi va luu
 
-            syncVariantStockState(productVariant, newQuantity);
+            syncVariantStockState(productVariant, newQuantity); //trang thai moi
             productVariantRepository.save(productVariant);
 
             return productVariantMapper.toResponse(productVariant);
@@ -97,14 +97,14 @@ public class ProductVariantService {
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
         ProductVariant variant = productVariantMapper.toProductVariant(request);
-        variant.setProduct(product);
+        variant.setProduct(product); //tạo variant
 
         int initialQuantity = safeInt(request.getQuantity());
-        syncVariantStockState(variant, initialQuantity);
+        syncVariantStockState(variant, initialQuantity); //set trang thai
 
         variant = productVariantRepository.save(variant);
 
-        Inventory inventory = Inventory.builder()
+        Inventory inventory = Inventory.builder() //tao inven
                 .productVariant(variant)
                 .quantity(initialQuantity)
                 .reservedQuantity(0)
