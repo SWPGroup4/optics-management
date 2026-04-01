@@ -108,13 +108,16 @@ public class PaymentService {
                 order.setPreOrderStatus(PreOrderStatus.DEPOSIT_PAID);
             } else if (payment.getPaymentPurpose() == PaymentPurpose.REMAINING) {
                 order.setPreOrderStatus(PreOrderStatus.REMAINING_PAID);
+                order.setStatus(OrderStatus.PREPARING);
             } else if (payment.getPaymentPurpose() == PaymentPurpose.REFUND){
                 refundService.completeRefundByPayment(payment);
                 orderRepository.save(order);
                 return paymentRepository.save(payment);
             }
 
-            updateOrderStatusBasedOnItems(order);
+            if (payment.getPaymentPurpose() != PaymentPurpose.REMAINING) {
+                updateOrderStatusBasedOnItems(order);
+            }
             orderRepository.save(order);
             sendPaymentSuccessNotification(order, payment);
             sendAwaitingVerificationNotification(order);

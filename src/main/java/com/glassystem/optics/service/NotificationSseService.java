@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,7 +29,7 @@ public class NotificationSseService {
         emitter.onTimeout(() -> removeEmitter(userId, emitter));
         emitter.onError(ex -> removeEmitter(userId, emitter));
 
-        sendEvent(emitter, "connected", "Notification SSE connected");
+        sendEvent(userId, emitter, "connected", "Notification SSE connected");
 
         return emitter;
     }
@@ -40,17 +40,24 @@ public class NotificationSseService {
             return;
         }
 
-        emitters.forEach(emitter -> sendEvent(emitter, "notification", notification));
+        for (SseEmitter emitter : new ArrayList<>(emitters)) {
+            sendEvent(userId, emitter, "notification", notification);
+        }
     }
 
-    private void sendEvent(SseEmitter emitter, String eventName, Object data) {
+    private void sendEvent(String userId, SseEmitter emitter, String eventName, Object data) {
         try {
             emitter.send(SseEmitter.event()
                     .name(eventName)
                     .data(data));
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.debug("SSE emitter send failed, removing emitter", e);
-            emitter.complete();
+            try {
+                emitter.completeWithError(e);
+            } catch (Exception completionException) {
+                log.debug("SSE emitter completion failed", completionException);
+            }
+            removeEmitter(userId, emitter);
         }
     }
 

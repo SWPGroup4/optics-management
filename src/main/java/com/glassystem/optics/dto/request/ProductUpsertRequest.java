@@ -39,5 +39,7 @@ public class ProductUpsertRequest {
 	@NotNull(message = "PRODUCT_STATUS_REQUIRED")
 	ProductStatus status;
 
+	String modelUrl;
+
     List<String> imageUrl;
 }

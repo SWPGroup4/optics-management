@@ -107,7 +107,7 @@ public class UserController {
     public ApiResponse<UserResponse> updateUserRole(
             @PathVariable("id") String userId,
             @RequestParam(value = "role", required = true)
-            @Schema(allowableValues = {"ADMIN", "SALE", "OPERATION", "MANAGER", "CUSTOMER"})
+            @Schema(allowableValues = {"ADMIN", "SALE", "OPERATION", "MANAGER", "CUSTOMER", "SHIPPER"})
             String roleName) {
 
         return ApiResponse.<UserResponse>builder()

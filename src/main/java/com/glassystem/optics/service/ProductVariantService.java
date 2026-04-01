@@ -63,16 +63,16 @@ public class ProductVariantService {
     @Transactional
     public ProductVariantResponse create(ProductVariantRequest request) {
         Optional<ProductVariant> existingVariant = productVariantRepository
-                .findByProductIdAndColorNameAndSizeLabel(
+                .findByProductIdAndColorNameAndSizeLabel( //unique 3 cai nay
                         request.getProductId(),
                         request.getColorName(),
                         request.getSizeLabel()
                 );
 
-        if (existingVariant.isPresent()) {
+        if (existingVariant.isPresent()) { //varian ton tai r
             ProductVariant productVariant = existingVariant.get();
-            Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId())
-                    .orElseGet(() -> inventoryRepository.save(
+            Inventory inventory = inventoryRepository.findByProductVariantId(productVariant.getId()) //lay inventory
+                    .orElseGet(() -> inventoryRepository.save(  //neu chua co inven thi tao
                             Inventory.builder()
                                     .productVariant(productVariant)
                                     .quantity(0)
@@ -82,12 +82,12 @@ public class ProductVariantService {
 
             int currentQuantity = safeInt(inventory.getQuantity());
             int addQuantity = safeInt(request.getQuantity());
-            int newQuantity = currentQuantity + addQuantity;
+            int newQuantity = currentQuantity + addQuantity; // con trong kho + them moi
 
             inventory.setQuantity(newQuantity);
-            inventoryRepository.save(inventory);
+            inventoryRepository.save(inventory); // set sl moi va luu
 
-            syncVariantStockState(productVariant, newQuantity);
+            syncVariantStockState(productVariant, newQuantity); //trang thai moi
             productVariantRepository.save(productVariant);
 
             return productVariantMapper.toResponse(productVariant);
@@ -97,14 +97,14 @@ public class ProductVariantService {
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
         ProductVariant variant = productVariantMapper.toProductVariant(request);
-        variant.setProduct(product);
+        variant.setProduct(product); //tạo variant
 
         int initialQuantity = safeInt(request.getQuantity());
-        syncVariantStockState(variant, initialQuantity);
+        syncVariantStockState(variant, initialQuantity); //set trang thai
 
         variant = productVariantRepository.save(variant);
 
-        Inventory inventory = Inventory.builder()
+        Inventory inventory = Inventory.builder() //tao inven
                 .productVariant(variant)
                 .quantity(initialQuantity)
                 .reservedQuantity(0)
@@ -124,42 +124,26 @@ public class ProductVariantService {
             throw new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND);
         }
 
-        int newQuantity = safeInt(request.getChangeAmount());
-
-        inventory.setQuantity(newQuantity);
-        inventoryRepository.save(inventory);
-
-        syncVariantStockState(variant, newQuantity);
-        productVariantRepository.save(variant);
-
-        List<OrderResponse> updatedOrders = releaseEligiblePreOrdersForVariant(variant.getId());
-
-        ProductVariant refreshedVariant = productVariantRepository.findById(variant.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+        InventoryUpdateResult updateResult = applyInventoryQuantity(variant, inventory, safeInt(request.getChangeAmount()));
 
         return InventoryQuantityUpdateResponse.builder()
-                .productVariant(productVariantMapper.toResponse(refreshedVariant))
-                .updatedOrderCount(updatedOrders.size())
-                .updatedOrders(updatedOrders)
+                .productVariant(productVariantMapper.toResponse(updateResult.variant()))
+                .updatedOrderCount(updateResult.updatedOrders().size())
+                .updatedOrders(updateResult.updatedOrders())
                 .build();
     }
 
     private List<OrderResponse> releaseEligiblePreOrdersForVariant(String variantId) {
-        List<OrderItem> candidateItems =
-                orderItemRepository.findByProductVariantIdAndOrderItemTypeAndOrder_StatusOrderByOrder_CreatedAtAsc(
-                        variantId,
-                        OrderItemType.PRE_ORDER,
-                        OrderStatus.PROCESSING
-                );
-
-        Map<String, Orders> candidateOrders = new LinkedHashMap<>();
-        for (OrderItem item : candidateItems) {
-            candidateOrders.putIfAbsent(item.getOrder().getId(), item.getOrder());
-        }
+        List<Orders> candidateOrders = orderRepository.findEligiblePreOrdersForVariant(
+                variantId,
+                OrderItemType.PRE_ORDER,
+                PreOrderStatus.DEPOSIT_PAID,
+                OrderStatus.PROCESSING
+        );
 
         List<OrderResponse> updatedOrders = new ArrayList<>();
 
-        for (Orders order : candidateOrders.values()) {
+        for (Orders order : candidateOrders) {
             if (!canReleaseOrder(order)) {
                 continue;
             }
@@ -169,7 +153,7 @@ public class ProductVariantService {
             order.setStatus(OrderStatus.AWAITING_FINAL_PAYMENT);
             order.setPreOrderStatus(PreOrderStatus.REMAINING_PENDING);
 
-            Orders savedOrder = orderRepository.save(order);
+            Orders savedOrder = orderRepository.saveAndFlush(order);
             sendRemainingPaymentDueNotification(savedOrder);
             updatedOrders.add(orderMapper.toOrderResponse(savedOrder));
         }
@@ -240,15 +224,15 @@ public class ProductVariantService {
 
             inventory.setQuantity(available - itemQty);
             inventory.setReservedQuantity(reserved + itemQty);
-            inventoryRepository.save(inventory);
+            inventoryRepository.saveAndFlush(inventory);
 
             item.setInventory(inventory);
             item.setOrderItemType(OrderItemType.IN_STOCK);
-            orderItemRepository.save(item);
+            orderItemRepository.saveAndFlush(item);
 
             ProductVariant variant = item.getProductVariant();
             syncVariantStockState(variant, inventory.getQuantity());
-            productVariantRepository.save(variant);
+            productVariantRepository.saveAndFlush(variant);
         }
     }
 
@@ -283,14 +267,11 @@ public class ProductVariantService {
         productVariantMapper.updateEntity(variant, request);
         variant.setProduct(product);
 
-        int quantity = safeInt(request.getQuantity());
-        syncVariantStockState(variant, quantity);
-
         variant = productVariantRepository.save(variant);
-
         final ProductVariant finalVariant = variant;
-        Inventory inventory = inventoryRepository.findByProductVariantId(variant.getId())
-                .orElseGet(() -> inventoryRepository.save(
+
+        inventoryRepository.findByProductVariantId(variant.getId())
+                .orElseGet(() -> inventoryRepository.saveAndFlush(
                         Inventory.builder()
                                 .productVariant(finalVariant)
                                 .quantity(0)
@@ -298,10 +279,35 @@ public class ProductVariantService {
                                 .build()
                 ));
 
-        inventory.setQuantity(quantity);
-        inventoryRepository.save(inventory);
+        InventoryQuantityUpdateResponse updateResponse = updateInventoryQuantity(
+                InventoryUpdateRequest.builder()
+                        .productVariantId(variant.getId())
+                        .changeAmount(safeInt(request.getQuantity()))
+                        .build()
+        );
 
-        return productVariantMapper.toResponse(variant);
+        return updateResponse.getProductVariant();
+    }
+
+    private InventoryUpdateResult applyInventoryQuantity(ProductVariant variant, Inventory inventory, int quantity) {
+        inventory.setQuantity(quantity);
+        inventoryRepository.saveAndFlush(inventory);
+
+        syncVariantStockState(variant, quantity);
+        productVariantRepository.saveAndFlush(variant);
+
+        List<OrderResponse> updatedOrders = releaseEligiblePreOrdersForVariant(variant.getId());
+
+        ProductVariant refreshedVariant = productVariantRepository.findById(variant.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_VARIANT_NOT_FOUND));
+
+        return new InventoryUpdateResult(refreshedVariant, updatedOrders);
+    }
+
+    private record InventoryUpdateResult(
+            ProductVariant variant,
+            List<OrderResponse> updatedOrders
+    ) {
     }
 
     public void delete(String id) {
